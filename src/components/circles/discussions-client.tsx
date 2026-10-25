@@ -43,6 +43,9 @@ export function DiscussionsClient({
   const [reportReason, setReportReason] = useState<'spam' | 'harassment' | 'misinformation' | 'rule_violation' | 'other'>('rule_violation');
   const [reportDetails, setReportDetails] = useState('');
   const [reportFeedback, setReportFeedback] = useState<string | null>(null);
+  const [savedFilterOnly, setSavedFilterOnly] = useState(false);
+
+  const visiblePosts = savedFilterOnly ? posts.filter((p) => p.viewer_has_saved) : posts;
 
   const isActiveMember = circle.current_user_membership_status === 'active';
   const canModerate =
@@ -190,6 +193,20 @@ export function DiscussionsClient({
               <span>{sp.name}</span>
             </Link>
           ))}
+          {currentUserId && (
+            <button
+              type="button"
+              onClick={() => setSavedFilterOnly((v) => !v)}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                savedFilterOnly
+                  ? 'bg-forest-800 text-white'
+                  : 'bg-sand-100 text-stone-700 hover:bg-sand-200'
+              }`}
+            >
+              <Bookmark className="h-3 w-3" />
+              <span>Saved Only</span>
+            </button>
+          )}
         </div>
 
         {isActiveMember && (
@@ -354,19 +371,23 @@ export function DiscussionsClient({
       )}
 
       {/* Feed List */}
-      {posts.length === 0 ? (
+      {visiblePosts.length === 0 ? (
         <div className="rounded-2xl border border-sand-200 bg-white p-10 text-center">
           <MessageSquare className="mx-auto h-9 w-9 text-stone-400" />
-          <h3 className="mt-3 text-base font-bold text-stone-900">No discussions in this view yet</h3>
+          <h3 className="mt-3 text-base font-bold text-stone-900">
+            {savedFilterOnly ? 'No saved posts in this view' : 'No discussions in this view yet'}
+          </h3>
           <p className="mt-1 text-xs text-stone-600">
-            {isActiveMember
-              ? 'Start the first discussion thread using the button above.'
-              : 'Join this Circle to participate in discussions.'}
+            {savedFilterOnly
+              ? 'Bookmark discussions to revisit them quickly here.'
+              : isActiveMember
+                ? 'Start the first discussion thread using the button above.'
+                : 'Join this Circle to participate in discussions.'}
           </p>
         </div>
       ) : (
         <div className="space-y-4">
-          {posts.map((post) => {
+          {visiblePosts.map((post) => {
             const canDelete = currentUserId === post.author_id || canModerate;
 
             return (

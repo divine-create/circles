@@ -1,10 +1,11 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { signOutUser } from '@/features/auth/service';
-import { handleApiError } from '@/lib/auth/api-helpers';
+import { extractRequestSessionToken, handleApiError } from '@/lib/auth/api-helpers';
 
-export async function POST() {
+export async function POST(req: NextRequest) {
   try {
-    await signOutUser();
+    const token = extractRequestSessionToken(req);
+    await signOutUser(token);
     return NextResponse.json({ success: true });
   } catch (error) {
     return handleApiError(error);

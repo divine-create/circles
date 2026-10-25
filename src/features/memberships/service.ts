@@ -666,9 +666,13 @@ export async function listCircleMembers(
         bio: string;
       }
     >(
-      `SELECT m.*, p.username, p.display_name, p.avatar_url, p.bio
+      `SELECT m.*,
+         COALESCE(p.username, 'member') AS username,
+         COALESCE(p.display_name, 'Circle Member') AS display_name,
+         p.avatar_url,
+         COALESCE(p.bio, '') AS bio
        FROM public.circle_memberships m
-       JOIN public.profiles p ON p.id = m.user_id
+       LEFT JOIN public.profiles p ON p.id = m.user_id
        WHERE m.circle_id = $1 AND m.status IN ('active', 'suspended')
        ORDER BY
          CASE m.role WHEN 'owner' THEN 1 WHEN 'admin' THEN 2 WHEN 'moderator' THEN 3 ELSE 4 END,
@@ -708,9 +712,13 @@ export async function listCircleJoinRequests(
         avatar_url: string | null;
       }
     >(
-      `SELECT jr.*, p.username, p.display_name, p.email, p.avatar_url
+      `SELECT jr.*,
+         COALESCE(p.username, 'applicant') AS username,
+         COALESCE(p.display_name, 'Applicant') AS display_name,
+         COALESCE(p.email, '') AS email,
+         p.avatar_url
        FROM public.circle_join_requests jr
-       JOIN public.profiles p ON p.id = jr.user_id
+       LEFT JOIN public.profiles p ON p.id = jr.user_id
        WHERE jr.circle_id = $1
        ORDER BY
          CASE jr.status WHEN 'pending' THEN 1 ELSE 2 END,

@@ -44,8 +44,8 @@ export async function listCirclePosts(
       }
     >(
       `SELECT p.*,
-         u.username AS author_username,
-         u.display_name AS author_display_name,
+         COALESCE(u.username, 'member') AS author_username,
+         COALESCE(u.display_name, 'Circle Member') AS author_display_name,
          u.avatar_url AS author_avatar_url,
          s.name AS space_name,
          s.slug AS space_slug,
@@ -59,7 +59,7 @@ export async function listCirclePosts(
            WHERE si.post_id = p.id AND si.user_id = $2::uuid
          ) AS viewer_has_saved
        FROM public.posts p
-       JOIN public.profiles u ON u.id = p.author_id
+       LEFT JOIN public.profiles u ON u.id = p.author_id
        LEFT JOIN public.circle_spaces s ON s.id = p.space_id
        WHERE p.circle_id = $1
          AND p.status = 'published'
@@ -123,8 +123,8 @@ export async function getPostWithComments(
       }
     >(
       `SELECT p.*,
-         u.username AS author_username,
-         u.display_name AS author_display_name,
+         COALESCE(u.username, 'member') AS author_username,
+         COALESCE(u.display_name, 'Circle Member') AS author_display_name,
          u.avatar_url AS author_avatar_url,
          s.name AS space_name,
          s.slug AS space_slug,
@@ -138,7 +138,7 @@ export async function getPostWithComments(
            WHERE si.post_id = p.id AND si.user_id = $3::uuid
          ) AS viewer_has_saved
        FROM public.posts p
-       JOIN public.profiles u ON u.id = p.author_id
+       LEFT JOIN public.profiles u ON u.id = p.author_id
        LEFT JOIN public.circle_spaces s ON s.id = p.space_id
        WHERE p.id = $1 AND p.circle_id = $2 AND p.status = 'published'
        LIMIT 1;`,
@@ -158,11 +158,11 @@ export async function getPostWithComments(
       }
     >(
       `SELECT c.*,
-         u.username AS author_username,
-         u.display_name AS author_display_name,
+         COALESCE(u.username, 'member') AS author_username,
+         COALESCE(u.display_name, 'Circle Member') AS author_display_name,
          u.avatar_url AS author_avatar_url
        FROM public.comments c
-       JOIN public.profiles u ON u.id = c.author_id
+       LEFT JOIN public.profiles u ON u.id = c.author_id
        WHERE c.post_id = $1 AND c.circle_id = $2 AND c.status = 'published'
        ORDER BY c.created_at ASC;`,
       [postId, circleId]
@@ -256,6 +256,21 @@ export async function createPost(actorUserId: string, input: unknown): Promise<P
       },
       'Only active Circle members can create posts.'
     );
+
+    const capRes = await tx.query<{ settings: Record<string, unknown> }>(
+      `SELECT settings FROM public.circle_capabilities
+       WHERE circle_id = $1 AND capability_key = 'discussions' LIMIT 1;`,
+      [circleId]
+    );
+    const capSettings = capRes.rows[0]?.settings ?? {};
+    if (
+      capSettings.allowMemberPosts === false &&
+      !['owner', 'admin', 'moderator'].includes(membership?.role ?? '')
+    ) {
+      throw new ForbiddenError(
+        'Member post creation is currently disabled in this Circle by administrators.'
+      );
+    }
 
     if (spaceId) {
       const spaceRes = await tx.query<{
@@ -489,6 +504,15 @@ export async function toggleReaction(
   await requireEnabledCapability(actorUserId, circleId, 'discussions');
 
   return withRlsTransaction(actorUserId, async (tx) => {
+    const capRes = await tx.query<{ settings: Record<string, unknown> }>(
+      `SELECT settings FROM public.circle_capabilities
+       WHERE circle_id = $1 AND capability_key = 'discussions' LIMIT 1;`,
+      [circleId]
+    );
+    if (capRes.rows[0]?.settings?.allowReactions === false) {
+      throw new ForbiddenError('Reactions are disabled for discussions in this Circle.');
+    }
+
     const existing = await tx.query<{ id: string }>(
       `SELECT id FROM public.reactions
        WHERE post_id = $1 AND circle_id = $2 AND user_id = $3 AND reaction_type = $4 LIMIT 1;`,

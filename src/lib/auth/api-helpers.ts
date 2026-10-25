@@ -1,14 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { AppError } from '@/lib/errors';
-import { getAuthenticatedUser, verifySignedSessionToken, SESSION_COOKIE_NAME } from '@/lib/auth/session';
+import {
+  getAuthenticatedUser,
+  verifyAndResolveSessionUser,
+  SESSION_COOKIE_NAME,
+} from '@/lib/auth/session';
 import { UserProfile } from '@/types/domain';
-import { withServiceRoleTransaction } from '@/lib/db/postgres';
 import { logger } from '@/lib/logging';
 
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
 
-export function checkRateLimit(key: string, maxRequests = 40, windowMs = 60_000): boolean {
-  if (process.env.NODE_ENV === 'test') return true;
+export function checkRateLimit(
+  key: string,
+  maxRequests = 40,
+  windowMs = 60_000,
+  enforceInTest = false
+): boolean {
+  if (process.env.NODE_ENV === 'test' && !enforceInTest) return true;
   const now = Date.now();
   const bucket = rateLimitStore.get(key);
   if (!bucket || bucket.resetAt < now) {
@@ -19,52 +27,27 @@ export function checkRateLimit(key: string, maxRequests = 40, windowMs = 60_000)
   return bucket.count <= maxRequests;
 }
 
-export async function resolveApiUser(req: NextRequest): Promise<UserProfile | null> {
+export function resetRateLimitsForTest(): void {
+  rateLimitStore.clear();
+}
+
+export function extractRequestSessionToken(req: NextRequest): string | null {
   const bearer = req.headers.get('authorization');
   if (bearer && bearer.startsWith('Bearer ')) {
-    const token = bearer.slice(7).trim();
-    const verified = verifySignedSessionToken(token);
-    if (verified) {
-      return withServiceRoleTransaction(async (tx) => {
-        const res = await tx.query<UserProfile & { platform_role: string | null }>(
-          `SELECT p.*, pr.role AS platform_role
-           FROM public.profiles p
-           LEFT JOIN public.platform_roles pr ON pr.user_id = p.id
-           WHERE p.id = $1 LIMIT 1;`,
-          [verified.sub]
-        );
-        const row = res.rows[0];
-        if (!row) return null;
-        return {
-          ...row,
-          is_platform_admin: Boolean(row.platform_role),
-        };
-      });
-    }
+    return bearer.slice(7).trim();
   }
-
   const cookieToken = req.cookies.get(SESSION_COOKIE_NAME)?.value;
   if (cookieToken) {
-    const verified = verifySignedSessionToken(cookieToken);
-    if (verified) {
-      return withServiceRoleTransaction(async (tx) => {
-        const res = await tx.query<UserProfile & { platform_role: string | null }>(
-          `SELECT p.*, pr.role AS platform_role
-           FROM public.profiles p
-           LEFT JOIN public.platform_roles pr ON pr.user_id = p.id
-           WHERE p.id = $1 LIMIT 1;`,
-          [verified.sub]
-        );
-        const row = res.rows[0];
-        if (!row) return null;
-        return {
-          ...row,
-          is_platform_admin: Boolean(row.platform_role),
-        };
-      });
-    }
+    return cookieToken;
   }
+  return null;
+}
 
+export async function resolveApiUser(req: NextRequest): Promise<UserProfile | null> {
+  const token = extractRequestSessionToken(req);
+  if (token) {
+    return verifyAndResolveSessionUser(token);
+  }
   return getAuthenticatedUser();
 }
 

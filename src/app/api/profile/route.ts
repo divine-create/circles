@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { updateUserProfile } from '@/features/auth/service';
 import { handleApiError, resolveApiUser } from '@/lib/auth/api-helpers';
-import { UnauthorizedError } from '@/lib/errors';
+import { ForbiddenError, UnauthorizedError } from '@/lib/errors';
 
 export async function GET(req: NextRequest) {
   try {
@@ -20,7 +20,10 @@ export async function PATCH(req: NextRequest) {
 
     const body = await req.json();
     const targetUserId = body.targetUserId || user.id;
-    const updated = await updateUserProfile(user.id, targetUserId, body);
+    if (targetUserId !== user.id) {
+      throw new ForbiddenError('You can only update your own profile.');
+    }
+    const updated = await updateUserProfile(user.id, user.id, body);
     return NextResponse.json({ user: updated });
   } catch (error) {
     return handleApiError(error);

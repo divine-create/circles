@@ -2,6 +2,7 @@ import { PGlite, Transaction } from '@electric-sql/pglite';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import { assertProductionDatabaseConfigured } from '@/lib/config/env';
 
 export interface QueryExecutor {
   query<T = Record<string, unknown>>(sql: string, params?: unknown[]): Promise<{ rows: T[] }>;
@@ -29,15 +30,34 @@ export async function initializeSchemaOnDb(pg: PGlite, includeDemoSeed = false):
   );
 
   if (!check.rows[0]?.exists) {
-    const migrationPath = path.join(process.cwd(), 'supabase', 'migrations', '0001_initial_schema.sql');
+    const migrationsDir = path.join(process.cwd(), 'supabase', 'migrations');
     const seedPath = path.join(process.cwd(), 'supabase', 'seed.sql');
 
-    const migrationSql = fs.readFileSync(migrationPath, 'utf8');
-    await pg.exec(migrationSql);
+    const migrationFiles = fs
+      .readdirSync(migrationsDir)
+      .filter((f) => f.endsWith('.sql'))
+      .sort();
+
+    for (const file of migrationFiles) {
+      const migrationSql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
+      await pg.exec(migrationSql);
+    }
 
     if (fs.existsSync(seedPath)) {
       const seedSql = fs.readFileSync(seedPath, 'utf8');
       await pg.exec(seedSql);
+    }
+  } else {
+    // Ensure 0002_security_hardening.sql is applied on existing persistent .pgdata directories
+    const hardeningPath = path.join(
+      process.cwd(),
+      'supabase',
+      'migrations',
+      '0002_security_hardening.sql'
+    );
+    if (fs.existsSync(hardeningPath)) {
+      const hardeningSql = fs.readFileSync(hardeningPath, 'utf8');
+      await pg.exec(hardeningSql);
     }
   }
 
@@ -200,6 +220,8 @@ async function seedInitialDevelopmentCommunities(pg: PGlite): Promise<void> {
 }
 
 export async function getPgDatabase(): Promise<PGlite> {
+  assertProductionDatabaseConfigured();
+
   if (global.__circlesPgInstance) {
     return global.__circlesPgInstance;
   }

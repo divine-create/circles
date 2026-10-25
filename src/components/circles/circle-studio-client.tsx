@@ -151,14 +151,18 @@ export function CircleStudioClient({
     }
   }
 
-  async function handleToggleCapability(capabilityKey: string, nextEnabled: boolean) {
+  async function handleToggleCapability(
+    capabilityKey: string,
+    nextEnabled: boolean,
+    nextSettings?: Record<string, unknown>
+  ) {
     setBusy(true);
     setError(null);
     try {
       const res = await fetch(`/api/circles/${initialCircle.id}/capabilities`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ capabilityKey, enabled: nextEnabled }),
+        body: JSON.stringify({ capabilityKey, enabled: nextEnabled, settings: nextSettings }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -167,15 +171,117 @@ export function CircleStudioClient({
       }
       setCapabilities((prev) =>
         prev.map((c) =>
-          c.capability_key === capabilityKey ? { ...c, enabled: data.capability.enabled } : c
+          c.capability_key === capabilityKey
+            ? {
+                ...c,
+                enabled: data.capability.enabled,
+                settings: data.capability.settings ?? c.settings,
+              }
+            : c
         )
       );
       showConfirmedSave(
-        `Capability "${capabilityKey}" ${nextEnabled ? 'enabled' : 'disabled (existing data preserved)'}.`
+        nextSettings
+          ? `Updated settings for "${capabilityKey}".`
+          : `Capability "${capabilityKey}" ${nextEnabled ? 'enabled' : 'disabled (existing data preserved)'}.`
       );
       router.refresh();
     } catch {
       setError('Network error updating capability.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleReorderSpace(index: number, direction: 'up' | 'down') {
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= spaces.length) return;
+    const nextSpaces = [...spaces];
+    const [moved] = nextSpaces.splice(index, 1);
+    nextSpaces.splice(targetIndex, 0, moved);
+    setSpaces(nextSpaces);
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/circles/${initialCircle.id}/spaces`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'reorder',
+          orderedSpaceIds: nextSpaces.map((s) => s.id),
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error || 'Could not reorder spaces.');
+        return;
+      }
+      showConfirmedSave('Space navigation order updated.');
+      router.refresh();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleTransferOwnership(newOwnerUserId: string, displayName: string) {
+    if (
+      !confirm(
+        `Transfer primary Circle ownership to ${displayName}? Your role will become Administrator.`
+      )
+    ) {
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/circles/${initialCircle.id}/membership`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'transfer_ownership', newOwnerUserId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'Unable to transfer ownership.');
+        return;
+      }
+      showConfirmedSave(`Ownership transferred to ${displayName}.`);
+      router.refresh();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleToggleMemberSuspension(targetUserId: string, currentStatus: string) {
+    const action = currentStatus === 'suspended' ? 'restore_member' : 'suspend_member';
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/moderation', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          circleId: initialCircle.id,
+          action,
+          targetUserId,
+          note: action === 'suspend_member' ? 'Suspended from Circle Studio' : 'Restored from Circle Studio',
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'Could not update member status.');
+        return;
+      }
+      setMembers((prev) =>
+        prev.map((m) =>
+          m.user_id === targetUserId
+            ? { ...m, status: action === 'suspend_member' ? 'suspended' : 'active' }
+            : m
+        )
+      );
+      showConfirmedSave(
+        action === 'suspend_member' ? 'Member suspended.' : 'Member restored to active.'
+      );
+      router.refresh();
     } finally {
       setBusy(false);
     }
@@ -581,6 +687,41 @@ export function CircleStudioClient({
                         Depends on: <code className="text-stone-700">{def.dependencies.join(', ')}</code>
                       </p>
                     )}
+
+                    {cap.enabled && cap.capability_key === 'discussions' && (
+                      <div className="mt-3 flex flex-wrap gap-3 border-t border-sand-200/60 pt-2.5 text-xs text-stone-700">
+                        <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={cap.settings?.allowMemberPosts !== false}
+                            disabled={busy}
+                            onChange={(e) =>
+                              handleToggleCapability(cap.capability_key, true, {
+                                ...cap.settings,
+                                allowMemberPosts: e.target.checked,
+                              })
+                            }
+                            className="rounded border-sand-300 text-forest-700"
+                          />
+                          <span>Allow member posts</span>
+                        </label>
+                        <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={cap.settings?.allowReactions !== false}
+                            disabled={busy}
+                            onChange={(e) =>
+                              handleToggleCapability(cap.capability_key, true, {
+                                ...cap.settings,
+                                allowReactions: e.target.checked,
+                              })
+                            }
+                            className="rounded border-sand-300 text-forest-700"
+                          />
+                          <span>Allow reactions</span>
+                        </label>
+                      </div>
+                    )}
                   </div>
 
                   <div className="mt-4 flex items-center justify-between border-t border-sand-200/80 pt-3">
@@ -703,7 +844,7 @@ export function CircleStudioClient({
           <div className="rounded-2xl border border-sand-200 bg-white p-6 shadow-sm space-y-4">
             <h3 className="text-base font-bold text-stone-900">Configured Spaces</h3>
             <div className="divide-y divide-sand-100">
-              {spaces.map((sp) => (
+              {spaces.map((sp, idx) => (
                 <div
                   key={sp.id}
                   className="flex items-center justify-between py-3.5 first:pt-0 last:pb-0"
@@ -723,14 +864,34 @@ export function CircleStudioClient({
                     <p className="mt-0.5 text-xs text-stone-600">{sp.description}</p>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => handleArchiveSpace(sp.id, !sp.is_archived)}
-                    className="inline-flex items-center gap-1 rounded-lg border border-sand-300 px-3 py-1.5 text-xs font-medium text-stone-700 hover:bg-sand-100"
-                  >
-                    <Archive className="h-3.5 w-3.5" />
-                    <span>{sp.is_archived ? 'Restore' : 'Archive'}</span>
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      disabled={busy || idx === 0}
+                      onClick={() => handleReorderSpace(idx, 'up')}
+                      className="rounded-lg border border-sand-300 px-2 py-1 text-xs font-medium text-stone-600 hover:bg-sand-100 disabled:opacity-40"
+                      title="Move up"
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy || idx === spaces.length - 1}
+                      onClick={() => handleReorderSpace(idx, 'down')}
+                      className="rounded-lg border border-sand-300 px-2 py-1 text-xs font-medium text-stone-600 hover:bg-sand-100 disabled:opacity-40"
+                      title="Move down"
+                    >
+                      ↓
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleArchiveSpace(sp.id, !sp.is_archived)}
+                      className="inline-flex items-center gap-1 rounded-lg border border-sand-300 px-3 py-1.5 text-xs font-medium text-stone-700 hover:bg-sand-100"
+                    >
+                      <Archive className="h-3.5 w-3.5" />
+                      <span>{sp.is_archived ? 'Restore' : 'Archive'}</span>
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -884,20 +1045,47 @@ export function CircleStudioClient({
                       Circle Owner
                     </span>
                   ) : (
-                    <select
-                      value={m.role}
-                      onChange={(e) =>
-                        handleUpdateMemberRole(
-                          m.user_id,
-                          e.target.value as Exclude<CircleRole, 'owner'>
-                        )
-                      }
-                      className="rounded-xl border border-sand-300 bg-sand-50 px-3 py-1.5 text-xs font-medium text-stone-800"
-                    >
-                      <option value="member">Member</option>
-                      <option value="moderator">Moderator</option>
-                      <option value="admin">Administrator</option>
-                    </select>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <select
+                        value={m.role}
+                        onChange={(e) =>
+                          handleUpdateMemberRole(
+                            m.user_id,
+                            e.target.value as Exclude<CircleRole, 'owner'>
+                          )
+                        }
+                        className="rounded-xl border border-sand-300 bg-sand-50 px-3 py-1.5 text-xs font-medium text-stone-800"
+                      >
+                        <option value="member">Member</option>
+                        <option value="moderator">Moderator</option>
+                        <option value="admin">Administrator</option>
+                      </select>
+
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => handleToggleMemberSuspension(m.user_id, m.status)}
+                        className="rounded-xl border border-sand-300 px-2.5 py-1.5 text-xs font-medium text-stone-700 hover:bg-sand-100"
+                      >
+                        {m.status === 'suspended' ? 'Restore' : 'Suspend'}
+                      </button>
+
+                      {initialCircle.current_user_role === 'owner' && m.status === 'active' && (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() =>
+                            handleTransferOwnership(
+                              m.user_id,
+                              m.profile?.display_name || m.user_id
+                            )
+                          }
+                          className="rounded-xl border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-900 hover:bg-amber-100"
+                        >
+                          Make Owner
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
               ))}

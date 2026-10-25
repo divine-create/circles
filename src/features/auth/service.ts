@@ -3,8 +3,12 @@ import { withRlsTransaction, withServiceRoleTransaction } from '@/lib/db/postgre
 import { signInSchema, signUpSchema, updateProfileSchema } from '@/lib/validation';
 import { ConflictError, NotFoundError, UnauthorizedError, ValidationError } from '@/lib/errors';
 import { UserProfile } from '@/types/domain';
-import { clearSessionCookie, setSessionCookie } from '@/lib/auth/session';
-import { sendTransactionalEmail } from '@/lib/email';
+import {
+  issuePersistedSession,
+  revokeAllUserSessions,
+  revokeSessionToken,
+} from '@/lib/auth/session';
+import { isResendConfigured, sendTransactionalEmail } from '@/lib/email';
 
 function hashPassword(password: string): string {
   const salt = crypto.randomBytes(16).toString('hex');
@@ -64,7 +68,7 @@ export async function registerUser(input: unknown): Promise<{ user: UserProfile;
     return profileRes.rows[0];
   });
 
-  const sessionToken = setSessionCookie(user.id, user.email);
+  const sessionToken = await issuePersistedSession(user.id, user.email);
   return { user, sessionToken };
 }
 
@@ -106,18 +110,20 @@ export async function authenticateUser(input: unknown): Promise<{ user: UserProf
     };
   });
 
-  const sessionToken = setSessionCookie(user.id, user.email);
+  const sessionToken = await issuePersistedSession(user.id, user.email);
   return { user, sessionToken };
 }
 
-export async function signOutUser(): Promise<void> {
-  clearSessionCookie();
+export async function signOutUser(rawToken?: string | null): Promise<void> {
+  await revokeSessionToken(rawToken);
 }
 
-export async function requestPasswordRecovery(email: string): Promise<{ recoveryTokenIssued: boolean; previewToken?: string }> {
+export async function requestPasswordRecovery(
+  email: string
+): Promise<{ recoveryTokenIssued: boolean; message: string; previewToken?: string }> {
   const cleanEmail = email.trim().toLowerCase();
-  if (!cleanEmail) {
-    throw new ValidationError('Please provide your account email address.');
+  if (!cleanEmail || !cleanEmail.includes('@')) {
+    throw new ValidationError('Please provide a valid account email address.');
   }
 
   const rawToken = crypto.randomBytes(24).toString('hex');
@@ -138,30 +144,42 @@ export async function requestPasswordRecovery(email: string): Promise<{ recovery
     await sendTransactionalEmail({
       to: cleanEmail,
       subject: 'Reset your Circles password',
-      text: `Use this recovery token to reset your Circles password: ${rawToken}`,
-      html: `<p>Use this recovery token to reset your Circles password: <strong>${rawToken}</strong></p>`,
+      text: `Use this recovery token within 60 minutes to reset your Circles password: ${rawToken}`,
+      html: `<p>Use this recovery token within 60 minutes to reset your Circles password: <strong>${rawToken}</strong></p>`,
     });
   }
 
+  const includeDevPreview =
+    process.env.NODE_ENV !== 'production' && !isResendConfigured() && found;
+
   return {
     recoveryTokenIssued: true,
-    previewToken: process.env.NODE_ENV !== 'production' && found ? rawToken : undefined,
+    message:
+      'If an account exists for that email address, password recovery instructions have been sent.',
+    ...(includeDevPreview ? { previewToken: rawToken } : {}),
   };
 }
 
 export async function resetPasswordWithToken(token: string, newPassword: string): Promise<void> {
   if (!token || newPassword.length < 8) {
-    throw new ValidationError('A valid recovery token and a password of at least 8 characters are required.');
+    throw new ValidationError(
+      'A valid recovery token and a password of at least 8 characters are required.'
+    );
   }
 
   const tokenHash = crypto.createHash('sha256').update(token.trim()).digest('hex');
   const newEncryptedPassword = hashPassword(newPassword);
 
-  await withServiceRoleTransaction(async (tx) => {
+  const userId = await withServiceRoleTransaction(async (tx) => {
     const res = await tx.query<{ id: string }>(
       `UPDATE auth.users
-       SET encrypted_password = $1, recovery_token = NULL, recovery_sent_at = NULL, updated_at = NOW()
+       SET encrypted_password = $1,
+           recovery_token = NULL,
+           recovery_sent_at = NULL,
+           updated_at = NOW()
        WHERE recovery_token = $2
+         AND recovery_sent_at IS NOT NULL
+         AND recovery_sent_at > NOW() - INTERVAL '1 hour'
        RETURNING id;`,
       [newEncryptedPassword, tokenHash]
     );
@@ -169,7 +187,11 @@ export async function resetPasswordWithToken(token: string, newPassword: string)
     if (res.rows.length === 0) {
       throw new ValidationError('Invalid or expired password recovery token.');
     }
+    return res.rows[0].id;
   });
+
+  // Invalidate all existing sessions upon password reset
+  await revokeAllUserSessions(userId);
 }
 
 export async function updateUserProfile(
