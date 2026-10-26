@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { z } from 'zod';
-import { withRlsTransaction } from '@/lib/db/postgres';
+import { withRlsTransaction, withServiceRoleTransaction } from '@/lib/db/postgres';
 import {
   CourseItem,
   CourseModuleItem,
@@ -9,6 +9,9 @@ import {
   LessonCommentItem,
   CourseAssignmentItem,
   AssignmentSubmissionItem,
+  CourseEnrollmentItem,
+  MemberXpSummary,
+  LeaderboardEntry,
   CircleRole,
   MembershipStatus,
 } from '@/types/domain';
@@ -35,6 +38,8 @@ export const createCourseSchema = z.object({
     .nullable()
     .optional(),
   estimatedDurationHours: z.number().min(0).max(1000).default(0),
+  accessRule: z.enum(['open', 'members_only', 'min_level', 'staff_only']).default('open'),
+  minLevelRequired: z.number().int().min(1).default(1),
   status: z.enum(['draft', 'published', 'archived']).default('published'),
 });
 
@@ -54,6 +59,8 @@ export const updateCourseSchema = z.object({
     .nullable()
     .optional(),
   estimatedDurationHours: z.number().min(0).max(1000).optional(),
+  accessRule: z.enum(['open', 'members_only', 'min_level', 'staff_only']).optional(),
+  minLevelRequired: z.number().int().min(1).optional(),
   status: z.enum(['draft', 'published', 'archived']).optional(),
 });
 
@@ -63,6 +70,9 @@ export const createModuleSchema = z.object({
   title: z.string().trim().min(2).max(180),
   description: z.string().trim().max(2000).default(''),
   sortOrder: z.number().int().min(0).default(0),
+  dripType: z.enum(['instant', 'relative_days', 'calendar_date']).default('instant'),
+  dripDaysAfterEnrollment: z.number().int().min(0).default(0),
+  dripUnlockDate: z.string().datetime().nullable().optional(),
 });
 
 export const createLessonSchema = z.object({
@@ -352,10 +362,85 @@ export async function getCourseWithCurriculum(
       });
     }
 
-    const modules: CourseModuleItem[] = modulesRes.rows.map((mod) => ({
-      ...mod,
-      lessons: lessonsByModule[mod.id] || [],
-    }));
+    // Enrollment & Member info
+    const enrollRes = actorUserId
+      ? await tx.query<{ enrolled_at: string }>(
+          `SELECT enrolled_at FROM public.course_enrollments WHERE course_id = $1 AND student_id = $2 LIMIT 1;`,
+          [course.id, actorUserId]
+        )
+      : { rows: [] };
+    const enrolledAt = enrollRes.rows[0]?.enrolled_at
+      ? new Date(enrollRes.rows[0].enrolled_at)
+      : null;
+
+    const memRes = actorUserId
+      ? await tx.query<{ role: CircleRole; status: MembershipStatus }>(
+          `SELECT role, status FROM public.circle_memberships WHERE circle_id = $1 AND user_id = $2 LIMIT 1;`,
+          [circleId, actorUserId]
+        )
+      : { rows: [] };
+    const role = memRes.rows[0]?.role;
+    const isMember = memRes.rows[0]?.status === 'active';
+    const isStaff =
+      role === 'owner' ||
+      role === 'admin' ||
+      role === 'moderator' ||
+      course.instructor_id === actorUserId;
+
+    let viewerLevel = 1;
+    if (actorUserId) {
+      const xpRes = await tx.query<{ total: string }>(
+        `SELECT COALESCE(SUM(points), 0)::text AS total FROM public.member_xp_points WHERE circle_id = $1 AND user_id = $2;`,
+        [circleId, actorUserId]
+      );
+      viewerLevel = calculateLevelFromXp(parseInt(xpRes.rows[0]?.total || '0', 10)).currentLevel;
+    }
+
+    let viewerCanAccess = true;
+    if (course.access_rule === 'staff_only') {
+      viewerCanAccess = isStaff;
+    } else if (course.access_rule === 'members_only') {
+      viewerCanAccess = isMember || isStaff;
+    } else if (course.access_rule === 'min_level') {
+      viewerCanAccess = isStaff || (isMember && viewerLevel >= (course.min_level_required ?? 1));
+    }
+
+    const now = new Date();
+    const modules: CourseModuleItem[] = modulesRes.rows.map((mod) => {
+      let isLocked = false;
+      let unlocksAt: string | null = null;
+
+      if (!isStaff && mod.drip_type === 'calendar_date' && mod.drip_unlock_date) {
+        const unlockDate = new Date(mod.drip_unlock_date);
+        if (now < unlockDate) {
+          isLocked = true;
+          unlocksAt = mod.drip_unlock_date;
+        }
+      } else if (
+        !isStaff &&
+        mod.drip_type === 'relative_days' &&
+        (mod.drip_days_after_enrollment ?? 0) > 0
+      ) {
+        if (!enrolledAt) {
+          isLocked = true;
+        } else {
+          const unlockDate = new Date(
+            enrolledAt.getTime() + (mod.drip_days_after_enrollment ?? 0) * 86400000
+          );
+          if (now < unlockDate) {
+            isLocked = true;
+            unlocksAt = unlockDate.toISOString();
+          }
+        }
+      }
+
+      return {
+        ...mod,
+        is_locked: isLocked,
+        unlocks_at: unlocksAt,
+        lessons: isLocked ? [] : lessonsByModule[mod.id] || [],
+      };
+    });
 
     const totalLessons = lessonsRes.rows.length;
     const completedLessons = completedLessonIds.size;
@@ -365,6 +450,9 @@ export async function getCourseWithCurriculum(
     return {
       ...course,
       estimated_duration_hours: Number(course.estimated_duration_hours),
+      viewer_can_access: viewerCanAccess,
+      viewer_level: viewerLevel,
+      is_enrolled: Boolean(enrolledAt) || completedLessons > 0,
       instructor: {
         id: course.instructor_id,
         username: course.instructor_username,
@@ -375,7 +463,6 @@ export async function getCourseWithCurriculum(
       total_lessons_count: totalLessons,
       completed_lessons_count: completedLessons,
       progress_percentage: progressPercentage,
-      is_enrolled: completedLessons > 0,
     };
   });
 }
@@ -414,8 +501,9 @@ export async function createCourse(
     const res = await tx.query<CourseItem>(
       `INSERT INTO public.courses (
          id, circle_id, instructor_id, title, slug, description,
-         thumbnail_url, difficulty_level, estimated_duration_hours, status
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+         thumbnail_url, difficulty_level, estimated_duration_hours,
+         access_rule, min_level_required, status
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
        RETURNING *;`,
       [
         courseId,
@@ -427,6 +515,8 @@ export async function createCourse(
         parsed.thumbnailUrl || null,
         parsed.difficultyLevel || null,
         parsed.estimatedDurationHours,
+        parsed.accessRule,
+        parsed.minLevelRequired,
         parsed.status,
       ]
     );
@@ -482,6 +572,8 @@ export async function updateCourse(
          difficulty_level = CASE WHEN $8::boolean THEN $9 ELSE difficulty_level END,
          estimated_duration_hours = COALESCE($10, estimated_duration_hours),
          status = COALESCE($11, status),
+         access_rule = COALESCE($12, access_rule),
+         min_level_required = COALESCE($13, min_level_required),
          updated_at = NOW()
        WHERE id = $1 AND circle_id = $2
        RETURNING *;`,
@@ -497,6 +589,8 @@ export async function updateCourse(
         parsed.difficultyLevel ?? null,
         parsed.estimatedDurationHours ?? null,
         parsed.status ?? null,
+        parsed.accessRule ?? null,
+        parsed.minLevelRequired ?? null,
       ]
     );
 
@@ -535,8 +629,11 @@ export async function createModule(
 
     const moduleId = crypto.randomUUID();
     const res = await tx.query<CourseModuleItem>(
-      `INSERT INTO public.course_modules (id, course_id, circle_id, title, description, sort_order)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO public.course_modules (
+         id, course_id, circle_id, title, description, sort_order,
+         drip_type, drip_days_after_enrollment, drip_unlock_date
+       )
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING *;`,
       [
         moduleId,
@@ -545,6 +642,9 @@ export async function createModule(
         parsed.title,
         parsed.description,
         parsed.sortOrder,
+        parsed.dripType,
+        parsed.dripDaysAfterEnrollment,
+        parsed.dripUnlockDate ? new Date(parsed.dripUnlockDate).toISOString() : null,
       ]
     );
 
@@ -639,7 +739,7 @@ export async function toggleLessonCompletion(
   lessonId: string,
   completed: boolean
 ): Promise<StudentCourseProgress> {
-  return withRlsTransaction(actorUserId, async (tx) => {
+  const result = await withRlsTransaction(actorUserId, async (tx) => {
     const lessonRes = await tx.query<{ id: string }>(
       `SELECT id FROM public.course_lessons
        WHERE id = $1 AND course_id = $2 AND circle_id = $3 LIMIT 1;`,
@@ -703,14 +803,27 @@ export async function toggleLessonCompletion(
     const progress = total > 0 ? Math.round((completedCount / total) * 100) : 0;
 
     return {
-      course_id: courseId,
-      total_lessons: total,
-      completed_lessons: completedCount,
-      progress_percentage: progress,
-      completed_lesson_ids: Array.from(completedSet),
-      next_lesson_id: nextLessonId,
+      progress: {
+        course_id: courseId,
+        total_lessons: total,
+        completed_lessons: completedCount,
+        progress_percentage: progress,
+        completed_lesson_ids: Array.from(completedSet),
+        next_lesson_id: nextLessonId,
+      },
+      wasCompleted: completed,
     };
   });
+
+  if (result.wasCompleted) {
+    try {
+      await awardMemberXp(actorUserId, circleId, 10, 'lesson_completed', lessonId);
+    } catch {
+      // XP reward is best-effort idempotent
+    }
+  }
+
+  return result.progress;
 }
 
 /**
@@ -722,7 +835,7 @@ export async function createLessonComment(
 ): Promise<LessonCommentItem> {
   const parsed = createLessonCommentSchema.parse(input);
 
-  return withRlsTransaction(actorUserId, async (tx) => {
+  const comment = await withRlsTransaction(actorUserId, async (tx) => {
     const memRes = await tx.query<{ status: MembershipStatus }>(
       `SELECT status FROM public.circle_memberships WHERE circle_id = $1 AND user_id = $2 LIMIT 1;`,
       [parsed.circleId, actorUserId]
@@ -758,6 +871,14 @@ export async function createLessonComment(
       },
     };
   });
+
+  try {
+    await awardMemberXp(actorUserId, parsed.circleId, 5, 'lesson_comment', comment.id);
+  } catch {
+    // XP reward is best-effort idempotent
+  }
+
+  return comment;
 }
 
 /**
@@ -870,7 +991,7 @@ export async function submitAssignment(
 ): Promise<AssignmentSubmissionItem> {
   const parsed = submitAssignmentSchema.parse(input);
 
-  return withRlsTransaction(actorUserId, async (tx) => {
+  const submission = await withRlsTransaction(actorUserId, async (tx) => {
     const memRes = await tx.query<{ status: MembershipStatus }>(
       `SELECT status FROM public.circle_memberships WHERE circle_id = $1 AND user_id = $2 LIMIT 1;`,
       [parsed.circleId, actorUserId]
@@ -908,6 +1029,20 @@ export async function submitAssignment(
 
     return res.rows[0];
   });
+
+  try {
+    await awardMemberXp(
+      actorUserId,
+      parsed.circleId,
+      25,
+      'assignment_submitted',
+      submission.id
+    );
+  } catch {
+    // XP reward is best-effort idempotent
+  }
+
+  return submission;
 }
 
 /**
@@ -919,9 +1054,9 @@ export async function reviewAssignmentSubmission(
 ): Promise<AssignmentSubmissionItem> {
   const parsed = reviewAssignmentSubmissionSchema.parse(input);
 
-  return withRlsTransaction(actorUserId, async (tx) => {
-    const subRes = await tx.query<{ course_id: string }>(
-      `SELECT course_id FROM public.course_assignment_submissions WHERE id = $1 AND circle_id = $2 LIMIT 1;`,
+  const result = await withRlsTransaction(actorUserId, async (tx) => {
+    const subRes = await tx.query<{ course_id: string; student_id: string }>(
+      `SELECT course_id, student_id FROM public.course_assignment_submissions WHERE id = $1 AND circle_id = $2 LIMIT 1;`,
       [parsed.submissionId, parsed.circleId]
     );
     if (!subRes.rows[0]) throw new NotFoundError('Submission not found.');
@@ -962,6 +1097,221 @@ export async function reviewAssignmentSubmission(
         parsed.instructorFeedback,
         actorUserId,
       ]
+    );
+
+    return {
+      submission: res.rows[0],
+      studentId: subRes.rows[0].student_id,
+    };
+  });
+
+  // Award +50 XP if approved
+  if (parsed.status === 'approved' && result.studentId) {
+    try {
+      await awardMemberXp(
+        result.studentId,
+        parsed.circleId,
+        50,
+        'assignment_approved',
+        result.submission.id
+      );
+    } catch {
+      // XP reward is best-effort idempotent
+    }
+  }
+
+  return result.submission;
+}
+
+/**
+ * Calculates current level, target XP for next level, and progress percentage.
+ */
+export function calculateLevelFromXp(xp: number): {
+  currentLevel: number;
+  nextLevelXp: number;
+  levelProgressPercentage: number;
+} {
+  const thresholds = [0, 50, 150, 300, 600, 1000];
+  let level = 1;
+  for (let i = thresholds.length - 1; i >= 0; i--) {
+    if (xp >= thresholds[i]!) {
+      level = i + 1;
+      break;
+    }
+  }
+  const currentBase = thresholds[level - 1] ?? 0;
+  const nextTarget = thresholds[level] ?? currentBase + 500;
+  const needed = Math.max(1, nextTarget - currentBase);
+  const currentInLevel = Math.max(0, xp - currentBase);
+  const progress = Math.min(100, Math.round((currentInLevel / needed) * 100));
+
+  return {
+    currentLevel: level,
+    nextLevelXp: nextTarget,
+    levelProgressPercentage: progress,
+  };
+}
+
+/**
+ * Awards XP points for community and learning activities (idempotent per activity entity).
+ */
+export async function awardMemberXp(
+  actorUserId: string,
+  circleId: string,
+  points: number,
+  activityType:
+    | 'lesson_completed'
+    | 'assignment_submitted'
+    | 'assignment_approved'
+    | 'lesson_comment'
+    | 'discussion_post',
+  entityId?: string | null
+): Promise<void> {
+  await withServiceRoleTransaction(async (tx) => {
+    await tx.query(
+      `INSERT INTO public.member_xp_points (id, circle_id, user_id, points, activity_type, entity_id)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       ON CONFLICT (circle_id, user_id, activity_type, entity_id) DO NOTHING;`,
+      [
+        crypto.randomUUID(),
+        circleId,
+        actorUserId,
+        points,
+        activityType,
+        entityId || crypto.randomUUID(),
+      ]
+    );
+  });
+}
+
+/**
+ * Retrieves the XP summary and calculated level for a member in a Circle.
+ */
+export async function getMemberXpSummary(
+  actorUserId: string,
+  circleId: string
+): Promise<MemberXpSummary> {
+  return withRlsTransaction(actorUserId, async (tx) => {
+    const res = await tx.query<{ total: string }>(
+      `SELECT COALESCE(SUM(points), 0)::text AS total
+       FROM public.member_xp_points
+       WHERE circle_id = $1 AND user_id = $2;`,
+      [circleId, actorUserId]
+    );
+    const totalXp = parseInt(res.rows[0]?.total || '0', 10);
+    const lvl = calculateLevelFromXp(totalXp);
+    return {
+      user_id: actorUserId,
+      total_xp: totalXp,
+      current_level: lvl.currentLevel,
+      next_level_xp: lvl.nextLevelXp,
+      level_progress_percentage: lvl.levelProgressPercentage,
+    };
+  });
+}
+
+/**
+ * Retrieves the top students in a Circle by total XP (Leaderboard).
+ */
+export async function getCircleLeaderboard(
+  actorUserId: string | null,
+  circleId: string,
+  limit = 10
+): Promise<LeaderboardEntry[]> {
+  return withRlsTransaction(actorUserId, async (tx) => {
+    const res = await tx.query<{
+      user_id: string;
+      username: string;
+      display_name: string;
+      avatar_url: string | null;
+      total_xp: string;
+    }>(
+      `SELECT 
+         xp.user_id,
+         p.username,
+         p.display_name,
+         p.avatar_url,
+         SUM(xp.points)::text AS total_xp
+       FROM public.member_xp_points xp
+       JOIN public.profiles p ON p.id = xp.user_id
+       WHERE xp.circle_id = $1
+       GROUP BY xp.user_id, p.username, p.display_name, p.avatar_url
+       ORDER BY SUM(xp.points) DESC
+       LIMIT $2;`,
+      [circleId, limit]
+    );
+
+    return res.rows.map((r, idx) => {
+      const xp = parseInt(r.total_xp, 10);
+      const lvl = calculateLevelFromXp(xp);
+      return {
+        user_id: r.user_id,
+        username: r.username,
+        display_name: r.display_name,
+        avatar_url: r.avatar_url,
+        total_xp: xp,
+        current_level: lvl.currentLevel,
+        rank: idx + 1,
+      };
+    });
+  });
+}
+
+/**
+ * Enrolls a student in a course, checking tier and community level requirements.
+ */
+export async function enrollInCourse(
+  actorUserId: string,
+  circleId: string,
+  courseId: string
+): Promise<CourseEnrollmentItem> {
+  return withRlsTransaction(actorUserId, async (tx) => {
+    const memRes = await tx.query<{ role: CircleRole; status: MembershipStatus }>(
+      `SELECT role, status FROM public.circle_memberships WHERE circle_id = $1 AND user_id = $2 LIMIT 1;`,
+      [circleId, actorUserId]
+    );
+    const membership = memRes.rows[0];
+    if (!membership || membership.status !== 'active') {
+      throw new ForbiddenError('Only active Circle members can enroll in courses.');
+    }
+
+    const courseRes = await tx.query<{ access_rule: string; min_level_required: number }>(
+      `SELECT access_rule, min_level_required FROM public.courses WHERE id = $1 AND circle_id = $2 LIMIT 1;`,
+      [courseId, circleId]
+    );
+    const course = courseRes.rows[0];
+    if (!course) throw new NotFoundError('Course not found.');
+
+    const isStaff =
+      membership.role === 'owner' ||
+      membership.role === 'admin' ||
+      membership.role === 'moderator';
+
+    if (course.access_rule === 'staff_only' && !isStaff) {
+      throw new ForbiddenError('This course is reserved for staff members only.');
+    }
+
+    if (course.access_rule === 'min_level') {
+      const xpRes = await tx.query<{ total: string }>(
+        `SELECT COALESCE(SUM(points), 0)::text AS total FROM public.member_xp_points WHERE circle_id = $1 AND user_id = $2;`,
+        [circleId, actorUserId]
+      );
+      const totalXp = parseInt(xpRes.rows[0]?.total || '0', 10);
+      const lvl = calculateLevelFromXp(totalXp);
+      if (lvl.currentLevel < course.min_level_required && !isStaff) {
+        throw new ForbiddenError(
+          `This course requires Community Level ${course.min_level_required}. Your current level is ${lvl.currentLevel}. Earn more XP to unlock!`
+        );
+      }
+    }
+
+    const enrollId = crypto.randomUUID();
+    const res = await tx.query<CourseEnrollmentItem>(
+      `INSERT INTO public.course_enrollments (id, course_id, circle_id, student_id)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (course_id, student_id) DO UPDATE SET enrolled_at = public.course_enrollments.enrolled_at
+       RETURNING *;`,
+      [enrollId, courseId, circleId, actorUserId]
     );
 
     return res.rows[0];

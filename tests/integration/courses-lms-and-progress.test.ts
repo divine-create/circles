@@ -4,12 +4,16 @@ import { createCircle } from '@/features/circles/service';
 import { joinPublicCircle } from '@/features/memberships/service';
 import { updateCircleCapability } from '@/features/capabilities/service';
 import {
+  awardMemberXp,
   createCourse,
   createCourseAssignment,
   createLesson,
   createLessonComment,
   createModule,
+  enrollInCourse,
+  getCircleLeaderboard,
   getCourseWithCurriculum,
+  getMemberXpSummary,
   listCourses,
   listLessonComments,
   reviewAssignmentSubmission,
@@ -322,5 +326,227 @@ describe('Courses, LMS Curriculum & Student Learning Progress Integration Suite'
     const restoredCourse = await getCourseWithCurriculum(student.id, circle.id, course.id);
     expect(restoredCourse.total_lessons_count).toBe(3);
     expect(restoredCourse.completed_lessons_count).toBe(1);
+  });
+
+  it('enforces drip content scheduling, gamification XP & levels, course access gating, and leaderboards', async () => {
+    const suffix = Date.now() + 1;
+    const instructor = (
+      await registerUser({
+        email: `inst-${suffix}@example.com`,
+        username: `inst_${suffix}`,
+        displayName: 'Gamification Instructor',
+        password: 'Password123!',
+      })
+    ).user;
+
+    const student1 = (
+      await registerUser({
+        email: `stud1-${suffix}@example.com`,
+        username: `stud1_${suffix}`,
+        displayName: 'Alice Student',
+        password: 'Password123!',
+      })
+    ).user;
+
+    const student2 = (
+      await registerUser({
+        email: `stud2-${suffix}@example.com`,
+        username: `stud2_${suffix}`,
+        displayName: 'Bob Student',
+        password: 'Password123!',
+      })
+    ).user;
+
+    const circle = await createCircle(instructor.id, {
+      name: `Gamified Academy ${suffix}`,
+      slug: `game-academy-${suffix}`,
+      description: 'LMS with XP points, drip pacing, and access tiers.',
+      category: 'creator',
+      visibility: 'public',
+    });
+    await updateCircleCapability(instructor.id, circle.id, 'spaces', true);
+    await updateCircleCapability(instructor.id, circle.id, 'learning_resources', true);
+
+    await joinPublicCircle(student1.id, circle.id);
+    await joinPublicCircle(student2.id, circle.id);
+
+    // Initial XP is 0, Level 1
+    const initialXp = await getMemberXpSummary(student1.id, circle.id);
+    expect(initialXp.total_xp).toBe(0);
+    expect(initialXp.current_level).toBe(1);
+
+    // 1. Create a Beginner Course
+    const course = await createCourse(instructor.id, {
+      circleId: circle.id,
+      title: 'Beginner Coding',
+      slug: 'beginner-coding',
+      description: 'Start here to earn XP.',
+      accessRule: 'open',
+    });
+
+    // 2. Test Drip Scheduling on Modules
+    const unlockTomorrow = new Date(Date.now() + 86400000).toISOString();
+    const modInstant = await createModule(instructor.id, {
+      circleId: circle.id,
+      courseId: course.id,
+      title: 'Module 1: Instant Start',
+      sortOrder: 1,
+      dripType: 'instant',
+    });
+
+    const modCalendar = await createModule(instructor.id, {
+      circleId: circle.id,
+      courseId: course.id,
+      title: 'Module 2: Unlocks Tomorrow',
+      sortOrder: 2,
+      dripType: 'calendar_date',
+      dripUnlockDate: unlockTomorrow,
+    });
+
+    const modRelative = await createModule(instructor.id, {
+      circleId: circle.id,
+      courseId: course.id,
+      title: 'Module 3: 7 Days After Enrollment',
+      sortOrder: 3,
+      dripType: 'relative_days',
+      dripDaysAfterEnrollment: 7,
+    });
+
+    const lesson1 = await createLesson(instructor.id, {
+      circleId: circle.id,
+      courseId: course.id,
+      moduleId: modInstant.id,
+      title: 'Lesson 1.1 Intro',
+      slug: 'lesson-1-intro',
+      durationMinutes: 10,
+    });
+
+    await createLesson(instructor.id, {
+      circleId: circle.id,
+      courseId: course.id,
+      moduleId: modCalendar.id,
+      title: 'Lesson 2.1 Advanced Concepts',
+      slug: 'lesson-2-advanced',
+      durationMinutes: 20,
+    });
+
+    // Student1 enrolls
+    await enrollInCourse(student1.id, circle.id, course.id);
+
+    // Student checks curriculum: modInstant is unlocked, modCalendar is locked, modRelative is locked
+    const studentCurriculum = await getCourseWithCurriculum(student1.id, circle.id, course.id);
+    const m1 = studentCurriculum.modules?.find((m) => m.id === modInstant.id);
+    const m2 = studentCurriculum.modules?.find((m) => m.id === modCalendar.id);
+    const m3 = studentCurriculum.modules?.find((m) => m.id === modRelative.id);
+    expect(m1?.is_locked).toBe(false);
+    expect(m2?.is_locked).toBe(true);
+    expect(m3?.is_locked).toBe(true);
+
+    // Instructor checks curriculum: instructors bypass drip locking
+    const instructorCurriculum = await getCourseWithCurriculum(instructor.id, circle.id, course.id);
+    const im2 = instructorCurriculum.modules?.find((m) => m.id === modCalendar.id);
+    const im3 = instructorCurriculum.modules?.find((m) => m.id === modRelative.id);
+    expect(im2?.is_locked).toBe(false);
+    expect(im3?.is_locked).toBe(false);
+
+    // 3. Test Gamification XP Point System
+    // Completing lesson1 -> +10 XP
+    await toggleLessonCompletion(student1.id, circle.id, course.id, lesson1.id, true);
+    let xp = await getMemberXpSummary(student1.id, circle.id);
+    expect(xp.total_xp).toBe(10);
+
+    // Adding comment -> +5 XP
+    await createLessonComment(student1.id, {
+      circleId: circle.id,
+      courseId: course.id,
+      lessonId: lesson1.id,
+      body: 'This lesson was super helpful!',
+    });
+    xp = await getMemberXpSummary(student1.id, circle.id);
+    expect(xp.total_xp).toBe(15);
+
+    // Add assignment to lesson1
+    const assign = await createCourseAssignment(instructor.id, {
+      circleId: circle.id,
+      courseId: course.id,
+      lessonId: lesson1.id,
+      title: 'Homework 1',
+      promptBody: 'Write your thoughts',
+    });
+
+    // Submitting homework -> +25 XP
+    const sub = await submitAssignment(student1.id, {
+      circleId: circle.id,
+      courseId: course.id,
+      assignmentId: assign.id,
+      lessonId: lesson1.id,
+      submissionBody: 'Here is my assignment submission.',
+    });
+    xp = await getMemberXpSummary(student1.id, circle.id);
+    expect(xp.total_xp).toBe(40);
+
+    // Reviewing and approving homework -> +50 XP
+    await reviewAssignmentSubmission(instructor.id, {
+      circleId: circle.id,
+      courseId: course.id,
+      submissionId: sub.id,
+      status: 'approved',
+      gradeScore: 100,
+      instructorFeedback: 'Great work!',
+    });
+    xp = await getMemberXpSummary(student1.id, circle.id);
+    expect(xp.total_xp).toBe(90);
+
+    // Award +20 bonus XP via service to cross 100 XP threshold into Level 2
+    await awardMemberXp(student1.id, circle.id, 20, 'discussion_post', crypto.randomUUID());
+    xp = await getMemberXpSummary(student1.id, circle.id);
+    expect(xp.total_xp).toBe(110);
+    expect(xp.current_level).toBe(2);
+
+    // 4. Test Course Access Gating (Level Gating)
+    const masterclass = await createCourse(instructor.id, {
+      circleId: circle.id,
+      title: 'Masterclass (Level 2+ Required)',
+      slug: 'masterclass-level-2',
+      description: 'Exclusive to dedicated students.',
+      accessRule: 'min_level',
+      minLevelRequired: 2,
+    });
+
+    // Student2 has 0 XP (Level 1) and cannot enroll
+    await expect(enrollInCourse(student2.id, circle.id, masterclass.id)).rejects.toThrow(
+      ForbiddenError
+    );
+
+    const student2View = await getCourseWithCurriculum(student2.id, circle.id, masterclass.id);
+    expect(student2View.viewer_can_access).toBe(false);
+    expect(student2View.viewer_level).toBe(1);
+
+    // Student1 has 110 XP (Level 2) and successfully enrolls
+    const enrollment1 = await enrollInCourse(student1.id, circle.id, masterclass.id);
+    expect(enrollment1.id).toBeDefined();
+
+    const student1View = await getCourseWithCurriculum(student1.id, circle.id, masterclass.id);
+    expect(student1View.viewer_can_access).toBe(true);
+    expect(student1View.viewer_level).toBe(2);
+
+    // 5. Anti-Tampering: Direct client insertion into public.member_xp_points is blocked by RLS
+    await expect(
+      withRlsTransaction(student2.id, async (tx) => {
+        await tx.query(
+          `INSERT INTO public.member_xp_points (id, circle_id, user_id, points, action_type)
+           VALUES (gen_random_uuid(), $1, $2, 5000, 'hack');`,
+          [circle.id, student2.id]
+        );
+      })
+    ).rejects.toThrow();
+
+    // 6. Leaderboard Ranking
+    const leaderboard = await getCircleLeaderboard(student1.id, circle.id);
+    expect(leaderboard.length).toBeGreaterThanOrEqual(1);
+    expect(leaderboard[0].user_id).toBe(student1.id);
+    expect(leaderboard[0].total_xp).toBe(110);
+    expect(leaderboard[0].current_level).toBe(2);
+    expect(leaderboard[0].rank).toBe(1);
   });
 });

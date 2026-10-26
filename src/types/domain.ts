@@ -696,6 +696,11 @@ export interface CourseModuleItem {
   title: string;
   description: string;
   sort_order: number;
+  drip_type?: 'instant' | 'relative_days' | 'calendar_date';
+  drip_days_after_enrollment?: number;
+  drip_unlock_date?: string | null;
+  is_locked?: boolean;
+  unlocks_at?: string | null;
   created_at: string;
   updated_at: string;
   lessons: CourseLessonItem[];
@@ -713,6 +718,10 @@ export interface CourseItem {
   estimated_duration_hours: number;
   status: 'draft' | 'published' | 'archived';
   sort_order: number;
+  access_rule?: 'open' | 'members_only' | 'min_level' | 'staff_only';
+  min_level_required?: number;
+  viewer_can_access?: boolean;
+  viewer_level?: number;
   created_at: string;
   updated_at: string;
   instructor?: Pick<UserProfile, 'id' | 'username' | 'display_name' | 'avatar_url'>;
@@ -730,6 +739,32 @@ export interface CourseLessonCompletionItem {
   circle_id: string;
   user_id: string;
   completed_at: string;
+}
+
+export interface CourseEnrollmentItem {
+  id: string;
+  course_id: string;
+  circle_id: string;
+  student_id: string;
+  enrolled_at: string;
+}
+
+export interface MemberXpSummary {
+  user_id: string;
+  total_xp: number;
+  current_level: number;
+  next_level_xp: number;
+  level_progress_percentage: number;
+}
+
+export interface LeaderboardEntry {
+  user_id: string;
+  username: string;
+  display_name: string;
+  avatar_url: string | null;
+  total_xp: number;
+  current_level: number;
+  rank: number;
 }
 
 export interface StudentCourseProgress {

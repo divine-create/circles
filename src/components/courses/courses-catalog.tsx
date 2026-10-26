@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   GraduationCap,
@@ -9,8 +9,12 @@ import {
   Clock,
   BookOpen,
   Search,
+  Trophy,
+  Lock,
+  Shield,
+  X,
 } from 'lucide-react';
-import { CourseItem } from '@/types/domain';
+import { CourseItem, LeaderboardEntry, MemberXpSummary } from '@/types/domain';
 import { Button } from '@/components/ui/button';
 
 export function CoursesCatalog({
@@ -31,6 +35,12 @@ export function CoursesCatalog({
   const [difficultyFilter, setDifficultyFilter] = useState<string>('all');
   const [showCreate, setShowCreate] = useState(false);
 
+  // Gamification state
+  const [xpSummary, setXpSummary] = useState<MemberXpSummary | null>(null);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
+
   // Form states
   const [title, setTitle] = useState('');
   const [slug, setSlug] = useState('');
@@ -39,8 +49,43 @@ export function CoursesCatalog({
     'beginner' | 'intermediate' | 'advanced' | 'all_levels'
   >('all_levels');
   const [durationHours, setDurationHours] = useState('2.5');
+  const [accessRule, setAccessRule] = useState<
+    'open' | 'members_only' | 'min_level' | 'staff_only'
+  >('open');
+  const [minLevelRequired, setMinLevelRequired] = useState(2);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isMember) return;
+    async function loadXp() {
+      try {
+        const res = await fetch(`/api/circles/${circleId}/courses?mode=xp_summary`);
+        const data = await res.json();
+        if (res.ok && data.summary) {
+          setXpSummary(data.summary);
+        }
+      } catch {
+        // silent fail
+      }
+    }
+    loadXp();
+  }, [circleId, isMember]);
+
+  async function fetchLeaderboard() {
+    setLoadingLeaderboard(true);
+    try {
+      const res = await fetch(`/api/circles/${circleId}/courses?mode=leaderboard`);
+      const data = await res.json();
+      if (res.ok && data.leaderboard) {
+        setLeaderboard(data.leaderboard);
+      }
+    } catch {
+      // silent fail
+    } finally {
+      setLoadingLeaderboard(false);
+    }
+  }
 
   function handleTitleChange(val: string) {
     setTitle(val);
@@ -68,6 +113,8 @@ export function CoursesCatalog({
           description,
           difficultyLevel: difficulty,
           estimatedDurationHours: parseFloat(durationHours) || 0,
+          accessRule,
+          minLevelRequired: accessRule === 'min_level' ? Number(minLevelRequired) : 1,
         }),
       });
       const data = await res.json();
@@ -77,6 +124,8 @@ export function CoursesCatalog({
       setTitle('');
       setSlug('');
       setDescription('');
+      setAccessRule('open');
+      setMinLevelRequired(2);
       setShowCreate(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to create course.');
@@ -110,7 +159,43 @@ export function CoursesCatalog({
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          {xpSummary && (
+            <div className="flex items-center gap-3 rounded-xl border border-stone-200/90 bg-stone-50/80 px-3 py-1.5 shadow-2xs">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-black text-white font-bold text-xs">
+                L{xpSummary.current_level}
+              </div>
+              <div className="text-left">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-stone-900">
+                  <span>Level {xpSummary.current_level}</span>
+                  <span className="text-[10px] text-stone-500 font-mono">({xpSummary.total_xp} XP)</span>
+                </div>
+                <div className="mt-0.5 flex items-center gap-1.5">
+                  <div className="h-1.5 w-16 overflow-hidden rounded-full bg-stone-200">
+                    <div
+                      className="h-full bg-black transition-all duration-300"
+                      style={{ width: `${xpSummary.level_progress_percentage}%` }}
+                    />
+                  </div>
+                  <span className="text-[9px] font-mono text-stone-400">
+                    {xpSummary.level_progress_percentage}%
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowLeaderboard(true);
+                  fetchLeaderboard();
+                }}
+                className="ml-1 inline-flex items-center gap-1 rounded-md border border-stone-200 bg-white px-2 py-1 text-[11px] font-medium text-stone-700 hover:bg-stone-100 transition-colors"
+                title="View Community Leaderboard"
+              >
+                <Trophy className="h-3 w-3 text-stone-500" />
+                <span>Ranks</span>
+              </button>
+            </div>
+          )}
+
           <Link
             href={`/circles/${circleSlug}/resources`}
             className="inline-flex items-center gap-1.5 rounded-lg border border-stone-200 bg-white px-3 py-1.5 text-xs font-medium text-stone-700 hover:bg-stone-50 transition-colors"
@@ -187,6 +272,13 @@ export function CoursesCatalog({
             const hasStarted = (course.completed_lessons_count ?? 0) > 0;
             const progress = course.progress_percentage ?? 0;
             const totalLessons = course.total_lessons_count ?? 0;
+            const isLevelLocked =
+              course.access_rule === 'min_level' &&
+              !isStaff &&
+              Boolean(
+                xpSummary &&
+                  xpSummary.current_level < (course.min_level_required || 1)
+              );
 
             return (
               <div
@@ -195,9 +287,23 @@ export function CoursesCatalog({
               >
                 <div>
                   <div className="flex items-center justify-between gap-2">
-                    <span className="rounded-md bg-stone-100 px-2 py-0.5 text-[10px] font-mono font-semibold uppercase tracking-wider text-stone-700 border border-stone-200/60">
-                      {course.difficulty_level?.replace('_', ' ') || 'All Levels'}
-                    </span>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="rounded-md bg-stone-100 px-2 py-0.5 text-[10px] font-mono font-semibold uppercase tracking-wider text-stone-700 border border-stone-200/60">
+                        {course.difficulty_level?.replace('_', ' ') || 'All Levels'}
+                      </span>
+                      {course.access_rule === 'min_level' && (
+                        <span className="inline-flex items-center gap-1 rounded-md bg-stone-100 px-2 py-0.5 text-[10px] font-mono font-semibold text-stone-700 border border-stone-200/60">
+                          <Lock className="h-2.5 w-2.5" />
+                          Lvl {course.min_level_required}+
+                        </span>
+                      )}
+                      {course.access_rule === 'staff_only' && (
+                        <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[10px] font-mono font-semibold text-amber-800 border border-amber-200">
+                          <Shield className="h-2.5 w-2.5" />
+                          Staff
+                        </span>
+                      )}
+                    </div>
                     {course.estimated_duration_hours > 0 && (
                       <span className="flex items-center gap-1 text-[11px] font-medium text-stone-500">
                         <Clock className="h-3 w-3 text-stone-400" />
@@ -239,13 +345,23 @@ export function CoursesCatalog({
                     </div>
                   )}
 
-                  <Link
-                    href={`/circles/${circleSlug}/courses/${course.id}`}
-                    className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-stone-900 px-3 py-2 text-xs font-medium text-white hover:bg-black transition-colors"
-                  >
-                    <Play className="h-3.5 w-3.5 fill-current" />
-                    {hasStarted ? 'Continue Learning' : 'Start Course'}
-                  </Link>
+                  {isLevelLocked ? (
+                    <Link
+                      href={`/circles/${circleSlug}/courses/${course.id}`}
+                      className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-xs font-medium text-stone-700 hover:bg-stone-100 transition-colors"
+                    >
+                      <Lock className="h-3.5 w-3.5 text-stone-400" />
+                      <span>Locked (Requires Level {course.min_level_required})</span>
+                    </Link>
+                  ) : (
+                    <Link
+                      href={`/circles/${circleSlug}/courses/${course.id}`}
+                      className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-stone-900 px-3 py-2 text-xs font-medium text-white hover:bg-black transition-colors"
+                    >
+                      <Play className="h-3.5 w-3.5 fill-current" />
+                      {hasStarted ? 'Continue Learning' : 'Start Course'}
+                    </Link>
+                  )}
                 </div>
               </div>
             );
@@ -331,6 +447,46 @@ export function CoursesCatalog({
                 </div>
               </div>
 
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-stone-700">Access Gating</label>
+                  <select
+                    value={accessRule}
+                    onChange={(e) =>
+                      setAccessRule(
+                        e.target.value as 'open' | 'members_only' | 'min_level' | 'staff_only'
+                      )
+                    }
+                    className="mt-1 w-full rounded-xl border border-stone-200 bg-white px-2.5 py-2 text-xs text-stone-900 focus:border-stone-900 focus:outline-hidden"
+                  >
+                    <option value="open">Open (All Visitors)</option>
+                    <option value="members_only">Members Only</option>
+                    <option value="min_level">Minimum Community Level</option>
+                    <option value="staff_only">Staff Only</option>
+                  </select>
+                </div>
+
+                {accessRule === 'min_level' ? (
+                  <div>
+                    <label className="block text-xs font-semibold text-stone-700">
+                      Required Level
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="10"
+                      value={minLevelRequired}
+                      onChange={(e) => setMinLevelRequired(parseInt(e.target.value, 10) || 1)}
+                      className="mt-1 w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs text-stone-900 focus:border-stone-900 focus:outline-hidden"
+                    />
+                  </div>
+                ) : (
+                  <div className="flex items-center text-[11px] text-stone-400 pt-5">
+                    No level requirement
+                  </div>
+                )}
+              </div>
+
               <div>
                 <label className="block text-xs font-semibold text-stone-700">Overview / Description</label>
                 <textarea
@@ -360,6 +516,91 @@ export function CoursesCatalog({
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Leaderboard Modal */}
+      {showLeaderboard && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-md rounded-2xl border border-stone-200 bg-white p-6 shadow-xl">
+            <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+              <div className="flex items-center gap-2">
+                <Trophy className="h-5 w-5 text-amber-500" />
+                <h3 className="text-base font-bold text-stone-900">Student Leaderboard</h3>
+              </div>
+              <button
+                onClick={() => setShowLeaderboard(false)}
+                className="rounded-lg p-1 text-stone-400 hover:bg-stone-100 hover:text-stone-700 transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <p className="mt-2 text-xs text-stone-500">
+              Top students ranked by earned XP through lesson completions, assignments, and contributions.
+            </p>
+
+            <div className="mt-4 max-h-80 overflow-y-auto divide-y divide-stone-100">
+              {loadingLeaderboard ? (
+                <div className="py-8 text-center text-xs text-stone-500">
+                  Loading rankings...
+                </div>
+              ) : leaderboard.length === 0 ? (
+                <div className="py-8 text-center text-xs text-stone-500">
+                  No students on the leaderboard yet. Complete a lesson to earn XP!
+                </div>
+              ) : (
+                leaderboard.map((entry) => (
+                  <div
+                    key={entry.user_id}
+                    className="flex items-center justify-between py-2.5 px-1"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="w-5 text-center text-xs font-bold font-mono text-stone-500">
+                        {entry.rank === 1
+                          ? '🥇'
+                          : entry.rank === 2
+                          ? '🥈'
+                          : entry.rank === 3
+                          ? '🥉'
+                          : `#${entry.rank}`}
+                      </span>
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-semibold text-stone-900">
+                            {entry.display_name}
+                          </span>
+                          <span className="rounded-md bg-stone-100 px-1.5 py-0.2 text-[9px] font-mono font-bold text-stone-700 border border-stone-200">
+                            Lvl {entry.current_level}
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-stone-400 font-mono">
+                          @{entry.username}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="text-right">
+                      <span className="text-xs font-bold font-mono text-stone-900">
+                        {entry.total_xp}
+                      </span>
+                      <span className="ml-1 text-[10px] text-stone-400">XP</span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="mt-5 border-t border-stone-100 pt-3 text-right">
+              <Button
+                variant="outline"
+                onClick={() => setShowLeaderboard(false)}
+                className="rounded-lg text-xs"
+              >
+                Close
+              </Button>
+            </div>
           </div>
         </div>
       )}

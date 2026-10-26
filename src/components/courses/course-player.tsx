@@ -17,6 +17,7 @@ import {
   Send,
   Calendar,
   CheckCircle,
+  Lock,
 } from 'lucide-react';
 import {
   CourseItem,
@@ -80,6 +81,9 @@ export function CoursePlayer({
   const [showAddModule, setShowAddModule] = useState(false);
   const [moduleTitle, setModuleTitle] = useState('');
   const [moduleDesc, setModuleDesc] = useState('');
+  const [dripType, setDripType] = useState<'instant' | 'relative_days' | 'calendar_date'>('instant');
+  const [dripDays, setDripDays] = useState('7');
+  const [dripDate, setDripDate] = useState('');
 
   const [showAddLesson, setShowAddLesson] = useState(false);
   const [targetModuleId, setTargetModuleId] = useState<string>('');
@@ -286,6 +290,13 @@ export function CoursePlayer({
           title: moduleTitle,
           description: moduleDesc,
           sortOrder: (course.modules?.length || 0) + 1,
+          dripType,
+          dripDaysAfterEnrollment:
+            dripType === 'relative_days' ? parseInt(dripDays, 10) || 0 : 0,
+          dripUnlockDate:
+            dripType === 'calendar_date' && dripDate
+              ? new Date(dripDate).toISOString()
+              : null,
         }),
       });
       const data = await res.json();
@@ -297,6 +308,9 @@ export function CoursePlayer({
       }));
       setModuleTitle('');
       setModuleDesc('');
+      setDripType('instant');
+      setDripDays('7');
+      setDripDate('');
       setShowAddModule(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to create module.');
@@ -374,6 +388,65 @@ export function CoursePlayer({
 
   const currentSubmission: AssignmentSubmissionItem | null | undefined =
     activeLesson?.assignment?.user_submission;
+
+  const activeModule = course.modules?.find((m) =>
+    m.lessons.some((l) => l.id === activeLesson?.id)
+  );
+  const isActiveModuleLocked = Boolean(activeModule?.is_locked) && !isStaff;
+
+  if (course.viewer_can_access === false && !isStaff) {
+    return (
+      <div className="space-y-6">
+        <div className="rounded-2xl border border-stone-200/80 bg-white p-5 shadow-xs">
+          <Link
+            href={`/circles/${circleSlug}/courses`}
+            className="hover:text-stone-900 text-xs text-stone-500 font-medium transition-colors flex items-center gap-1"
+          >
+            <ChevronLeft className="h-3.5 w-3.5" />
+            Back to Courses
+          </Link>
+        </div>
+
+        <div className="mx-auto max-w-xl rounded-2xl border border-stone-200 bg-white p-8 text-center shadow-xs">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-stone-100 text-stone-900 border border-stone-200">
+            <Lock className="h-6 w-6" />
+          </div>
+          <h2 className="mt-4 text-lg font-bold text-stone-900">Community Level Gated</h2>
+          <p className="mt-2 text-xs text-stone-600 leading-relaxed">
+            This course requires <strong>Community Level {course.min_level_required}</strong> to access.
+            Your current level is <strong>Level {course.viewer_level ?? 1}</strong>.
+          </p>
+
+          <div className="mt-6 rounded-xl border border-stone-200/80 bg-stone-50 p-4 text-left">
+            <h4 className="text-xs font-bold text-stone-900">How to earn XP and level up:</h4>
+            <ul className="mt-2 space-y-1.5 text-xs text-stone-600">
+              <li className="flex items-center gap-2">
+                <span className="font-mono font-bold text-black">+10 XP</span> Complete lessons in beginner courses
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="font-mono font-bold text-black">+25 XP</span> Submit homework assignments
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="font-mono font-bold text-black">+50 XP</span> Receive approved homework reviews
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="font-mono font-bold text-black">+5 XP</span> Ask and answer questions in lesson discussions
+              </li>
+            </ul>
+          </div>
+
+          <div className="mt-6">
+            <Link
+              href={`/circles/${circleSlug}/courses`}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-black px-4 py-2 text-xs font-medium text-white hover:bg-stone-800 transition-colors shadow-xs"
+            >
+              Explore Open Courses
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -458,103 +531,144 @@ export function CoursePlayer({
             </div>
           ) : (
             <div className="space-y-4">
-              {course.modules.map((module, mIdx) => (
-                <div key={module.id} className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-stone-900">
-                      Module {mIdx + 1}: {module.title}
-                    </span>
-                    {(isStaff || isMember) && (
-                      <button
-                        onClick={() => {
-                          setTargetModuleId(module.id);
-                          setShowAddLesson(true);
-                        }}
-                        className="text-[11px] font-medium text-stone-500 hover:text-black flex items-center gap-0.5"
-                      >
-                        <Plus className="h-3 w-3" /> Lesson
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="space-y-1">
-                    {module.lessons.map((lesson) => {
-                      const isActive = lesson.id === activeLesson?.id;
-                      return (
-                        <div
-                          key={lesson.id}
-                          className={`group flex items-center justify-between rounded-xl px-3 py-2 text-xs transition-all ${
-                            isActive
-                              ? 'bg-stone-900 text-white font-medium shadow-xs'
-                              : 'bg-stone-50 text-stone-700 hover:bg-stone-100'
-                          }`}
+              {course.modules.map((module, mIdx) => {
+                const isModuleLocked = Boolean(module.is_locked) && !isStaff;
+                return (
+                  <div key={module.id} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 truncate mr-2">
+                        <span className="text-xs font-bold text-stone-900 truncate">
+                          Module {mIdx + 1}: {module.title}
+                        </span>
+                        {module.is_locked && (
+                          <span className="inline-flex items-center gap-1 rounded bg-stone-100 px-1.5 py-0.5 text-[10px] font-mono text-stone-600 border border-stone-200 shrink-0">
+                            <Lock className="h-2.5 w-2.5" />
+                            {module.unlocks_at
+                              ? `Unlocks ${new Date(module.unlocks_at).toLocaleDateString()}`
+                              : 'Drip Locked'}
+                          </span>
+                        )}
+                      </div>
+                      {(isStaff || isMember) && (
+                        <button
+                          onClick={() => {
+                            setTargetModuleId(module.id);
+                            setShowAddLesson(true);
+                          }}
+                          className="text-[11px] font-medium text-stone-500 hover:text-black flex items-center gap-0.5 shrink-0"
                         >
-                          <button
-                            onClick={() => {
-                              setActiveLessonId(lesson.id);
-                              setActiveTab('notes');
-                            }}
-                            className="flex items-center gap-2.5 text-left flex-1 truncate mr-2"
+                          <Plus className="h-3 w-3" /> Lesson
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="space-y-1">
+                      {module.lessons.map((lesson) => {
+                        const isActive = lesson.id === activeLesson?.id;
+
+                        if (isModuleLocked) {
+                          return (
+                            <div
+                              key={lesson.id}
+                              className="flex items-center justify-between rounded-xl px-3 py-2 text-xs bg-stone-50 text-stone-400 border border-stone-100 select-none cursor-not-allowed"
+                            >
+                              <div className="flex items-center gap-2.5 truncate mr-2">
+                                <Lock className="h-3 w-3 shrink-0 text-stone-400" />
+                                <span className="truncate">{lesson.title}</span>
+                              </div>
+                              <span className="text-[10px] font-mono text-stone-400">Locked</span>
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div
+                            key={lesson.id}
+                            className={`group flex items-center justify-between rounded-xl px-3 py-2 text-xs transition-all ${
+                              isActive
+                                ? 'bg-stone-900 text-white font-medium shadow-xs'
+                                : 'bg-stone-50 text-stone-700 hover:bg-stone-100'
+                            }`}
                           >
-                            <Play
-                              className={`h-3 w-3 shrink-0 ${
-                                isActive ? 'text-white fill-current' : 'text-stone-400'
-                              }`}
-                            />
-                            <span className="truncate">{lesson.title}</span>
-                          </button>
-
-                          <div className="flex items-center gap-2 shrink-0">
-                            {lesson.duration_minutes > 0 && (
-                              <span
-                                className={`text-[10px] font-mono ${
-                                  isActive ? 'text-stone-300' : 'text-stone-400'
+                            <button
+                              onClick={() => {
+                                setActiveLessonId(lesson.id);
+                                setActiveTab('notes');
+                              }}
+                              className="flex items-center gap-2.5 text-left flex-1 truncate mr-2"
+                            >
+                              <Play
+                                className={`h-3 w-3 shrink-0 ${
+                                  isActive ? 'text-white fill-current' : 'text-stone-400'
                                 }`}
-                              >
-                                {lesson.duration_minutes}m
-                              </span>
-                            )}
+                              />
+                              <span className="truncate">{lesson.title}</span>
+                            </button>
 
-                            {isMember && (
-                              <button
-                                onClick={() =>
-                                  handleToggleComplete(lesson.id, Boolean(lesson.is_completed))
-                                }
-                                disabled={savingProgress}
-                                title={lesson.is_completed ? 'Mark incomplete' : 'Mark complete'}
-                                className="transition-transform active:scale-90"
-                              >
-                                {lesson.is_completed ? (
-                                  <CheckCircle2
-                                    className={`h-4 w-4 ${
-                                      isActive
-                                        ? 'text-white fill-white text-stone-900'
-                                        : 'text-stone-900'
-                                    }`}
-                                  />
-                                ) : (
-                                  <Circle
-                                    className={`h-4 w-4 ${
-                                      isActive ? 'text-stone-400' : 'text-stone-300'
-                                    }`}
-                                  />
-                                )}
-                              </button>
-                            )}
+                            <div className="flex items-center gap-2 shrink-0">
+                              {lesson.duration_minutes > 0 && (
+                                <span
+                                  className={`text-[10px] font-mono ${
+                                    isActive ? 'text-stone-300' : 'text-stone-400'
+                                  }`}
+                                >
+                                  {lesson.duration_minutes}m
+                                </span>
+                              )}
+
+                              {isMember && (
+                                <button
+                                  onClick={() =>
+                                    handleToggleComplete(lesson.id, Boolean(lesson.is_completed))
+                                  }
+                                  disabled={savingProgress}
+                                  title={lesson.is_completed ? 'Mark incomplete' : 'Mark complete'}
+                                  className="transition-transform active:scale-90"
+                                >
+                                  {lesson.is_completed ? (
+                                    <CheckCircle2
+                                      className={`h-4 w-4 ${
+                                        isActive
+                                          ? 'text-white fill-white text-stone-900'
+                                          : 'text-stone-900'
+                                      }`}
+                                    />
+                                  ) : (
+                                    <Circle
+                                      className={`h-4 w-4 ${
+                                        isActive ? 'text-stone-400' : 'text-stone-300'
+                                      }`}
+                                    />
+                                  )}
+                                </button>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
 
         {/* Right Lesson Player Pane */}
         <div className="lg:col-span-8 space-y-6">
-          {activeLesson ? (
+          {isActiveModuleLocked ? (
+            <div className="rounded-2xl border border-stone-200/80 bg-white p-12 text-center shadow-xs">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-stone-100 text-stone-800 border border-stone-200">
+                <Lock className="h-6 w-6" />
+              </div>
+              <h3 className="mt-4 text-base font-bold text-stone-900">Module Drip Locked</h3>
+              <p className="mt-1 text-xs text-stone-500 max-w-sm mx-auto">
+                {activeModule?.unlocks_at
+                  ? `This module content unlocks on ${new Date(activeModule.unlocks_at).toLocaleDateString()}. Complete other lessons in the meantime!`
+                  : 'This module is scheduled to release on a future drip schedule date.'}
+              </p>
+            </div>
+          ) : activeLesson ? (
             <div className="rounded-2xl border border-stone-200/80 bg-white p-6 shadow-xs space-y-6">
               {/* Video Player or Live Session Banner */}
               {activeLesson.is_live_session ? (
@@ -1066,6 +1180,53 @@ export function CoursePlayer({
                   className="mt-1 w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs text-stone-900 focus:border-stone-900 focus:outline-hidden"
                 />
               </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-stone-700">Drip Pacing Schedule</label>
+                <select
+                  value={dripType}
+                  onChange={(e) =>
+                    setDripType(
+                      e.target.value as 'instant' | 'relative_days' | 'calendar_date'
+                    )
+                  }
+                  className="mt-1 w-full rounded-xl border border-stone-200 bg-white px-2.5 py-2 text-xs text-stone-900 focus:border-stone-900 focus:outline-hidden"
+                >
+                  <option value="instant">Instant Access (Available Immediately)</option>
+                  <option value="relative_days">Days After Enrollment</option>
+                  <option value="calendar_date">Specific Calendar Date</option>
+                </select>
+              </div>
+
+              {dripType === 'relative_days' && (
+                <div>
+                  <label className="block text-xs font-semibold text-stone-700">
+                    Unlock Days After Enrollment
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="365"
+                    value={dripDays}
+                    onChange={(e) => setDripDays(e.target.value)}
+                    className="mt-1 w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs text-stone-900 focus:border-stone-900 focus:outline-hidden"
+                  />
+                </div>
+              )}
+
+              {dripType === 'calendar_date' && (
+                <div>
+                  <label className="block text-xs font-semibold text-stone-700">
+                    Unlock Calendar Date
+                  </label>
+                  <input
+                    type="date"
+                    value={dripDate}
+                    onChange={(e) => setDripDate(e.target.value)}
+                    className="mt-1 w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs text-stone-900 focus:border-stone-900 focus:outline-hidden"
+                  />
+                </div>
+              )}
 
               <div className="mt-5 flex items-center justify-end gap-2 border-t border-stone-100 pt-3">
                 <Button

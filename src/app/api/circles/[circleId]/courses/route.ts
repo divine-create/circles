@@ -5,6 +5,9 @@ import {
   createLesson,
   createLessonComment,
   createModule,
+  enrollInCourse,
+  getCircleLeaderboard,
+  getMemberXpSummary,
   listCourses,
   listLessonComments,
   reviewAssignmentSubmission,
@@ -20,6 +23,20 @@ export async function GET(
   try {
     const user = await resolveApiUser(req);
     const { searchParams } = new URL(req.url);
+
+    if (searchParams.get('mode') === 'leaderboard') {
+      const leaderboard = await getCircleLeaderboard(
+        user?.id ?? null,
+        params.circleId
+      );
+      return NextResponse.json({ leaderboard });
+    }
+
+    if (searchParams.get('mode') === 'xp_summary') {
+      if (!user) throw new UnauthorizedError();
+      const summary = await getMemberXpSummary(user.id, params.circleId);
+      return NextResponse.json({ summary });
+    }
 
     if (searchParams.get('mode') === 'comments') {
       const courseId = searchParams.get('courseId');
@@ -52,6 +69,16 @@ export async function POST(
     if (!user) throw new UnauthorizedError();
 
     const body = await req.json();
+
+    if (body.action === 'enroll') {
+      if (!body.courseId) throw new ValidationError('courseId is required.');
+      const enrollment = await enrollInCourse(
+        user.id,
+        params.circleId,
+        body.courseId
+      );
+      return NextResponse.json({ enrollment }, { status: 201 });
+    }
 
     if (body.action === 'create_comment') {
       const comment = await createLessonComment(user.id, {
