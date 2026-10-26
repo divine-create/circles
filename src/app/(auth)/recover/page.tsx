@@ -65,7 +65,7 @@ export default function RecoverPasswordPage() {
 
   return (
     <div className="mx-auto flex min-h-[calc(100vh-8rem)] max-w-md flex-col justify-center px-4 py-12">
-      <div className="rounded-2xl border border-sand-200 bg-white p-8 shadow-sm">
+      <div className="rounded-2xl border border-stone-200/90 bg-white p-8 shadow-sm">
         <h1 className="text-2xl font-bold tracking-tight text-stone-900">Account Recovery</h1>
         <p className="mt-1.5 text-sm text-stone-600">
           Reset your password using a verified recovery token.
@@ -93,7 +93,7 @@ export default function RecoverPasswordPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
-                  className="w-full rounded-xl border border-sand-300 bg-sand-50/50 py-2.5 pl-9 pr-3.5 text-sm"
+                  className="w-full rounded-xl border border-stone-200 bg-stone-50/60 py-2.5 pl-9 pr-3.5 text-sm"
                 />
               </div>
             </div>
@@ -127,7 +127,7 @@ export default function RecoverPasswordPage() {
                   required
                   value={token}
                   onChange={(e) => setToken(e.target.value)}
-                  className="w-full rounded-xl border border-sand-300 bg-sand-50/50 py-2.5 pl-9 pr-3.5 text-sm font-mono"
+                  className="w-full rounded-xl border border-stone-200 bg-stone-50/60 py-2.5 pl-9 pr-3.5 text-sm font-mono"
                 />
               </div>
             </div>
@@ -143,7 +143,7 @@ export default function RecoverPasswordPage() {
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="At least 8 characters"
-                className="mt-1.5 w-full rounded-xl border border-sand-300 bg-sand-50/50 py-2.5 px-3.5 text-sm"
+                className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 py-2.5 px-3.5 text-sm"
               />
             </div>
             <button

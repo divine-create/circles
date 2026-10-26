@@ -176,7 +176,7 @@ export function CircleMembershipActions({
                 type="button"
                 onClick={handleLeave}
                 disabled={loading}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-sand-300 bg-white px-3 py-2 text-xs font-medium text-stone-600 hover:bg-sand-100"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs font-medium text-stone-600 hover:bg-stone-100"
               >
                 <LogOut className="h-3.5 w-3.5" />
                 <span>Leave</span>
@@ -220,7 +220,7 @@ export function CircleMembershipActions({
       {showRequestForm && (
         <form
           onSubmit={handleRequestToJoin}
-          className="mt-3 max-w-md rounded-xl border border-sand-200 bg-sand-50 p-3.5 space-y-2.5"
+          className="mt-3 max-w-md rounded-xl border border-stone-200 bg-stone-50 p-3.5 space-y-2.5"
         >
           <label htmlFor="join-note" className="block text-xs font-semibold text-stone-700">
             Introduction note for Circle administrators (optional)
@@ -231,13 +231,13 @@ export function CircleMembershipActions({
             value={requestNote}
             onChange={(e) => setRequestNote(e.target.value)}
             placeholder="Share why you'd like to join this Circle..."
-            className="w-full rounded-lg border border-sand-300 bg-white p-2 text-xs text-stone-900"
+            className="w-full rounded-lg border border-stone-200 bg-white p-2 text-xs text-stone-900"
           />
           <div className="flex justify-end gap-2">
             <button
               type="button"
               onClick={() => setShowRequestForm(false)}
-              className="rounded-lg px-3 py-1.5 text-xs font-medium text-stone-600 hover:bg-sand-200"
+              className="rounded-lg px-3 py-1.5 text-xs font-medium text-stone-600 hover:bg-stone-200"
             >
               Cancel
             </button>

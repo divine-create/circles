@@ -40,7 +40,7 @@ export function NotificationsClient({
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-forest-700">
+          <p className="text-xs font-semibold uppercase tracking-wider text-stone-900">
             Inbox & Alerts
           </p>
           <h1 className="mt-1 text-2xl font-bold text-stone-900">Notifications</h1>
@@ -50,16 +50,16 @@ export function NotificationsClient({
           <button
             type="button"
             onClick={handleMarkAllRead}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-sand-300 bg-white px-4 py-2 text-xs font-semibold text-stone-700 hover:bg-sand-100"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-stone-200 bg-white px-4 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-100"
           >
-            <CheckCheck className="h-4 w-4 text-forest-700" />
+            <CheckCheck className="h-4 w-4 text-stone-900" />
             <span>Mark all as read</span>
           </button>
         )}
       </div>
 
       {notifications.length === 0 ? (
-        <div className="rounded-2xl border border-sand-200 bg-white p-12 text-center">
+        <div className="rounded-2xl border border-stone-200 bg-white p-12 text-center">
           <Bell className="mx-auto h-9 w-9 text-stone-400" />
           <h2 className="mt-3 text-base font-bold text-stone-900">You&apos;re all caught up</h2>
           <p className="mt-1 text-xs text-stone-600">
@@ -67,7 +67,7 @@ export function NotificationsClient({
           </p>
         </div>
       ) : (
-        <div className="divide-y divide-sand-200 rounded-2xl border border-sand-200 bg-white shadow-sm">
+        <div className="divide-y divide-stone-200 rounded-2xl border border-stone-200 bg-white shadow-sm">
           {notifications.map((n) => (
             <div
               key={n.id}
@@ -101,7 +101,7 @@ export function NotificationsClient({
                   <button
                     type="button"
                     onClick={() => handleMarkRead(n.id)}
-                    className="rounded-lg border border-sand-300 px-2.5 py-1.5 text-xs text-stone-600 hover:bg-sand-100"
+                    className="rounded-lg border border-stone-200 px-2.5 py-1.5 text-xs text-stone-600 hover:bg-stone-100"
                   >
                     Mark read
                   </button>

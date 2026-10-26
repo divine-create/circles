@@ -103,15 +103,15 @@ export function PostDetailClient({
     <div className="space-y-6">
       <Link
         href={`/circles/${circle.slug}/discussions`}
-        className="inline-flex items-center gap-1.5 text-xs font-semibold text-stone-600 hover:text-forest-700"
+        className="inline-flex items-center gap-1.5 text-xs font-semibold text-stone-600 hover:text-black"
       >
         <ArrowLeft className="h-3.5 w-3.5" />
         <span>Back to Discussions</span>
       </Link>
 
-      <article className="rounded-2xl border border-sand-200 bg-white p-6 sm:p-8 shadow-sm">
+      <article className="rounded-2xl border border-stone-200 bg-white p-6 sm:p-8 shadow-sm">
         <div className="flex items-center gap-2.5 text-xs text-stone-500">
-          <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-forest-100 font-bold text-forest-800">
+          <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-stone-100 font-bold text-stone-900">
             {(post.author?.display_name || 'M').slice(0, 1).toUpperCase()}
           </span>
           <span className="font-semibold text-stone-900">{post.author?.display_name}</span>
@@ -125,18 +125,18 @@ export function PostDetailClient({
           {post.body}
         </div>
 
-        <div className="mt-6 flex items-center justify-between border-t border-sand-100 pt-4 text-xs">
+        <div className="mt-6 flex items-center justify-between border-t border-stone-100 pt-4 text-xs">
           <div className="flex items-center gap-5">
             <button
               type="button"
               onClick={handleToggleLike}
               disabled={!isActiveMember}
               className={`inline-flex items-center gap-1.5 font-medium ${
-                post.viewer_has_liked ? 'text-forest-700 font-semibold' : 'text-stone-600'
+                post.viewer_has_liked ? 'text-stone-900 font-semibold' : 'text-stone-600'
               }`}
             >
               <Heart
-                className={`h-4 w-4 ${post.viewer_has_liked ? 'fill-forest-700 text-forest-700' : ''}`}
+                className={`h-4 w-4 ${post.viewer_has_liked ? 'fill-black text-stone-900' : ''}`}
               />
               <span>{post.reaction_count} likes</span>
             </button>
@@ -150,10 +150,10 @@ export function PostDetailClient({
             <button
               type="button"
               onClick={handleToggleSave}
-              className="inline-flex items-center gap-1 text-stone-600 hover:text-forest-700"
+              className="inline-flex items-center gap-1 text-stone-600 hover:text-black"
             >
               <Bookmark
-                className={`h-4 w-4 ${post.viewer_has_saved ? 'fill-forest-700 text-forest-700' : ''}`}
+                className={`h-4 w-4 ${post.viewer_has_saved ? 'fill-black text-stone-900' : ''}`}
               />
               <span>{post.viewer_has_saved ? 'Saved' : 'Save Post'}</span>
             </button>
@@ -162,7 +162,7 @@ export function PostDetailClient({
       </article>
 
       {/* Comments Section */}
-      <section className="rounded-2xl border border-sand-200 bg-white p-6 shadow-sm space-y-6">
+      <section className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm space-y-6">
         <h2 className="text-base font-bold text-stone-900">
           Comments ({comments.length})
         </h2>
@@ -178,7 +178,7 @@ export function PostDetailClient({
               value={commentBody}
               onChange={(e) => setCommentBody(e.target.value)}
               placeholder="Write a thoughtful reply..."
-              className="w-full rounded-xl border border-sand-300 bg-sand-50/50 p-3 text-sm text-stone-900 focus:border-forest-600 focus:bg-white focus:outline-none"
+              className="w-full rounded-xl border border-stone-200 bg-stone-50/50 p-3 text-sm text-stone-900 focus:border-black focus:bg-white focus:outline-none"
             />
             <div className="flex justify-end">
               <button
@@ -192,12 +192,12 @@ export function PostDetailClient({
             </div>
           </form>
         ) : (
-          <p className="rounded-xl bg-sand-50 p-3 text-xs text-stone-600">
+          <p className="rounded-xl bg-stone-50 p-3 text-xs text-stone-600">
             Join this Circle as an active member to reply to this thread.
           </p>
         )}
 
-        <div className="divide-y divide-sand-100">
+        <div className="divide-y divide-stone-100">
           {comments.map((comment) => (
             <div key={comment.id} className="py-4 first:pt-0 last:pb-0">
               <div className="flex items-center gap-2 text-xs text-stone-500">

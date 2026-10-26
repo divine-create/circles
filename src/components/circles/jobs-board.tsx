@@ -102,7 +102,7 @@ export function JobsBoard({
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-lg font-bold text-stone-900">Jobs & Opportunities</h2>
-            <span className="rounded-full bg-forest-50 px-2 py-0.5 text-[10px] font-mono font-semibold text-forest-800 border border-forest-200/60">
+            <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-mono font-semibold text-stone-900 border border-stone-200">
               {opportunities.length} ROLES
             </span>
           </div>
@@ -149,7 +149,7 @@ export function JobsBoard({
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="e.g. Senior Backend Engineer"
-                className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-forest-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-600/20"
+                className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-black focus:bg-white focus:outline-none focus:ring-2 focus:ring-black/10"
               />
             </div>
             <div>
@@ -160,7 +160,7 @@ export function JobsBoard({
                 value={organizationName}
                 onChange={(e) => setOrganizationName(e.target.value)}
                 placeholder="e.g. AI Research Collective Ltd"
-                className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-forest-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-600/20"
+                className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-black focus:bg-white focus:outline-none focus:ring-2 focus:ring-black/10"
               />
             </div>
             <div>
@@ -181,7 +181,7 @@ export function JobsBoard({
                         | 'collaboration'
                     )
                   }
-                  className="w-1/2 rounded-xl border border-stone-200 bg-stone-50/60 px-3 py-2 text-xs sm:text-sm text-stone-900 focus:border-forest-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-600/20"
+                  className="w-1/2 rounded-xl border border-stone-200 bg-stone-50/60 px-3 py-2 text-xs sm:text-sm text-stone-900 focus:border-black focus:bg-white focus:outline-none focus:ring-2 focus:ring-black/10"
                 >
                   <option value="full_time">Full-Time</option>
                   <option value="part_time">Part-Time</option>
@@ -195,7 +195,7 @@ export function JobsBoard({
                   onChange={(e) =>
                     setWorkMode(e.target.value as 'remote' | 'on_site' | 'hybrid')
                   }
-                  className="w-1/2 rounded-xl border border-stone-200 bg-stone-50/60 px-3 py-2 text-xs sm:text-sm text-stone-900 focus:border-forest-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-600/20"
+                  className="w-1/2 rounded-xl border border-stone-200 bg-stone-50/60 px-3 py-2 text-xs sm:text-sm text-stone-900 focus:border-black focus:bg-white focus:outline-none focus:ring-2 focus:ring-black/10"
                 >
                   <option value="remote">Remote</option>
                   <option value="hybrid">Hybrid</option>
@@ -212,13 +212,13 @@ export function JobsBoard({
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
                   placeholder="Edinburgh or Remote"
-                  className="w-1/2 rounded-xl border border-stone-200 bg-stone-50/60 px-3 py-2 text-xs sm:text-sm text-stone-900 focus:border-forest-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-600/20"
+                  className="w-1/2 rounded-xl border border-stone-200 bg-stone-50/60 px-3 py-2 text-xs sm:text-sm text-stone-900 focus:border-black focus:bg-white focus:outline-none focus:ring-2 focus:ring-black/10"
                 />
                 <input
                   value={compensationText}
                   onChange={(e) => setCompensationText(e.target.value)}
                   placeholder="£70k–£85k or Paid"
-                  className="w-1/2 rounded-xl border border-stone-200 bg-stone-50/60 px-3 py-2 text-xs sm:text-sm text-stone-900 focus:border-forest-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-600/20"
+                  className="w-1/2 rounded-xl border border-stone-200 bg-stone-50/60 px-3 py-2 text-xs sm:text-sm text-stone-900 focus:border-black focus:bg-white focus:outline-none focus:ring-2 focus:ring-black/10"
                 />
               </div>
             </div>
@@ -233,7 +233,7 @@ export function JobsBoard({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Responsibilities, experience needed, application steps..."
-              className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-forest-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-600/20"
+              className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-black focus:bg-white focus:outline-none focus:ring-2 focus:ring-black/10"
             />
           </div>
           <div className="flex justify-end gap-2 pt-2">
@@ -260,12 +260,12 @@ export function JobsBoard({
           {opportunities.map((job) => (
             <div
               key={job.id}
-              className="group rounded-2xl border border-stone-200/80 bg-white p-6 shadow-xs hover:border-forest-600/40 hover:shadow-premium-hover transition-all duration-200 space-y-4"
+              className="group rounded-2xl border border-stone-200/80 bg-white p-6 shadow-xs hover:border-black/30 hover:shadow-premium-hover transition-all duration-200 space-y-4"
             >
               <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="rounded-full bg-forest-50 px-2.5 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider text-forest-800 border border-forest-200/60">
+                    <span className="rounded-full bg-stone-100 px-2.5 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider text-stone-900 border border-stone-200">
                       {job.opportunity_type.replace('_', ' ')}
                     </span>
                     <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-mono text-stone-600 border border-stone-200/60">
@@ -277,7 +277,7 @@ export function JobsBoard({
                       </span>
                     )}
                   </div>
-                  <h3 className="mt-2 text-base font-bold text-stone-900 group-hover:text-forest-800 transition-colors">
+                  <h3 className="mt-2 text-base font-bold text-stone-900 group-hover:text-black transition-colors">
                     {job.title}
                   </h3>
                   {job.organization_name && (
@@ -346,7 +346,7 @@ export function JobsBoard({
                   </p>
                   <p className="mt-0.5 text-stone-500 font-normal">{app.cover_note}</p>
                 </div>
-                <span className="self-start rounded-full bg-forest-50 px-2 py-0.5 text-[10px] font-mono font-semibold uppercase text-forest-800">
+                <span className="self-start rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-mono font-semibold uppercase text-stone-900">
                   {app.status}
                 </span>
               </div>

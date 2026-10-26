@@ -90,7 +90,7 @@ export function PollsBoard({
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-lg font-bold text-stone-900">Polls & Decisions</h2>
-            <span className="rounded-full bg-forest-50 px-2 py-0.5 text-[10px] font-mono font-semibold text-forest-800 border border-forest-200/60">
+            <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-mono font-semibold text-stone-900 border border-stone-200">
               {polls.length} POLLS
             </span>
           </div>
@@ -136,7 +136,7 @@ export function PollsBoard({
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
               placeholder="e.g. Should we host our next hackathon in person or hybrid?"
-              className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2.5 text-xs sm:text-sm text-stone-900 focus:border-forest-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-600/20 transition-all"
+              className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2.5 text-xs sm:text-sm text-stone-900 focus:border-black focus:bg-white focus:outline-none focus:ring-2 focus:ring-black/10 transition-all"
             />
           </div>
 
@@ -149,7 +149,7 @@ export function PollsBoard({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Add details, budget constraints, or timing context..."
-              className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-forest-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-600/20"
+              className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-black focus:bg-white focus:outline-none focus:ring-2 focus:ring-black/10"
             />
           </div>
 
@@ -165,7 +165,7 @@ export function PollsBoard({
                     e.target.value as 'always' | 'after_vote' | 'after_close'
                   )
                 }
-                className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3 py-2 text-xs sm:text-sm text-stone-900 focus:border-forest-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-600/20"
+                className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3 py-2 text-xs sm:text-sm text-stone-900 focus:border-black focus:bg-white focus:outline-none focus:ring-2 focus:ring-black/10"
               >
                 <option value="always">Always Visible (Real-time)</option>
                 <option value="after_vote">Visible Only After Member Votes</option>
@@ -178,7 +178,7 @@ export function PollsBoard({
                   type="checkbox"
                   checked={allowMultiple}
                   onChange={(e) => setAllowMultiple(e.target.checked)}
-                  className="rounded border-stone-300 text-forest-700 focus:ring-forest-600"
+                  className="rounded border-stone-300 text-stone-900 focus:ring-black/10"
                 />
                 <span>Allow selecting multiple choices</span>
               </label>
@@ -194,7 +194,7 @@ export function PollsBoard({
               required
               value={optionLines}
               onChange={(e) => setOptionLines(e.target.value)}
-              className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 font-mono text-xs sm:text-sm text-stone-900 focus:border-forest-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-600/20"
+              className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 font-mono text-xs sm:text-sm text-stone-900 focus:border-black focus:bg-white focus:outline-none focus:ring-2 focus:ring-black/10"
             />
           </div>
 
@@ -222,11 +222,11 @@ export function PollsBoard({
           {polls.map((poll) => (
             <div
               key={poll.id}
-              className="group rounded-2xl border border-stone-200/80 bg-white p-6 shadow-xs hover:border-forest-600/40 hover:shadow-premium-hover transition-all duration-200 space-y-4"
+              className="group rounded-2xl border border-stone-200/80 bg-white p-6 shadow-xs hover:border-black/30 hover:shadow-premium-hover transition-all duration-200 space-y-4"
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
-                  <span className="rounded-full bg-forest-50 px-2.5 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider text-forest-800 border border-forest-200/60">
+                  <span className="rounded-full bg-stone-100 px-2.5 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider text-stone-900 border border-stone-200">
                     {poll.status} · {poll.allow_multiple ? 'MULTI' : 'SINGLE'}
                   </span>
                   <span className="text-[11px] font-mono text-stone-400">
@@ -241,7 +241,7 @@ export function PollsBoard({
               </div>
 
               <div>
-                <h3 className="text-base font-bold text-stone-900 group-hover:text-forest-800 transition-colors">
+                <h3 className="text-base font-bold text-stone-900 group-hover:text-black transition-colors">
                   {poll.question}
                 </h3>
                 {poll.description && (
@@ -263,8 +263,8 @@ export function PollsBoard({
                       onClick={() => handleVote(poll.id, opt.id)}
                       className={`relative w-full overflow-hidden rounded-xl border p-3 text-left transition-all ${
                         opt.viewer_voted
-                          ? 'border-forest-600 bg-forest-50/50 shadow-xs'
-                          : 'border-stone-200/90 bg-stone-50/40 hover:border-forest-400 hover:bg-stone-50'
+                          ? 'border-black bg-stone-100/50 shadow-xs'
+                          : 'border-stone-200/90 bg-stone-50/40 hover:border-stone-400 hover:bg-stone-50'
                       }`}
                     >
                       {/* Sub-surface progress fill */}

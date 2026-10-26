@@ -54,9 +54,9 @@ export function ProfileSettingsClient({ initialUser }: { initialUser: UserProfil
   return (
     <form
       onSubmit={handleSubmit}
-      className="rounded-2xl border border-sand-200 bg-white p-6 sm:p-8 shadow-sm space-y-6"
+      className="rounded-2xl border border-stone-200 bg-white p-6 sm:p-8 shadow-sm space-y-6"
     >
-      <div className="flex items-center justify-between border-b border-sand-100 pb-4">
+      <div className="flex items-center justify-between border-b border-stone-100 pb-4">
         <div>
           <h1 className="text-2xl font-bold text-stone-900">Profile & Account Settings</h1>
           <p className="mt-1 text-xs text-stone-600">
@@ -103,7 +103,7 @@ export function ProfileSettingsClient({ initialUser }: { initialUser: UserProfil
             required
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
-            className="mt-1.5 w-full rounded-xl border border-sand-300 bg-sand-50/50 px-3.5 py-2.5 text-sm text-stone-900"
+            className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/50 px-3.5 py-2.5 text-sm text-stone-900"
           />
         </div>
 
@@ -117,7 +117,7 @@ export function ProfileSettingsClient({ initialUser }: { initialUser: UserProfil
             required
             value={username}
             onChange={(e) => setUsername(e.target.value.toLowerCase())}
-            className="mt-1.5 w-full rounded-xl border border-sand-300 bg-sand-50/50 px-3.5 py-2.5 text-sm font-mono text-stone-900"
+            className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/50 px-3.5 py-2.5 text-sm font-mono text-stone-900"
           />
         </div>
       </div>
@@ -132,7 +132,7 @@ export function ProfileSettingsClient({ initialUser }: { initialUser: UserProfil
           value={bio}
           onChange={(e) => setBio(e.target.value)}
           placeholder="Tell fellow Circle members about your interests and work..."
-          className="mt-1.5 w-full rounded-xl border border-sand-300 bg-sand-50/50 px-3.5 py-2.5 text-sm text-stone-900"
+          className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/50 px-3.5 py-2.5 text-sm text-stone-900"
         />
       </div>
 
@@ -147,7 +147,7 @@ export function ProfileSettingsClient({ initialUser }: { initialUser: UserProfil
             value={location}
             onChange={(e) => setLocation(e.target.value)}
             placeholder="e.g. London, UK"
-            className="mt-1.5 w-full rounded-xl border border-sand-300 bg-sand-50/50 px-3.5 py-2.5 text-sm text-stone-900"
+            className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/50 px-3.5 py-2.5 text-sm text-stone-900"
           />
         </div>
 
@@ -161,7 +161,7 @@ export function ProfileSettingsClient({ initialUser }: { initialUser: UserProfil
             value={avatarUrl}
             onChange={(e) => setAvatarUrl(e.target.value)}
             placeholder="https://example.com/avatar.png"
-            className="mt-1.5 w-full rounded-xl border border-sand-300 bg-sand-50/50 px-3.5 py-2.5 text-sm text-stone-900"
+            className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/50 px-3.5 py-2.5 text-sm text-stone-900"
           />
         </div>
 
@@ -173,7 +173,7 @@ export function ProfileSettingsClient({ initialUser }: { initialUser: UserProfil
             id="profile-visibility"
             value={profileVisibility}
             onChange={(e) => setProfileVisibility(e.target.value as ProfileVisibility)}
-            className="mt-1.5 w-full rounded-xl border border-sand-300 bg-sand-50/50 px-3.5 py-2.5 text-sm text-stone-900"
+            className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/50 px-3.5 py-2.5 text-sm text-stone-900"
           >
             <option value="public">Public — Visible across Circles</option>
             <option value="members_only">Authenticated Members Only</option>
@@ -182,7 +182,7 @@ export function ProfileSettingsClient({ initialUser }: { initialUser: UserProfil
         </div>
       </div>
 
-      <div className="flex justify-end border-t border-sand-100 pt-4">
+      <div className="flex justify-end border-t border-stone-100 pt-4">
         <button
           type="submit"
           disabled={saving}

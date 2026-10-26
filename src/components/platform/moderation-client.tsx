@@ -55,7 +55,7 @@ export function ModerationClient({
     <div className="space-y-6">
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-forest-700">
+          <p className="text-xs font-semibold uppercase tracking-wider text-stone-900">
             Trust & Safety Governance
           </p>
           <h1 className="mt-1 text-2xl font-bold text-stone-900">
@@ -77,7 +77,7 @@ export function ModerationClient({
       )}
 
       {reports.length === 0 ? (
-        <div className="rounded-2xl border border-sand-200 bg-white p-12 text-center">
+        <div className="rounded-2xl border border-stone-200 bg-white p-12 text-center">
           <ShieldAlert className="mx-auto h-9 w-9 text-stone-400" />
           <h2 className="mt-3 text-base font-bold text-stone-900">No content reports in queue</h2>
           <p className="mt-1 text-xs text-stone-600">
@@ -85,7 +85,7 @@ export function ModerationClient({
           </p>
         </div>
       ) : (
-        <div className="divide-y divide-sand-200 rounded-2xl border border-sand-200 bg-white shadow-sm">
+        <div className="divide-y divide-stone-200 rounded-2xl border border-stone-200 bg-white shadow-sm">
           {reports.map((report) => (
             <div key={report.id} className="p-6 space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
@@ -106,7 +106,7 @@ export function ModerationClient({
                   className={`rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${
                     report.status === 'open'
                       ? 'bg-red-100 text-red-900'
-                      : 'bg-sand-100 text-stone-700'
+                      : 'bg-stone-100 text-stone-700'
                   }`}
                 >
                   {report.status}
@@ -114,7 +114,7 @@ export function ModerationClient({
               </div>
 
               {report.target_preview && (
-                <div className="rounded-xl bg-sand-50 p-3 text-xs text-stone-800 border border-sand-200">
+                <div className="rounded-xl bg-stone-50 p-3 text-xs text-stone-800 border border-stone-200">
                   <span className="font-semibold text-stone-600">Reported {report.target_type}: </span>
                   {report.target_preview}
                 </div>
@@ -147,7 +147,7 @@ export function ModerationClient({
                   <button
                     type="button"
                     onClick={() => handleModerate(report, 'dismiss_report')}
-                    className="rounded-lg border border-sand-300 px-3.5 py-1.5 text-xs font-medium text-stone-700 hover:bg-sand-100"
+                    className="rounded-lg border border-stone-200 px-3.5 py-1.5 text-xs font-medium text-stone-700 hover:bg-stone-100"
                   >
                     Dismiss Report
                   </button>

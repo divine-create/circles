@@ -434,9 +434,9 @@ export function CircleStudioClient({
   return (
     <div className="space-y-6">
       {/* Studio Header */}
-      <div className="flex flex-col justify-between gap-4 rounded-2xl border border-sand-200 bg-white p-6 shadow-sm sm:flex-row sm:items-center">
+      <div className="flex flex-col justify-between gap-4 rounded-2xl border border-stone-200 bg-white p-6 shadow-sm sm:flex-row sm:items-center">
         <div>
-          <span className="text-xs font-semibold uppercase tracking-wider text-forest-700">
+          <span className="text-xs font-semibold uppercase tracking-wider text-stone-900">
             Circle Studio Control Center
           </span>
           <h2 className="mt-0.5 text-2xl font-bold text-stone-900">
@@ -450,7 +450,7 @@ export function CircleStudioClient({
               Unsaved changes
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-sand-100 px-3 py-1 text-xs font-medium text-stone-600">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-stone-100 px-3 py-1 text-xs font-medium text-stone-600">
               All changes synced
             </span>
           )}
@@ -458,7 +458,7 @@ export function CircleStudioClient({
       </div>
 
       {/* Studio Tabs */}
-      <div className="flex flex-wrap gap-2 border-b border-sand-200 pb-3">
+      <div className="flex flex-wrap gap-2 border-b border-stone-200 pb-3">
         {[
           { id: 'general', label: 'Identity & Policy', icon: Settings },
           { id: 'capabilities', label: 'Capabilities Registry', icon: Sliders },
@@ -480,7 +480,7 @@ export function CircleStudioClient({
               className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold transition-colors ${
                 active
                   ? 'bg-black text-white shadow-sm'
-                  : 'bg-white text-stone-700 border border-sand-200 hover:bg-sand-100'
+                  : 'bg-white text-stone-700 border border-stone-200 hover:bg-stone-100'
               }`}
             >
               <Icon className="h-3.5 w-3.5" />
@@ -514,7 +514,7 @@ export function CircleStudioClient({
       {activeTab === 'general' && (
         <form
           onSubmit={handleSaveGeneralSettings}
-          className="rounded-2xl border border-sand-200 bg-white p-6 shadow-sm space-y-5"
+          className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm space-y-5"
         >
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
@@ -527,7 +527,7 @@ export function CircleStudioClient({
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="mt-1.5 w-full rounded-xl border border-sand-300 bg-sand-50/50 px-3.5 py-2.5 text-sm text-stone-900"
+                className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/50 px-3.5 py-2.5 text-sm text-stone-900"
               />
             </div>
 
@@ -541,7 +541,7 @@ export function CircleStudioClient({
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
                 placeholder="City, Campus, or Remote"
-                className="mt-1.5 w-full rounded-xl border border-sand-300 bg-sand-50/50 px-3.5 py-2.5 text-sm text-stone-900"
+                className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/50 px-3.5 py-2.5 text-sm text-stone-900"
               />
             </div>
           </div>
@@ -555,7 +555,7 @@ export function CircleStudioClient({
               rows={3}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="mt-1.5 w-full rounded-xl border border-sand-300 bg-sand-50/50 px-3.5 py-2.5 text-sm text-stone-900"
+              className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/50 px-3.5 py-2.5 text-sm text-stone-900"
             />
           </div>
 
@@ -568,7 +568,7 @@ export function CircleStudioClient({
                 id="studio-category"
                 value={category}
                 onChange={(e) => setCategory(e.target.value as CircleCategory)}
-                className="mt-1.5 w-full rounded-xl border border-sand-300 bg-sand-50/50 px-3.5 py-2.5 text-sm text-stone-900"
+                className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/50 px-3.5 py-2.5 text-sm text-stone-900"
               >
                 <option value="university">University</option>
                 <option value="neighbourhood">Neighbourhood</option>
@@ -598,7 +598,7 @@ export function CircleStudioClient({
                     setMembershipPolicy('open');
                   }
                 }}
-                className="mt-1.5 w-full rounded-xl border border-sand-300 bg-sand-50/50 px-3.5 py-2.5 text-sm text-stone-900"
+                className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/50 px-3.5 py-2.5 text-sm text-stone-900"
               >
                 <option value="public">Public</option>
                 <option value="discoverable_approval">Discoverable with Approval</option>
@@ -615,7 +615,7 @@ export function CircleStudioClient({
                 value={membershipPolicy}
                 onChange={(e) => setMembershipPolicy(e.target.value as MembershipPolicy)}
                 disabled={visibility === 'private'}
-                className="mt-1.5 w-full rounded-xl border border-sand-300 bg-sand-50/50 px-3.5 py-2.5 text-sm text-stone-900 disabled:opacity-60"
+                className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/50 px-3.5 py-2.5 text-sm text-stone-900 disabled:opacity-60"
               >
                 {visibility === 'public' && <option value="open">Open Joining</option>}
                 {visibility !== 'private' && <option value="approval">Approval Required</option>}
@@ -624,7 +624,7 @@ export function CircleStudioClient({
             </div>
           </div>
 
-          <div className="flex items-center justify-between border-t border-sand-100 pt-4">
+          <div className="flex items-center justify-between border-t border-stone-100 pt-4">
             <span className="text-xs text-stone-500">
               {hasUnsavedChanges
                 ? 'You have unsaved configuration changes.'
@@ -643,7 +643,7 @@ export function CircleStudioClient({
 
       {/* TAB 2: CAPABILITY REGISTRY */}
       {activeTab === 'capabilities' && (
-        <div className="rounded-2xl border border-sand-200 bg-white p-6 shadow-sm space-y-5">
+        <div className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm space-y-5">
           <div>
             <h3 className="text-base font-bold text-stone-900">
               Authoritative Capability Registry
@@ -665,8 +665,8 @@ export function CircleStudioClient({
                   key={cap.capability_key}
                   className={`flex flex-col justify-between rounded-xl border p-4 ${
                     cap.enabled
-                      ? 'border-forest-600/40 bg-forest-50/30'
-                      : 'border-sand-200 bg-sand-50/40'
+                      ? 'border-black/30 bg-stone-100/30'
+                      : 'border-stone-200 bg-stone-50/40'
                   }`}
                 >
                   <div>
@@ -678,7 +678,7 @@ export function CircleStudioClient({
                             ? 'bg-zinc-950 text-white font-mono'
                             : def.release_stage === 'beta'
                               ? 'bg-blue-100 text-blue-900'
-                              : 'bg-sand-200 text-stone-700'
+                              : 'bg-stone-200 text-stone-700'
                         }`}
                       >
                         {def.release_stage === 'planned' ? 'P1 Planned' : def.release_stage}
@@ -692,7 +692,7 @@ export function CircleStudioClient({
                     )}
 
                     {cap.enabled && cap.capability_key === 'discussions' && (
-                      <div className="mt-3 flex flex-wrap gap-3 border-t border-sand-200/60 pt-2.5 text-xs text-stone-700">
+                      <div className="mt-3 flex flex-wrap gap-3 border-t border-stone-200/60 pt-2.5 text-xs text-stone-700">
                         <label className="inline-flex items-center gap-1.5 cursor-pointer">
                           <input
                             type="checkbox"
@@ -704,7 +704,7 @@ export function CircleStudioClient({
                                 allowMemberPosts: e.target.checked,
                               })
                             }
-                            className="rounded border-sand-300 text-forest-700"
+                            className="rounded border-stone-200 text-stone-900"
                           />
                           <span>Allow member posts</span>
                         </label>
@@ -719,7 +719,7 @@ export function CircleStudioClient({
                                 allowReactions: e.target.checked,
                               })
                             }
-                            className="rounded border-sand-300 text-forest-700"
+                            className="rounded border-stone-200 text-stone-900"
                           />
                           <span>Allow reactions</span>
                         </label>
@@ -727,7 +727,7 @@ export function CircleStudioClient({
                     )}
                   </div>
 
-                  <div className="mt-4 flex items-center justify-between border-t border-sand-200/80 pt-3">
+                  <div className="mt-4 flex items-center justify-between border-t border-stone-200/80 pt-3">
                     <span className="text-xs font-semibold text-stone-700">
                       Status: {cap.enabled ? 'Enabled' : 'Disabled'}
                     </span>
@@ -743,7 +743,7 @@ export function CircleStudioClient({
                         onClick={() => handleToggleCapability(cap.capability_key, !cap.enabled)}
                         className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
                           cap.enabled
-                            ? 'border border-sand-300 bg-white text-stone-700 hover:bg-red-50 hover:text-red-800'
+                            ? 'border border-stone-200 bg-white text-stone-700 hover:bg-red-50 hover:text-red-800'
                             : 'bg-black text-white hover:bg-zinc-800'
                         }`}
                       >
@@ -763,7 +763,7 @@ export function CircleStudioClient({
         <div className="space-y-6">
           <form
             onSubmit={handleCreateSpace}
-            className="rounded-2xl border border-sand-200 bg-white p-6 shadow-sm space-y-4"
+            className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm space-y-4"
           >
             <h3 className="text-base font-bold text-stone-900">Create a New Space</h3>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -778,7 +778,7 @@ export function CircleStudioClient({
                   value={newSpaceName}
                   onChange={(e) => setNewSpaceName(e.target.value)}
                   placeholder="e.g. Research Seminars"
-                  className="mt-1 w-full rounded-xl border border-sand-300 bg-sand-50 px-3 py-2 text-xs text-stone-900"
+                  className="mt-1 w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-xs text-stone-900"
                 />
               </div>
 
@@ -790,7 +790,7 @@ export function CircleStudioClient({
                   id="space-capability"
                   value={newSpaceCapability}
                   onChange={(e) => setNewSpaceCapability(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-sand-300 bg-sand-50 px-3 py-2 text-xs text-stone-900"
+                  className="mt-1 w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-xs text-stone-900"
                 >
                   <option value="discussions">Discussions & Posts</option>
                   <option value="events">Events</option>
@@ -809,7 +809,7 @@ export function CircleStudioClient({
                   id="space-policy"
                   value={newSpacePolicy}
                   onChange={(e) => setNewSpacePolicy(e.target.value as typeof newSpacePolicy)}
-                  className="mt-1 w-full rounded-xl border border-sand-300 bg-sand-50 px-3 py-2 text-xs text-stone-900"
+                  className="mt-1 w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-xs text-stone-900"
                 >
                   <option value="members">All Active Members</option>
                   <option value="moderators">Moderators & Admins Only</option>
@@ -828,7 +828,7 @@ export function CircleStudioClient({
                 value={newSpaceDescription}
                 onChange={(e) => setNewSpaceDescription(e.target.value)}
                 placeholder="What happens in this space?"
-                className="mt-1 w-full rounded-xl border border-sand-300 bg-sand-50 px-3 py-2 text-xs text-stone-900"
+                className="mt-1 w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-xs text-stone-900"
               />
             </div>
 
@@ -844,9 +844,9 @@ export function CircleStudioClient({
             </div>
           </form>
 
-          <div className="rounded-2xl border border-sand-200 bg-white p-6 shadow-sm space-y-4">
+          <div className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm space-y-4">
             <h3 className="text-base font-bold text-stone-900">Configured Spaces</h3>
-            <div className="divide-y divide-sand-100">
+            <div className="divide-y divide-stone-100">
               {spaces.map((sp, idx) => (
                 <div
                   key={sp.id}
@@ -855,7 +855,7 @@ export function CircleStudioClient({
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-bold text-stone-900">{sp.name}</span>
-                      <span className="rounded bg-sand-100 px-2 py-0.5 text-[10px] font-mono text-stone-600">
+                      <span className="rounded bg-stone-100 px-2 py-0.5 text-[10px] font-mono text-stone-600">
                         /{sp.slug}
                       </span>
                       {sp.is_archived && (
@@ -872,7 +872,7 @@ export function CircleStudioClient({
                       type="button"
                       disabled={busy || idx === 0}
                       onClick={() => handleReorderSpace(idx, 'up')}
-                      className="rounded-lg border border-sand-300 px-2 py-1 text-xs font-medium text-stone-600 hover:bg-sand-100 disabled:opacity-40"
+                      className="rounded-lg border border-stone-200 px-2 py-1 text-xs font-medium text-stone-600 hover:bg-stone-100 disabled:opacity-40"
                       title="Move up"
                     >
                       ↑
@@ -881,7 +881,7 @@ export function CircleStudioClient({
                       type="button"
                       disabled={busy || idx === spaces.length - 1}
                       onClick={() => handleReorderSpace(idx, 'down')}
-                      className="rounded-lg border border-sand-300 px-2 py-1 text-xs font-medium text-stone-600 hover:bg-sand-100 disabled:opacity-40"
+                      className="rounded-lg border border-stone-200 px-2 py-1 text-xs font-medium text-stone-600 hover:bg-stone-100 disabled:opacity-40"
                       title="Move down"
                     >
                       ↓
@@ -889,7 +889,7 @@ export function CircleStudioClient({
                     <button
                       type="button"
                       onClick={() => handleArchiveSpace(sp.id, !sp.is_archived)}
-                      className="inline-flex items-center gap-1 rounded-lg border border-sand-300 px-3 py-1.5 text-xs font-medium text-stone-700 hover:bg-sand-100"
+                      className="inline-flex items-center gap-1 rounded-lg border border-stone-200 px-3 py-1.5 text-xs font-medium text-stone-700 hover:bg-stone-100"
                     >
                       <Archive className="h-3.5 w-3.5" />
                       <span>{sp.is_archived ? 'Restore' : 'Archive'}</span>
@@ -906,9 +906,9 @@ export function CircleStudioClient({
       {activeTab === 'members' && (
         <div className="space-y-6">
           {/* Pending Join Requests */}
-          <div className="rounded-2xl border border-sand-200 bg-white p-6 shadow-sm space-y-4">
+          <div className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm space-y-4">
             <div className="flex items-center gap-2">
-              <UserCheck className="h-4 w-4 text-forest-700" />
+              <UserCheck className="h-4 w-4 text-stone-900" />
               <h3 className="text-base font-bold text-stone-900">
                 Membership Join Requests ({pendingJoinCount} pending)
               </h3>
@@ -917,7 +917,7 @@ export function CircleStudioClient({
             {joinRequests.length === 0 ? (
               <p className="text-xs text-stone-500">No join requests recorded for this Circle.</p>
             ) : (
-              <div className="divide-y divide-sand-100">
+              <div className="divide-y divide-stone-100">
                 {joinRequests.map((jr) => (
                   <div
                     key={jr.id}
@@ -949,13 +949,13 @@ export function CircleStudioClient({
                         <button
                           type="button"
                           onClick={() => handleReviewJoinRequest(jr.id, 'reject_request')}
-                          className="rounded-lg border border-sand-300 px-3.5 py-1.5 text-xs font-medium text-stone-700 hover:bg-red-50 hover:text-red-800"
+                          className="rounded-lg border border-stone-200 px-3.5 py-1.5 text-xs font-medium text-stone-700 hover:bg-red-50 hover:text-red-800"
                         >
                           Reject
                         </button>
                       </div>
                     ) : (
-                      <span className="rounded-full bg-sand-100 px-2.5 py-0.5 text-xs font-semibold capitalize text-stone-700">
+                      <span className="rounded-full bg-stone-100 px-2.5 py-0.5 text-xs font-semibold capitalize text-stone-700">
                         {jr.status}
                       </span>
                     )}
@@ -968,10 +968,10 @@ export function CircleStudioClient({
           {/* Issue Invitation */}
           <form
             onSubmit={handleInviteMember}
-            className="rounded-2xl border border-sand-200 bg-white p-6 shadow-sm space-y-4"
+            className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm space-y-4"
           >
             <div className="flex items-center gap-2">
-              <Mail className="h-4 w-4 text-forest-700" />
+              <Mail className="h-4 w-4 text-stone-900" />
               <h3 className="text-base font-bold text-stone-900">Invite a Member by Email</h3>
             </div>
 
@@ -982,12 +982,12 @@ export function CircleStudioClient({
                 value={inviteEmail}
                 onChange={(e) => setInviteEmail(e.target.value)}
                 placeholder="colleague@example.com"
-                className="flex-1 rounded-xl border border-sand-300 bg-sand-50 px-3.5 py-2 text-xs text-stone-900"
+                className="flex-1 rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-2 text-xs text-stone-900"
               />
               <select
                 value={inviteRole}
                 onChange={(e) => setInviteRole(e.target.value as Exclude<CircleRole, 'owner'>)}
-                className="rounded-xl border border-sand-300 bg-sand-50 px-3.5 py-2 text-xs text-stone-900"
+                className="rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-2 text-xs text-stone-900"
               >
                 <option value="member">Member</option>
                 <option value="moderator">Moderator</option>
@@ -1023,11 +1023,11 @@ export function CircleStudioClient({
           </form>
 
           {/* Member Roles Management */}
-          <div className="rounded-2xl border border-sand-200 bg-white p-6 shadow-sm space-y-4">
+          <div className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm space-y-4">
             <h3 className="text-base font-bold text-stone-900">
               Active Members & Role Assignments ({members.length})
             </h3>
-            <div className="divide-y divide-sand-100">
+            <div className="divide-y divide-stone-100">
               {members.map((m) => (
                 <div
                   key={m.id}
@@ -1057,7 +1057,7 @@ export function CircleStudioClient({
                             e.target.value as Exclude<CircleRole, 'owner'>
                           )
                         }
-                        className="rounded-xl border border-sand-300 bg-sand-50 px-3 py-1.5 text-xs font-medium text-stone-800"
+                        className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-1.5 text-xs font-medium text-stone-800"
                       >
                         <option value="member">Member</option>
                         <option value="moderator">Moderator</option>
@@ -1068,7 +1068,7 @@ export function CircleStudioClient({
                         type="button"
                         disabled={busy}
                         onClick={() => handleToggleMemberSuspension(m.user_id, m.status)}
-                        className="rounded-xl border border-sand-300 px-2.5 py-1.5 text-xs font-medium text-stone-700 hover:bg-sand-100"
+                        className="rounded-xl border border-stone-200 px-2.5 py-1.5 text-xs font-medium text-stone-700 hover:bg-stone-100"
                       >
                         {m.status === 'suspended' ? 'Restore' : 'Suspend'}
                       </button>
@@ -1099,13 +1099,13 @@ export function CircleStudioClient({
 
       {/* TAB 5: AUDIT LOGS */}
       {activeTab === 'audit' && (
-        <div className="rounded-2xl border border-sand-200 bg-white p-6 shadow-sm space-y-4">
+        <div className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm space-y-4">
           <h3 className="text-base font-bold text-stone-900">Security & Configuration Audit Log</h3>
-          <div className="divide-y divide-sand-100 text-xs">
+          <div className="divide-y divide-stone-100 text-xs">
             {initialLogs.map((log) => (
               <div key={log.id} className="py-3 first:pt-0 last:pb-0">
                 <div className="flex items-center justify-between">
-                  <span className="font-mono font-semibold text-forest-800">{log.action}</span>
+                  <span className="font-mono font-semibold text-stone-900">{log.action}</span>
                   <span className="text-stone-400">
                     {new Date(log.created_at).toLocaleString()}
                   </span>

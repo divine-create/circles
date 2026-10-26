@@ -45,7 +45,7 @@ export default async function CircleProjectsPage({
     projects = await listCircleProjects(user?.id ?? null, circle.id);
   } catch {
     return (
-      <div className="rounded-2xl border border-sand-200 bg-white p-10 text-center shadow-sm">
+      <div className="rounded-2xl border border-stone-200/90 bg-white p-10 text-center shadow-xs">
         <FolderKanban className="mx-auto h-8 w-8 text-stone-400" />
         <h2 className="mt-3 text-lg font-bold text-stone-900">
           Projects & Collaboration Capability Disabled

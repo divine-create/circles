@@ -286,7 +286,7 @@ export function CommunityHubBoard({
                 value={propTitle}
                 onChange={(e) => setPropTitle(e.target.value)}
                 placeholder="Proposal title (e.g., Adopt Open Hardware Equipment Charter)"
-                className="w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-forest-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-600/20"
+                className="w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-black focus:bg-white focus:outline-none focus:ring-2 focus:ring-black/10"
               />
               <textarea
                 required
@@ -294,7 +294,7 @@ export function CommunityHubBoard({
                 value={propBody}
                 onChange={(e) => setPropBody(e.target.value)}
                 placeholder="Rationale, scope, and expected budget impact..."
-                className="w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-forest-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-600/20"
+                className="w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-black focus:bg-white focus:outline-none focus:ring-2 focus:ring-black/10"
               />
               <div className="flex justify-end">
                 <Button size="xs" type="submit">
@@ -308,17 +308,17 @@ export function CommunityHubBoard({
           {proposals.map((p) => (
             <div
               key={p.id}
-              className="group rounded-2xl border border-stone-200/80 bg-white p-5 shadow-xs hover:border-forest-600/40 hover:shadow-premium-hover transition-all duration-200 space-y-2"
+              className="group rounded-2xl border border-stone-200/80 bg-white p-5 shadow-xs hover:border-black/30 hover:shadow-premium-hover transition-all duration-200 space-y-2"
             >
               <div className="flex items-center justify-between">
-                <span className="rounded-full bg-forest-50 px-2.5 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider text-forest-800 border border-forest-200/60">
+                <span className="rounded-full bg-stone-100 px-2.5 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider text-stone-900 border border-stone-200">
                   {p.status.replace('_', ' ')}
                 </span>
                 <span className="text-[11px] font-mono text-stone-400">
                   By {p.proposer?.display_name || 'Member'}
                 </span>
               </div>
-              <h4 className="text-base font-bold text-stone-900 group-hover:text-forest-800 transition-colors">
+              <h4 className="text-base font-bold text-stone-900 group-hover:text-black transition-colors">
                 {p.title}
               </h4>
               <p className="text-xs sm:text-sm text-stone-600 leading-relaxed font-normal">
@@ -359,7 +359,7 @@ export function CommunityHubBoard({
                   value={campTitle}
                   onChange={(e) => setCampTitle(e.target.value)}
                   placeholder="Campaign Title"
-                  className="rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-forest-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-600/20"
+                  className="rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-black focus:bg-white focus:outline-none focus:ring-2 focus:ring-black/10"
                 />
                 <input
                   type="number"
@@ -368,7 +368,7 @@ export function CommunityHubBoard({
                   value={campGoal}
                   onChange={(e) => setCampGoal(e.target.value)}
                   placeholder="Goal Amount (e.g. 1500)"
-                  className="rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-forest-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-600/20"
+                  className="rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-black focus:bg-white focus:outline-none focus:ring-2 focus:ring-black/10"
                 />
               </div>
               <textarea
@@ -377,7 +377,7 @@ export function CommunityHubBoard({
                 value={campDesc}
                 onChange={(e) => setCampDesc(e.target.value)}
                 placeholder="Describe how community pledges will be allocated..."
-                className="w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-forest-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-600/20"
+                className="w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-black focus:bg-white focus:outline-none focus:ring-2 focus:ring-black/10"
               />
               <div className="flex justify-end">
                 <Button size="xs" type="submit">
@@ -396,11 +396,11 @@ export function CommunityHubBoard({
             return (
               <div
                 key={c.id}
-                className="group rounded-2xl border border-stone-200/80 bg-white p-5 shadow-xs hover:border-forest-600/40 hover:shadow-premium-hover transition-all duration-200 space-y-3"
+                className="group rounded-2xl border border-stone-200/80 bg-white p-5 shadow-xs hover:border-black/30 hover:shadow-premium-hover transition-all duration-200 space-y-3"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <h4 className="text-base font-bold text-stone-900 group-hover:text-forest-800 transition-colors">
+                    <h4 className="text-base font-bold text-stone-900 group-hover:text-black transition-colors">
                       {c.title}
                     </h4>
                     <p className="mt-1 text-xs sm:text-sm text-stone-600 leading-relaxed font-normal">
@@ -453,14 +453,14 @@ export function CommunityHubBoard({
                   value={chalTitle}
                   onChange={(e) => setChalTitle(e.target.value)}
                   placeholder="e.g. Host 3 Open-Source Workshops"
-                  className="rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-forest-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-600/20"
+                  className="rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-black focus:bg-white focus:outline-none focus:ring-2 focus:ring-black/10"
                 />
                 <input
                   required
                   value={chalBadge}
                   onChange={(e) => setChalBadge(e.target.value)}
                   placeholder="Reward Badge (e.g. Master Mentor)"
-                  className="rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-forest-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-600/20"
+                  className="rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-black focus:bg-white focus:outline-none focus:ring-2 focus:ring-black/10"
                 />
               </div>
               <textarea
@@ -469,7 +469,7 @@ export function CommunityHubBoard({
                 value={chalDesc}
                 onChange={(e) => setChalDesc(e.target.value)}
                 placeholder="Challenge goals and completion criteria..."
-                className="w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-forest-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-600/20"
+                className="w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-black focus:bg-white focus:outline-none focus:ring-2 focus:ring-black/10"
               />
               <div className="flex justify-end">
                 <Button size="xs" type="submit">
@@ -483,14 +483,14 @@ export function CommunityHubBoard({
           {challenges.map((ch) => (
             <div
               key={ch.id}
-              className="group rounded-2xl border border-stone-200/80 bg-white p-5 shadow-xs hover:border-forest-600/40 hover:shadow-premium-hover transition-all duration-200 space-y-3"
+              className="group rounded-2xl border border-stone-200/80 bg-white p-5 shadow-xs hover:border-black/30 hover:shadow-premium-hover transition-all duration-200 space-y-3"
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider text-amber-900 border border-amber-200/70">
                     Badge: {ch.reward_badge_name} · {ch.reward_points} pts
                   </span>
-                  <h4 className="mt-2 text-base font-bold text-stone-900 group-hover:text-forest-800 transition-colors">
+                  <h4 className="mt-2 text-base font-bold text-stone-900 group-hover:text-black transition-colors">
                     {ch.title}
                   </h4>
                   <p className="mt-1 text-xs sm:text-sm text-stone-600 leading-relaxed font-normal">
@@ -532,7 +532,7 @@ export function CommunityHubBoard({
                 value={ticketSubject}
                 onChange={(e) => setTicketSubject(e.target.value)}
                 placeholder="Brief subject of your question or issue..."
-                className="w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-forest-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-600/20"
+                className="w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-black focus:bg-white focus:outline-none focus:ring-2 focus:ring-black/10"
               />
               <textarea
                 required
@@ -540,7 +540,7 @@ export function CommunityHubBoard({
                 value={ticketDesc}
                 onChange={(e) => setTicketDesc(e.target.value)}
                 placeholder="Details of your request..."
-                className="w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-forest-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-600/20"
+                className="w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-black focus:bg-white focus:outline-none focus:ring-2 focus:ring-black/10"
               />
               <div className="flex items-center justify-between pt-1">
                 <label className="inline-flex items-center gap-2 text-xs text-stone-600 cursor-pointer">
@@ -548,7 +548,7 @@ export function CommunityHubBoard({
                     type="checkbox"
                     checked={ticketPrivate}
                     onChange={(e) => setTicketPrivate(e.target.checked)}
-                    className="rounded border-stone-300 text-forest-700 focus:ring-forest-600"
+                    className="rounded border-stone-300 text-stone-900 focus:ring-black/10"
                   />
                   <span>Private ticket (visible only to you and Circle staff)</span>
                 </label>
@@ -562,11 +562,11 @@ export function CommunityHubBoard({
           {tickets.map((t) => (
             <div
               key={t.id}
-              className="group rounded-2xl border border-stone-200/80 bg-white p-5 shadow-xs hover:border-forest-600/40 hover:shadow-premium-hover transition-all duration-200 space-y-2"
+              className="group rounded-2xl border border-stone-200/80 bg-white p-5 shadow-xs hover:border-black/30 hover:shadow-premium-hover transition-all duration-200 space-y-2"
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="rounded-full bg-forest-50 px-2.5 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider text-forest-800 border border-forest-200/60">
+                  <span className="rounded-full bg-stone-100 px-2.5 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider text-stone-900 border border-stone-200">
                     {t.status.replace('_', ' ')}
                   </span>
                   {t.is_private && (
@@ -579,7 +579,7 @@ export function CommunityHubBoard({
                   Priority: {t.priority}
                 </span>
               </div>
-              <h4 className="text-base font-bold text-stone-900 group-hover:text-forest-800 transition-colors">
+              <h4 className="text-base font-bold text-stone-900 group-hover:text-black transition-colors">
                 {t.subject}
               </h4>
               <p className="text-xs sm:text-sm text-stone-600 leading-relaxed font-normal">

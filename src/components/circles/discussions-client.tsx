@@ -231,7 +231,7 @@ export function DiscussionsClient({
       {showComposer && isActiveMember && (
         <form
           onSubmit={handleCreatePost}
-          className="rounded-2xl border border-forest-600/30 bg-white p-6 shadow-md space-y-4"
+          className="rounded-2xl border border-black/30 bg-white p-6 shadow-md space-y-4"
         >
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold text-stone-900">Publish a Post to {circle.name}</h3>
@@ -260,7 +260,7 @@ export function DiscussionsClient({
                 id="post-space"
                 value={spaceId}
                 onChange={(e) => setSpaceId(e.target.value)}
-                className="mt-1 w-full sm:w-64 rounded-xl border border-sand-300 bg-sand-50 px-3 py-2 text-xs text-stone-900"
+                className="mt-1 w-full sm:w-64 rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-xs text-stone-900"
               >
                 <option value="">General Circle Feed</option>
                 {spaces.map((sp) => (
@@ -283,7 +283,7 @@ export function DiscussionsClient({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Write a clear, descriptive title..."
-              className="mt-1 w-full rounded-xl border border-sand-300 bg-sand-50/50 px-3.5 py-2.5 text-sm text-stone-900 focus:border-forest-600 focus:bg-white focus:outline-none"
+              className="mt-1 w-full rounded-xl border border-stone-200 bg-stone-50/50 px-3.5 py-2.5 text-sm text-stone-900 focus:border-black focus:bg-white focus:outline-none"
             />
           </div>
 
@@ -298,7 +298,7 @@ export function DiscussionsClient({
               value={body}
               onChange={(e) => setBody(e.target.value)}
               placeholder="Share context, questions, or updates with the Circle..."
-              className="mt-1 w-full rounded-xl border border-sand-300 bg-sand-50/50 px-3.5 py-2.5 text-sm text-stone-900 focus:border-forest-600 focus:bg-white focus:outline-none"
+              className="mt-1 w-full rounded-xl border border-stone-200 bg-stone-50/50 px-3.5 py-2.5 text-sm text-stone-900 focus:border-black focus:bg-white focus:outline-none"
             />
           </div>
 
@@ -306,7 +306,7 @@ export function DiscussionsClient({
             <button
               type="button"
               onClick={() => setShowComposer(false)}
-              className="rounded-xl border border-sand-300 px-4 py-2 text-xs font-medium text-stone-700 hover:bg-sand-100"
+              className="rounded-xl border border-stone-200 px-4 py-2 text-xs font-medium text-stone-700 hover:bg-stone-100"
             >
               Cancel
             </button>
@@ -372,7 +372,7 @@ export function DiscussionsClient({
 
       {/* Feed List */}
       {visiblePosts.length === 0 ? (
-        <div className="rounded-2xl border border-sand-200 bg-white p-10 text-center">
+        <div className="rounded-2xl border border-stone-200 bg-white p-10 text-center">
           <MessageSquare className="mx-auto h-9 w-9 text-stone-400" />
           <h3 className="mt-3 text-base font-bold text-stone-900">
             {savedFilterOnly ? 'No saved posts in this view' : 'No discussions in this view yet'}
@@ -393,11 +393,11 @@ export function DiscussionsClient({
             return (
               <article
                 key={post.id}
-                className="group rounded-2xl border border-stone-200/80 bg-white p-6 shadow-xs hover:border-forest-600/40 hover:shadow-premium-hover transition-all duration-200"
+                className="group rounded-2xl border border-stone-200/80 bg-white p-6 shadow-xs hover:border-black/30 hover:shadow-premium-hover transition-all duration-200"
               >
                 <div className="flex items-center justify-between gap-2 text-xs text-stone-500">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-forest-100 text-[10px] font-bold text-forest-800">
+                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-stone-100 text-[10px] font-bold text-stone-900">
                       {(post.author?.display_name || 'M').slice(0, 1).toUpperCase()}
                     </span>
                     <span className="font-semibold text-stone-800">
@@ -408,7 +408,7 @@ export function DiscussionsClient({
                     <span className="text-stone-400">{new Date(post.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
                     {post.space && (
                       <span className="inline-flex items-center gap-1 rounded-md bg-stone-100 px-2 py-0.5 text-[10px] font-mono font-medium text-stone-600 border border-stone-200/60">
-                        <DynamicIcon name={post.space.icon} className="h-3 w-3 text-forest-700" />
+                        <DynamicIcon name={post.space.icon} className="h-3 w-3 text-stone-900" />
                         {post.space.name}
                       </span>
                     )}
@@ -448,7 +448,7 @@ export function DiscussionsClient({
                   href={`/circles/${circle.slug}/discussions/${post.id}`}
                   className="block mt-3"
                 >
-                  <h3 className="text-base font-bold text-stone-900 group-hover:text-forest-800 transition-colors">
+                  <h3 className="text-base font-bold text-stone-900 group-hover:text-black transition-colors">
                     {post.title}
                   </h3>
                   <p className="mt-2 whitespace-pre-line text-xs sm:text-sm text-stone-600 leading-relaxed line-clamp-4 font-normal">
@@ -464,12 +464,12 @@ export function DiscussionsClient({
                       disabled={!isActiveMember}
                       className={`inline-flex items-center gap-1.5 font-medium transition-colors ${
                         post.viewer_has_liked
-                          ? 'text-forest-800 font-semibold'
+                          ? 'text-stone-900 font-semibold'
                           : 'text-stone-500 hover:text-stone-900'
                       } disabled:opacity-50`}
                     >
                       <Heart
-                        className={`h-3.5 w-3.5 ${post.viewer_has_liked ? 'fill-forest-800 text-forest-800' : ''}`}
+                        className={`h-3.5 w-3.5 ${post.viewer_has_liked ? 'fill-black text-stone-900' : ''}`}
                       />
                       <span className="font-mono text-xs">{post.reaction_count}</span>
                     </button>
@@ -490,11 +490,11 @@ export function DiscussionsClient({
                       type="button"
                       onClick={() => handleToggleSave(post.id)}
                       className={`inline-flex items-center gap-1 text-xs font-medium transition-colors ${
-                        post.viewer_has_saved ? 'text-forest-800 font-semibold' : 'text-stone-400 hover:text-stone-700'
+                        post.viewer_has_saved ? 'text-stone-900 font-semibold' : 'text-stone-400 hover:text-stone-700'
                       }`}
                     >
                       <Bookmark
-                        className={`h-3.5 w-3.5 ${post.viewer_has_saved ? 'fill-forest-800 text-forest-800' : ''}`}
+                        className={`h-3.5 w-3.5 ${post.viewer_has_saved ? 'fill-black text-stone-900' : ''}`}
                       />
                       <span>{post.viewer_has_saved ? 'Saved' : 'Save'}</span>
                     </button>

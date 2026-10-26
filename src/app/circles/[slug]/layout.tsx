@@ -49,7 +49,7 @@ export default async function CircleLayout({
 
               <div className="pt-2">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded-full bg-forest-50 px-2.5 py-0.5 text-[11px] font-mono font-semibold uppercase tracking-wider text-forest-800 border border-forest-200/60">
+                  <span className="rounded-full bg-stone-100 px-2.5 py-0.5 text-[11px] font-mono font-semibold uppercase tracking-wider text-stone-800 border border-stone-200">
                     {circle.category.replace('_', ' ')}
                   </span>
                   <span className="inline-flex items-center gap-1 text-[11px] font-medium text-stone-500">
@@ -89,7 +89,7 @@ export default async function CircleLayout({
 
           <div className="mt-4 flex flex-wrap items-center gap-5 text-xs text-stone-500 border-t border-stone-100 pt-3">
             <span className="inline-flex items-center gap-1.5 font-medium text-stone-700">
-              <Users className="h-3.5 w-3.5 text-forest-700" />
+              <Users className="h-3.5 w-3.5 text-stone-900" />
               {circle.member_count ?? 1} {circle.member_count === 1 ? 'member' : 'members'}
             </span>
             {circle.location && (
@@ -155,7 +155,7 @@ export default async function CircleLayout({
                     </p>
                     <Link
                       href={`/circles/${circle.slug}/spaces`}
-                      className="text-[10px] font-mono font-semibold text-forest-700 hover:underline uppercase"
+                      className="text-[10px] font-mono font-semibold text-stone-900 hover:underline uppercase"
                     >
                       All ({navigation.visibleSpaces.length})
                     </Link>
@@ -167,7 +167,7 @@ export default async function CircleLayout({
                       className="flex items-center justify-between rounded-xl px-3 py-1.5 text-xs font-medium text-stone-600 hover:bg-stone-50 hover:text-stone-900 transition-colors"
                     >
                       <span className="flex items-center gap-2 truncate">
-                        <DynamicIcon name={sp.icon} className="h-3.5 w-3.5 text-forest-700 shrink-0" />
+                        <DynamicIcon name={sp.icon} className="h-3.5 w-3.5 text-stone-900 shrink-0" />
                         <span className="truncate">{sp.name}</span>
                       </span>
                     </Link>

@@ -84,7 +84,7 @@ export default async function CircleMembersPage({
             <h2 className="text-lg font-bold text-stone-900">
               Member Directory
             </h2>
-            <span className="rounded-full bg-forest-50 px-2 py-0.5 text-[10px] font-mono font-semibold text-forest-800 border border-forest-200/60">
+            <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-mono font-semibold text-stone-800 border border-stone-200">
               {activeMembers.length} MEMBERS
             </span>
           </div>
@@ -101,13 +101,13 @@ export default async function CircleMembersPage({
               name="search"
               defaultValue={searchQuery}
               placeholder="Filter members..."
-              className="rounded-xl border border-stone-200 bg-stone-50/70 py-1.5 pl-8 pr-3 text-xs text-stone-900 placeholder:text-stone-400 focus:border-forest-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-600/20"
+              className="rounded-xl border border-stone-200 bg-stone-50/70 py-1.5 pl-8 pr-3 text-xs text-stone-900 placeholder:text-stone-400 focus:border-black focus:bg-white focus:outline-none focus:ring-2 focus:ring-black/10"
             />
           </div>
           <select
             name="role"
             defaultValue={roleFilter}
-            className="rounded-xl border border-stone-200 bg-stone-50/70 px-3 py-1.5 text-xs text-stone-700 focus:border-forest-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-600/20"
+            className="rounded-xl border border-stone-200 bg-stone-50/70 px-3 py-1.5 text-xs text-stone-700 focus:border-black focus:bg-white focus:outline-none focus:ring-2 focus:ring-black/10"
           >
             <option value="all">All Roles</option>
             <option value="owner">Owners</option>
@@ -131,12 +131,12 @@ export default async function CircleMembersPage({
             className="group flex flex-col justify-between gap-3 py-3.5 first:pt-0 last:pb-0 sm:flex-row sm:items-center hover:bg-stone-50/50 rounded-xl px-2 transition-colors"
           >
             <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-forest-100 text-xs font-bold text-forest-800 shadow-xs">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-zinc-900 text-xs font-bold text-white shadow-xs">
                 {(m.profile?.display_name || 'M').slice(0, 1).toUpperCase()}
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <p className="text-sm font-bold text-stone-900 group-hover:text-forest-800 transition-colors">
+                  <p className="text-sm font-bold text-stone-900 group-hover:text-black transition-colors">
                     {m.profile?.display_name}
                   </p>
                   <span className="text-[11px] font-mono text-stone-400">@{m.profile?.username}</span>

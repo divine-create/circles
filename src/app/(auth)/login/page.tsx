@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { AlertCircle, ArrowRight, KeyRound, Lock, Mail, Sparkles } from 'lucide-react';
+import { AlertCircle, ArrowRight, Lock, Mail, Sparkles } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -34,12 +34,6 @@ export default function LoginPage() {
     } finally {
       setLoading(false);
     }
-  }
-
-  function fillDemoAccount(demoEmail: string) {
-    setEmail(demoEmail);
-    setPassword('CirclesDemo123!');
-    setError(null);
   }
 
   return (
@@ -123,58 +117,9 @@ export default function LoginPage() {
           </button>
         </form>
 
-        {/* Quick Seeded Accounts for Local Verification */}
-        <div className="mt-6 border-t border-stone-100 pt-5">
-          <p className="flex items-center gap-1.5 text-xs font-semibold text-stone-600">
-            <KeyRound className="h-3.5 w-3.5 text-zinc-900" />
-            <span>Developer Seed Accounts</span>
-          </p>
-          <div className="mt-2.5 grid grid-cols-1 gap-1.5">
-            <button
-              type="button"
-              onClick={() => fillDemoAccount('amara@circles.dev')}
-              className="flex items-center justify-between rounded-xl border border-stone-200/80 bg-stone-50/70 px-3 py-1.5 text-xs text-stone-700 hover:bg-stone-100 transition-colors text-left"
-            >
-              <div>
-                <p className="font-semibold text-stone-900">Amara Okafor</p>
-                <p className="text-[10px] text-stone-500 font-mono">amara@circles.dev</p>
-              </div>
-              <span className="rounded bg-zinc-950 px-1.5 py-0.5 text-[9px] font-mono font-bold text-white">
-                ADMIN
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => fillDemoAccount('liam@circles.dev')}
-              className="flex items-center justify-between rounded-xl border border-stone-200/80 bg-stone-50/70 px-3 py-1.5 text-xs text-stone-700 hover:bg-stone-100 transition-colors text-left"
-            >
-              <div>
-                <p className="font-semibold text-stone-900">Liam Chen</p>
-                <p className="text-[10px] text-stone-500 font-mono">liam@circles.dev</p>
-              </div>
-              <span className="rounded bg-zinc-200 px-1.5 py-0.5 text-[9px] font-mono font-bold text-zinc-900">
-                OWNER
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => fillDemoAccount('sofia@circles.dev')}
-              className="flex items-center justify-between rounded-xl border border-stone-200/80 bg-stone-50/70 px-3 py-1.5 text-xs text-stone-700 hover:bg-stone-100 transition-colors text-left"
-            >
-              <div>
-                <p className="font-semibold text-stone-900">Sofia Rossi</p>
-                <p className="text-[10px] text-stone-500 font-mono">sofia@circles.dev</p>
-              </div>
-              <span className="rounded bg-stone-200 px-1.5 py-0.5 text-[9px] font-mono font-bold text-stone-700">
-                MEMBER
-              </span>
-            </button>
-          </div>
-        </div>
-
         <p className="mt-6 text-center text-xs text-stone-500">
           Don&apos;t have an account yet?{' '}
-          <Link href="/register" className="font-semibold text-forest-700 hover:underline">
+          <Link href="/register" className="font-semibold text-stone-900 hover:underline">
             Create an account
           </Link>
         </p>

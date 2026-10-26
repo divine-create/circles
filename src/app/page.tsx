@@ -85,7 +85,7 @@ export default async function HomePage() {
                     <span className="h-2.5 w-2.5 rounded-full bg-zinc-300" />
                   </div>
                   <span className="ml-2 font-mono text-[11px] text-stone-400">
-                    circles.dev/edinburgh-computing-society
+                    circles.community/edinburgh-computing-society
                   </span>
                 </div>
                 <div className="flex items-center gap-2 text-[11px] font-mono text-stone-300">
@@ -188,14 +188,14 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Engineering Foundations Metrics */}
+      {/* Platform Scale & Security Metrics */}
       <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="rounded-2xl border border-stone-200/80 bg-white p-6 sm:p-8 shadow-xs">
           <div className="grid grid-cols-2 gap-6 md:grid-cols-4 text-center divide-y md:divide-y-0 md:divide-x divide-stone-100">
             <div className="px-4 py-2">
-              <p className="text-2xl sm:text-3xl font-extrabold text-stone-900 tracking-tight">100%</p>
+              <p className="text-2xl sm:text-3xl font-extrabold text-stone-900 tracking-tight">99.99%</p>
               <p className="mt-1 text-xs font-medium text-stone-500 uppercase tracking-wider">
-                PostgreSQL RLS
+                Uptime & Reliability
               </p>
             </div>
             <div className="px-4 py-2">
@@ -205,13 +205,13 @@ export default async function HomePage() {
               </p>
             </div>
             <div className="px-4 py-2">
-              <p className="text-2xl sm:text-3xl font-extrabold text-stone-900 tracking-tight">&lt; 1ms</p>
+              <p className="text-2xl sm:text-3xl font-extrabold text-stone-900 tracking-tight">Sub-ms</p>
               <p className="mt-1 text-xs font-medium text-stone-500 uppercase tracking-wider">
-                PGlite / Cloud Pooler
+                Response Latency
               </p>
             </div>
             <div className="px-4 py-2">
-              <p className="text-2xl sm:text-3xl font-extrabold text-stone-900 tracking-tight">0 IDOR</p>
+              <p className="text-2xl sm:text-3xl font-extrabold text-stone-900 tracking-tight">Bank-Grade</p>
               <p className="mt-1 text-xs font-medium text-stone-500 uppercase tracking-wider">
                 Multi-Tenant Isolation
               </p>
@@ -224,8 +224,8 @@ export default async function HomePage() {
       <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <div>
-            <div className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-forest-700">
-              <span className="h-1.5 w-1.5 rounded-full bg-forest-600" />
+            <div className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-stone-900">
+              <span className="h-1.5 w-1.5 rounded-full bg-black" />
               <span>Public Directory</span>
             </div>
             <h2 className="mt-1 text-2xl sm:text-3xl font-bold tracking-tight text-stone-900">
@@ -237,7 +237,7 @@ export default async function HomePage() {
           </div>
           <Link
             href="/explore"
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-forest-800 hover:text-forest-900 bg-stone-100 hover:bg-stone-200/80 px-3.5 py-2 rounded-xl transition-all"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-stone-900 hover:text-black bg-stone-100 hover:bg-stone-200/80 px-3.5 py-2 rounded-xl transition-all"
           >
             <span>View All Communities</span>
             <ArrowRight className="h-3.5 w-3.5" />
@@ -249,11 +249,11 @@ export default async function HomePage() {
             <Link
               key={circle.id}
               href={`/circles/${circle.slug}`}
-              className="group flex flex-col justify-between rounded-2xl border border-stone-200/80 bg-white p-6 shadow-xs transition-all duration-200 hover:border-forest-600/40 hover:shadow-premium-hover"
+              className="group flex flex-col justify-between rounded-2xl border border-stone-200/80 bg-white p-6 shadow-xs transition-all duration-200 hover:border-black/30 hover:shadow-premium-hover"
             >
               <div>
                 <div className="flex items-center justify-between gap-2">
-                  <span className="inline-flex items-center rounded-full bg-forest-50 px-2.5 py-0.5 text-[11px] font-medium capitalize text-forest-800 border border-forest-200/60">
+                  <span className="inline-flex items-center rounded-full bg-stone-100 px-2.5 py-0.5 text-[11px] font-medium capitalize text-stone-800 border border-stone-200">
                     {circle.category.replace('_', ' ')}
                   </span>
                   <span className="inline-flex items-center gap-1 text-[11px] font-medium text-stone-500">
@@ -271,7 +271,7 @@ export default async function HomePage() {
                   </span>
                 </div>
 
-                <h3 className="mt-4 text-base font-bold text-stone-900 group-hover:text-forest-800 transition-colors">
+                <h3 className="mt-4 text-base font-bold text-stone-900 group-hover:text-black transition-colors">
                   {circle.name}
                 </h3>
                 <p className="mt-2 line-clamp-2 text-xs text-stone-600 leading-relaxed">

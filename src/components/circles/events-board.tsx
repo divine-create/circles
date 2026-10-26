@@ -96,7 +96,7 @@ export function EventsBoard({
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-lg font-bold text-stone-900">Events & Meetups</h2>
-            <span className="rounded-full bg-forest-50 px-2 py-0.5 text-[10px] font-mono font-semibold text-forest-800 border border-forest-200/60">
+            <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-mono font-semibold text-stone-900 border border-stone-200">
               {events.length} SESSIONS
             </span>
           </div>
@@ -144,7 +144,7 @@ export function EventsBoard({
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="e.g. Distributed Systems Seminar"
-                className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-forest-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-600/20 transition-all"
+                className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-black focus:bg-white focus:outline-none focus:ring-2 focus:ring-black/10 transition-all"
               />
             </div>
             <div>
@@ -159,7 +159,7 @@ export function EventsBoard({
                       e.target.value as 'event' | 'meetup' | 'workshop' | 'online'
                     )
                   }
-                  className="w-1/2 rounded-xl border border-stone-200 bg-stone-50/60 px-3 py-2 text-xs sm:text-sm text-stone-900 focus:border-forest-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-600/20"
+                  className="w-1/2 rounded-xl border border-stone-200 bg-stone-50/60 px-3 py-2 text-xs sm:text-sm text-stone-900 focus:border-black focus:bg-white focus:outline-none focus:ring-2 focus:ring-black/10"
                 >
                   <option value="event">Event</option>
                   <option value="meetup">Meetup</option>
@@ -171,7 +171,7 @@ export function EventsBoard({
                   onChange={(e) =>
                     setLocationType(e.target.value as 'in_person' | 'online' | 'hybrid')
                   }
-                  className="w-1/2 rounded-xl border border-stone-200 bg-stone-50/60 px-3 py-2 text-xs sm:text-sm text-stone-900 focus:border-forest-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-600/20"
+                  className="w-1/2 rounded-xl border border-stone-200 bg-stone-50/60 px-3 py-2 text-xs sm:text-sm text-stone-900 focus:border-black focus:bg-white focus:outline-none focus:ring-2 focus:ring-black/10"
                 >
                   <option value="in_person">In-Person</option>
                   <option value="online">Online</option>
@@ -188,7 +188,7 @@ export function EventsBoard({
                 required
                 value={startsAt}
                 onChange={(e) => setStartsAt(e.target.value)}
-                className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-forest-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-600/20"
+                className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-black focus:bg-white focus:outline-none focus:ring-2 focus:ring-black/10"
               />
             </div>
             <div>
@@ -200,7 +200,7 @@ export function EventsBoard({
                 required
                 value={endsAt}
                 onChange={(e) => setEndsAt(e.target.value)}
-                className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-forest-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-600/20"
+                className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-black focus:bg-white focus:outline-none focus:ring-2 focus:ring-black/10"
               />
             </div>
             <div>
@@ -211,7 +211,7 @@ export function EventsBoard({
                 value={venueText}
                 onChange={(e) => setVenueText(e.target.value)}
                 placeholder="e.g. Appleton Tower Room 3.02 or Zoom link"
-                className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-forest-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-600/20"
+                className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-black focus:bg-white focus:outline-none focus:ring-2 focus:ring-black/10"
               />
             </div>
             <div>
@@ -224,7 +224,7 @@ export function EventsBoard({
                 value={capacity}
                 onChange={(e) => setCapacity(e.target.value)}
                 placeholder="Leave blank for unlimited"
-                className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-forest-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-600/20"
+                className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-black focus:bg-white focus:outline-none focus:ring-2 focus:ring-black/10"
               />
             </div>
           </div>
@@ -237,7 +237,7 @@ export function EventsBoard({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="What to expect, preparation notes, materials needed..."
-              className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-forest-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-600/20"
+              className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-black focus:bg-white focus:outline-none focus:ring-2 focus:ring-black/10"
             />
           </div>
           <div className="flex justify-end gap-2 pt-2">
@@ -271,12 +271,12 @@ export function EventsBoard({
             return (
               <div
                 key={ev.id}
-                className="group rounded-2xl border border-stone-200/80 bg-white p-6 shadow-xs hover:border-forest-600/40 hover:shadow-premium-hover transition-all duration-200 space-y-4"
+                className="group rounded-2xl border border-stone-200/80 bg-white p-6 shadow-xs hover:border-black/30 hover:shadow-premium-hover transition-all duration-200 space-y-4"
               >
                 <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="rounded-full bg-forest-50 px-2.5 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider text-forest-800 border border-forest-200/60">
+                      <span className="rounded-full bg-stone-100 px-2.5 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider text-stone-900 border border-stone-200">
                         {ev.event_type}
                       </span>
                       <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-mono text-stone-600 border border-stone-200/60">
@@ -288,7 +288,7 @@ export function EventsBoard({
                         </span>
                       )}
                     </div>
-                    <h3 className="mt-2 text-base font-bold text-stone-900 group-hover:text-forest-800 transition-colors">
+                    <h3 className="mt-2 text-base font-bold text-stone-900 group-hover:text-black transition-colors">
                       {ev.title}
                     </h3>
                     {ev.description && (
@@ -349,7 +349,7 @@ export function EventsBoard({
 
                 <div className="flex flex-wrap items-center gap-5 border-t border-stone-100 pt-3 text-xs text-stone-500">
                   <span className="inline-flex items-center gap-1.5 font-medium text-stone-700">
-                    <Clock className="h-3.5 w-3.5 text-forest-700" />
+                    <Clock className="h-3.5 w-3.5 text-stone-900" />
                     {new Date(ev.starts_at).toLocaleString([], {
                       dateStyle: 'medium',
                       timeStyle: 'short',

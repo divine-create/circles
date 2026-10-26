@@ -104,7 +104,7 @@ export function ProjectsBoard({
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-lg font-bold text-stone-900">Projects & Workspaces</h2>
-            <span className="rounded-full bg-forest-50 px-2 py-0.5 text-[10px] font-mono font-semibold text-forest-800 border border-forest-200/60">
+            <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-mono font-semibold text-stone-900 border border-stone-200">
               {projects.length} PROJECTS
             </span>
           </div>
@@ -150,7 +150,7 @@ export function ProjectsBoard({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Distributed Consensus Benchmark Suite"
-              className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-forest-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-600/20"
+              className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-black focus:bg-white focus:outline-none focus:ring-2 focus:ring-black/10"
             />
           </div>
 
@@ -163,7 +163,7 @@ export function ProjectsBoard({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Scope, repo links, and how members can contribute..."
-              className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-forest-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-600/20"
+              className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-black focus:bg-white focus:outline-none focus:ring-2 focus:ring-black/10"
             />
           </div>
 
@@ -191,14 +191,14 @@ export function ProjectsBoard({
           {projects.map((proj) => (
             <div
               key={proj.id}
-              className="group rounded-2xl border border-stone-200/80 bg-white p-6 shadow-xs hover:border-forest-600/40 hover:shadow-premium-hover transition-all duration-200 space-y-4"
+              className="group rounded-2xl border border-stone-200/80 bg-white p-6 shadow-xs hover:border-black/30 hover:shadow-premium-hover transition-all duration-200 space-y-4"
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <span className="rounded-full bg-forest-50 px-2.5 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider text-forest-800 border border-forest-200/60">
+                  <span className="rounded-full bg-stone-100 px-2.5 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider text-stone-900 border border-stone-200">
                     {proj.status}
                   </span>
-                  <h3 className="mt-2 text-base font-bold text-stone-900 group-hover:text-forest-800 transition-colors">
+                  <h3 className="mt-2 text-base font-bold text-stone-900 group-hover:text-black transition-colors">
                     {proj.name}
                   </h3>
                   {proj.description && (

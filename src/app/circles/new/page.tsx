@@ -72,7 +72,7 @@ export default function CreateCirclePage() {
     <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8 space-y-8">
       {/* Top Header */}
       <div className="border-b border-stone-200/80 pb-6">
-        <div className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-forest-700">
+        <div className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-stone-900">
           <PlusCircle className="h-3.5 w-3.5" />
           <span>New Community Setup</span>
         </div>
@@ -117,16 +117,16 @@ export default function CreateCirclePage() {
                   onClick={() => handleSelectTemplate(tpl.key)}
                   className={`flex flex-col justify-between rounded-xl border p-4 text-left transition-all ${
                     active
-                      ? 'border-forest-600 bg-forest-50/70 shadow-xs ring-1 ring-forest-600'
+                      ? 'border-black bg-stone-50 shadow-xs ring-1 ring-black'
                       : 'border-stone-200 bg-stone-50/40 hover:border-stone-300 hover:bg-stone-50'
                   }`}
                 >
                   <div>
                     <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-forest-800">
+                      <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-stone-900">
                         {tpl.category.replace('_', ' ')}
                       </span>
-                      {active && <Check className="h-3.5 w-3.5 text-forest-700" />}
+                      {active && <Check className="h-3.5 w-3.5 text-black" />}
                     </div>
                     <p className="mt-2 text-sm font-bold text-stone-900">{tpl.name}</p>
                     <p className="mt-1 line-clamp-2 text-xs text-stone-500 leading-relaxed font-normal">
@@ -175,7 +175,7 @@ export default function CreateCirclePage() {
                   );
                 }}
                 placeholder="e.g. Oxford Robotics & Hardware Collective"
-                className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2.5 text-sm text-stone-900 placeholder:text-stone-400 focus:border-forest-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-600/20 transition-all"
+                className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2.5 text-sm text-stone-900 placeholder:text-stone-400 focus:border-black focus:bg-white focus:outline-none focus:ring-2 focus:ring-black/10 transition-all"
               />
             </div>
 
@@ -190,7 +190,7 @@ export default function CreateCirclePage() {
                 value={slug}
                 onChange={(e) => setSlug(e.target.value.toLowerCase())}
                 placeholder="oxford-robotics-collective"
-                className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2.5 text-sm font-mono text-stone-900 placeholder:text-stone-400 focus:border-forest-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-600/20 transition-all"
+                className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2.5 text-sm font-mono text-stone-900 placeholder:text-stone-400 focus:border-black focus:bg-white focus:outline-none focus:ring-2 focus:ring-black/10 transition-all"
               />
             </div>
           </div>
@@ -204,7 +204,7 @@ export default function CreateCirclePage() {
                 id="circle-category"
                 value={category}
                 onChange={(e) => setCategory(e.target.value as CircleCategory)}
-                className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2.5 text-sm text-stone-900 focus:border-forest-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-600/20 transition-all"
+                className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2.5 text-sm text-stone-900 focus:border-black focus:bg-white focus:outline-none focus:ring-2 focus:ring-black/10 transition-all"
               >
                 <option value="university">University</option>
                 <option value="neighbourhood">Neighbourhood</option>
@@ -228,7 +228,7 @@ export default function CreateCirclePage() {
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
                 placeholder="e.g. Oxford, UK or Worldwide / Remote"
-                className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2.5 text-sm text-stone-900 placeholder:text-stone-400 focus:border-forest-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-600/20 transition-all"
+                className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2.5 text-sm text-stone-900 placeholder:text-stone-400 focus:border-black focus:bg-white focus:outline-none focus:ring-2 focus:ring-black/10 transition-all"
               />
             </div>
           </div>
@@ -243,7 +243,7 @@ export default function CreateCirclePage() {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Describe who this Circle is for and how members collaborate..."
-              className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2.5 text-sm text-stone-900 placeholder:text-stone-400 focus:border-forest-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-600/20 transition-all"
+              className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2.5 text-sm text-stone-900 placeholder:text-stone-400 focus:border-black focus:bg-white focus:outline-none focus:ring-2 focus:ring-black/10 transition-all"
             />
           </div>
         </section>
@@ -268,11 +268,11 @@ export default function CreateCirclePage() {
               }}
               className={`rounded-xl border p-4 text-left transition-all ${
                 visibility === 'public'
-                  ? 'border-forest-600 bg-forest-50/70 shadow-xs ring-1 ring-forest-600'
+                  ? 'border-black bg-stone-50 shadow-xs ring-1 ring-black'
                   : 'border-stone-200 bg-stone-50/40 hover:border-stone-300'
               }`}
             >
-              <Globe className="h-5 w-5 text-forest-700" />
+              <Globe className="h-5 w-5 text-stone-900" />
               <p className="mt-2 text-sm font-bold text-stone-900">Public Community</p>
               <p className="mt-1 text-xs text-stone-500 leading-relaxed">
                 Listed in discovery. Anyone can preview and join based on your policy.
@@ -287,11 +287,11 @@ export default function CreateCirclePage() {
               }}
               className={`rounded-xl border p-4 text-left transition-all ${
                 visibility === 'discoverable_approval'
-                  ? 'border-forest-600 bg-forest-50/70 shadow-xs ring-1 ring-forest-600'
+                  ? 'border-black bg-stone-50 shadow-xs ring-1 ring-black'
                   : 'border-stone-200 bg-stone-50/40 hover:border-stone-300'
               }`}
             >
-              <Shield className="h-5 w-5 text-amber-700" />
+              <Shield className="h-5 w-5 text-stone-900" />
               <p className="mt-2 text-sm font-bold text-stone-900">Discoverable · Approval</p>
               <p className="mt-1 text-xs text-stone-500 leading-relaxed">
                 Visible in directory, but new members must submit a join request to participate.
@@ -306,7 +306,7 @@ export default function CreateCirclePage() {
               }}
               className={`rounded-xl border p-4 text-left transition-all ${
                 visibility === 'private'
-                  ? 'border-forest-600 bg-forest-50/70 shadow-xs ring-1 ring-forest-600'
+                  ? 'border-black bg-stone-50 shadow-xs ring-1 ring-black'
                   : 'border-stone-200 bg-stone-50/40 hover:border-stone-300'
               }`}
             >
@@ -327,7 +327,7 @@ export default function CreateCirclePage() {
                 id="membership-policy"
                 value={membershipPolicy}
                 onChange={(e) => setMembershipPolicy(e.target.value as MembershipPolicy)}
-                className="mt-1.5 w-full sm:w-72 rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-forest-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-600/20 transition-all"
+                className="mt-1.5 w-full sm:w-72 rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-black focus:bg-white focus:outline-none focus:ring-2 focus:ring-black/10 transition-all"
               >
                 <option value="open">Open — Anyone can join immediately</option>
                 <option value="approval">Approval Required — Staff approves join requests</option>

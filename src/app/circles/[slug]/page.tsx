@@ -43,7 +43,7 @@ export default async function CircleOverviewPage({
   return (
     <div className="space-y-8">
       {/* Enabled Capabilities Strip */}
-      <section className="rounded-2xl border border-sand-200 bg-white p-6 shadow-sm">
+      <section className="rounded-2xl border border-stone-200/90 bg-white p-6 shadow-xs">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-zinc-900" />
@@ -65,7 +65,7 @@ export default async function CircleOverviewPage({
           {enabledCapabilities.map((cap) => (
             <div
               key={cap.capability_key}
-              className="flex items-start gap-3 rounded-xl border border-sand-200 bg-sand-50/60 p-3.5"
+              className="flex items-start gap-3 rounded-xl border border-stone-200 bg-stone-50/60 p-3.5"
             >
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-zinc-100 text-zinc-900">
                 <DynamicIcon name={cap.definition?.navigation_config.icon} className="h-4 w-4" />
@@ -104,7 +104,7 @@ export default async function CircleOverviewPage({
             <h2 className="text-lg font-bold text-stone-900">Community Discussions</h2>
             <Link
               href={`/circles/${circle.slug}/discussions`}
-              className="inline-flex items-center gap-1 text-xs font-semibold text-forest-700 hover:underline"
+              className="inline-flex items-center gap-1 text-xs font-semibold text-stone-900 hover:underline"
             >
               <span>Full Discussion Feed</span>
               <ArrowRight className="h-3.5 w-3.5" />
@@ -120,7 +120,7 @@ export default async function CircleOverviewPage({
           />
         </section>
       ) : (
-        <section className="rounded-2xl border border-sand-200 bg-white p-8 text-center">
+        <section className="rounded-2xl border border-stone-200/90 bg-white p-8 text-center">
           <ShieldCheck className="mx-auto h-8 w-8 text-stone-400" />
           <h3 className="mt-2 text-base font-bold text-stone-900">
             Discussions Capability Disabled

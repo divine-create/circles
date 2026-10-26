@@ -161,7 +161,7 @@ export function MarketplaceBoard({
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-lg font-bold text-stone-900">Marketplace & Bookings</h2>
-            <span className="rounded-full bg-forest-50 px-2 py-0.5 text-[10px] font-mono font-semibold text-forest-800 border border-forest-200/60">
+            <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-mono font-semibold text-stone-900 border border-stone-200">
               {listings.length} LISTINGS
             </span>
           </div>
@@ -243,7 +243,7 @@ export function MarketplaceBoard({
                       | 'directory'
                   )
                 }
-                className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3 py-2 text-xs sm:text-sm text-stone-900 focus:border-forest-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-600/20"
+                className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3 py-2 text-xs sm:text-sm text-stone-900 focus:border-black focus:bg-white focus:outline-none focus:ring-2 focus:ring-black/10"
               >
                 <option value="product">Product for Sale / Trade</option>
                 <option value="service">Service & Appointment</option>
@@ -261,7 +261,7 @@ export function MarketplaceBoard({
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
                 placeholder="books, electronics, tools..."
-                className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-forest-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-600/20"
+                className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-black focus:bg-white focus:outline-none focus:ring-2 focus:ring-black/10"
               />
             </div>
             <div>
@@ -276,7 +276,7 @@ export function MarketplaceBoard({
                   value={priceAmount}
                   onChange={(e) => setPriceAmount(e.target.value)}
                   placeholder="0.00"
-                  className="w-1/2 rounded-xl border border-stone-200 bg-stone-50/60 px-3 py-2 text-xs sm:text-sm text-stone-900 focus:border-forest-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-600/20"
+                  className="w-1/2 rounded-xl border border-stone-200 bg-stone-50/60 px-3 py-2 text-xs sm:text-sm text-stone-900 focus:border-black focus:bg-white focus:outline-none focus:ring-2 focus:ring-black/10"
                 />
                 <select
                   value={pricingUnit}
@@ -291,7 +291,7 @@ export function MarketplaceBoard({
                         | 'negotiable'
                     )
                   }
-                  className="w-1/2 rounded-xl border border-stone-200 bg-stone-50/60 px-3 py-2 text-xs sm:text-sm text-stone-900 focus:border-forest-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-600/20"
+                  className="w-1/2 rounded-xl border border-stone-200 bg-stone-50/60 px-3 py-2 text-xs sm:text-sm text-stone-900 focus:border-black focus:bg-white focus:outline-none focus:ring-2 focus:ring-black/10"
                 >
                   <option value="fixed">Fixed</option>
                   <option value="hourly">/ Hour</option>
@@ -314,7 +314,7 @@ export function MarketplaceBoard({
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="e.g. Bosch Cordless Drill Library Loan"
-                className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-forest-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-600/20"
+                className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-black focus:bg-white focus:outline-none focus:ring-2 focus:ring-black/10"
               />
             </div>
             <div>
@@ -325,7 +325,7 @@ export function MarketplaceBoard({
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
                 placeholder="Campus North / Workshop Room 4"
-                className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-forest-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-600/20"
+                className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-black focus:bg-white focus:outline-none focus:ring-2 focus:ring-black/10"
               />
             </div>
           </div>
@@ -339,7 +339,7 @@ export function MarketplaceBoard({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Provide item specs, return condition terms, or booking details..."
-              className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-forest-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-600/20"
+              className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-black focus:bg-white focus:outline-none focus:ring-2 focus:ring-black/10"
             />
           </div>
 
@@ -367,12 +367,12 @@ export function MarketplaceBoard({
           {visibleListings.map((item) => (
             <div
               key={item.id}
-              className="group flex flex-col justify-between rounded-2xl border border-stone-200/80 bg-white p-5 shadow-xs hover:border-forest-600/40 hover:shadow-premium-hover transition-all duration-200 space-y-4"
+              className="group flex flex-col justify-between rounded-2xl border border-stone-200/80 bg-white p-5 shadow-xs hover:border-black/30 hover:shadow-premium-hover transition-all duration-200 space-y-4"
             >
               <div className="space-y-2">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <span className="rounded-full bg-forest-50 px-2.5 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider text-forest-800 border border-forest-200/60">
+                    <span className="rounded-full bg-stone-100 px-2.5 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider text-stone-900 border border-stone-200">
                       {item.listing_type}
                     </span>
                     <span className="inline-flex items-center gap-1 text-[11px] text-stone-400 font-mono">
@@ -380,7 +380,7 @@ export function MarketplaceBoard({
                       {item.category}
                     </span>
                   </div>
-                  <span className="text-xs sm:text-sm font-bold text-forest-800 font-mono">
+                  <span className="text-xs sm:text-sm font-bold text-stone-900 font-mono">
                     {item.pricing_unit === 'free'
                       ? 'FREE'
                       : item.price_amount !== null
@@ -389,7 +389,7 @@ export function MarketplaceBoard({
                   </span>
                 </div>
 
-                <h3 className="text-base font-bold text-stone-900 group-hover:text-forest-800 transition-colors">
+                <h3 className="text-base font-bold text-stone-900 group-hover:text-black transition-colors">
                   {item.title}
                 </h3>
                 {item.description && (
@@ -486,7 +486,7 @@ export function MarketplaceBoard({
                     })}
                   </span>
                 </div>
-                <span className="rounded-full bg-forest-50 px-2 py-0.5 text-[10px] font-mono font-semibold uppercase text-forest-800">
+                <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-mono font-semibold uppercase text-stone-900">
                   {b.status}
                 </span>
               </div>

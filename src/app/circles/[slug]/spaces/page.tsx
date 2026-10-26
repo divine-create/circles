@@ -44,7 +44,7 @@ export default async function CircleSpacesPage({
   const spacesEnabled = await isCapabilityEnabledForCircle(user?.id ?? null, circle.id, 'spaces');
   if (!spacesEnabled) {
     return (
-      <div className="rounded-2xl border border-sand-200 bg-white p-10 text-center shadow-sm">
+      <div className="rounded-2xl border border-stone-200/90 bg-white p-10 text-center shadow-sm">
         <LayoutGrid className="mx-auto h-8 w-8 text-stone-400" />
         <h2 className="mt-3 text-lg font-bold text-stone-900">Spaces Capability is Disabled</h2>
         <p className="mt-1 text-sm text-stone-600">
@@ -81,16 +81,16 @@ export default async function CircleSpacesPage({
           <Link
             key={sp.id}
             href={`/circles/${circle.slug}/discussions?spaceId=${sp.id}`}
-            className="group flex flex-col justify-between rounded-2xl border border-sand-200 bg-white p-5 shadow-sm hover:border-forest-600/40"
+            className="group flex flex-col justify-between rounded-2xl border border-stone-200/80 bg-white p-5 shadow-xs hover:border-black/30 hover:shadow-premium-hover transition-all"
           >
             <div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-forest-50 text-forest-700">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-stone-100 text-stone-900 border border-stone-200">
                     <DynamicIcon name={sp.icon} className="h-4 w-4" />
                   </span>
                   <div>
-                    <h3 className="text-sm font-bold text-stone-900 group-hover:text-forest-700">
+                    <h3 className="text-sm font-bold text-stone-900 group-hover:text-black">
                       {sp.name}
                     </h3>
                     <span className="text-[11px] text-stone-500">
@@ -99,7 +99,7 @@ export default async function CircleSpacesPage({
                   </div>
                 </div>
                 {sp.capability_key && (
-                  <span className="rounded bg-sand-100 px-2 py-0.5 text-[10px] font-medium text-stone-600">
+                  <span className="rounded bg-stone-100 px-2 py-0.5 text-[10px] font-medium text-stone-600 border border-stone-200">
                     {sp.capability_key.replace('_', ' ')}
                   </span>
                 )}
@@ -107,7 +107,7 @@ export default async function CircleSpacesPage({
               <p className="mt-3 text-xs text-stone-600 leading-relaxed">{sp.description}</p>
             </div>
 
-            <div className="mt-4 flex items-center justify-end text-xs font-semibold text-forest-700">
+            <div className="mt-4 flex items-center justify-end text-xs font-semibold text-stone-900">
               <span className="inline-flex items-center gap-1">
                 Open Space <ArrowRight className="h-3.5 w-3.5" />
               </span>
