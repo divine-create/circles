@@ -33,17 +33,6 @@ export default async function HomePage() {
 
         <div className="relative mx-auto max-w-7xl px-4 pt-20 pb-28 sm:px-6 lg:px-8">
           <div className="flex flex-col items-center text-center max-w-3xl mx-auto space-y-6">
-            {/* SaaS Version Badge */}
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/[0.06] px-3.5 py-1 text-xs font-medium text-stone-200 backdrop-blur-md shadow-xs">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-stone-400 opacity-60" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
-              </span>
-              <span>Circles 2.0 · Modular Community Engine</span>
-              <span className="text-white/30">|</span>
-              <span className="text-stone-300 font-mono text-[11px]">Enterprise Ready</span>
-            </div>
-
             <h1 className="text-4xl font-extrabold tracking-tight sm:text-6xl lg:text-7xl leading-[1.08] bg-gradient-to-b from-white via-stone-100 to-stone-400 bg-clip-text text-transparent">
               One shared platform. <br className="hidden sm:inline" />
               Many types of communities.
