@@ -338,7 +338,7 @@ export const CAPABILITY_REGISTRY: Record<string, CapabilityDefinition> = {
     category: 'knowledge_collaboration',
     default_enabled: false,
     release_stage: 'stable',
-    dependencies: ['spaces'],
+    dependencies: [],
     default_settings: {
       enableCohortSpaces: true,
     },

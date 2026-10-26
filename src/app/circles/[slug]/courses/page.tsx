@@ -7,6 +7,7 @@ import { listCourses } from '@/features/courses/service';
 import { canReadCircleContent } from '@/lib/authorization/permissions';
 import { CoursesCatalog } from '@/components/courses/courses-catalog';
 import { CourseItem } from '@/types/domain';
+import { CapabilityDisabledError } from '@/lib/errors';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,16 +44,20 @@ export default async function CircleCoursesPage({
   let courses: CourseItem[] = [];
   try {
     courses = await listCourses(user?.id ?? null, circle.id);
-  } catch {
-    return (
-      <div className="rounded-2xl border border-stone-200/90 bg-white p-10 text-center shadow-xs">
-        <GraduationCap className="mx-auto h-8 w-8 text-stone-400" />
-        <h2 className="mt-3 text-lg font-bold text-stone-900">Courses Capability Disabled</h2>
-        <p className="mt-1 text-sm text-stone-600">
-          Enable Courses & Learning in Circle Studio to offer courses to your community.
-        </p>
-      </div>
-    );
+  } catch (err) {
+    if (err instanceof CapabilityDisabledError) {
+      return (
+        <div className="rounded-2xl border border-stone-200/90 bg-white p-10 text-center shadow-xs">
+          <GraduationCap className="mx-auto h-8 w-8 text-stone-400" />
+          <h2 className="mt-3 text-lg font-bold text-stone-900">Courses Capability Disabled</h2>
+          <p className="mt-1 text-sm text-stone-600">
+            Enable Courses & Learning in Circle Studio to offer courses to your community.
+          </p>
+        </div>
+      );
+    }
+    console.error('Failed to list courses:', err);
+    throw err;
   }
 
   const isMember = circle.current_user_membership_status === 'active';

@@ -240,6 +240,8 @@ export async function listCourses(
         estimated_duration_hours: Number(row.estimated_duration_hours),
         status: row.status,
         sort_order: row.sort_order,
+        access_rule: row.access_rule ?? 'open',
+        min_level_required: Number(row.min_level_required ?? 1),
         created_at: row.created_at,
         updated_at: row.updated_at,
         instructor: {

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { getCircleCapabilities, updateCircleCapability } from '@/features/capabilities/service';
 import { handleApiError, resolveApiUser } from '@/lib/auth/api-helpers';
 import { UnauthorizedError } from '@/lib/errors';
@@ -32,6 +33,11 @@ export async function PATCH(
       Boolean(body.enabled),
       body.settings
     );
+    try {
+      revalidatePath('/', 'layout');
+    } catch {
+      // Ignore in non-standard request contexts
+    }
     return NextResponse.json({ capability });
   } catch (error) {
     return handleApiError(error);
