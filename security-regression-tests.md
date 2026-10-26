@@ -2,12 +2,15 @@
 
 **Last Updated**: 2026-10-26  
 **Command**: `npm test` (`vitest run`)  
-**Total Suites**: 5 passed (5)  
-**Total Tests**: 20 passed (20)
+**Total Suites**: 6 passed (6)  
+**Total Tests**: 21 passed (21)
 
 ---
 
 ## 1. Suite Breakdown
+
+### 1.0 [`tests/integration/hosted-supabase-staging.test.ts`](file:///C:/Users/HomePC/Desktop/circles/tests/integration/hosted-supabase-staging.test.ts) (1 End-to-End Live Hosted Supabase Suite)
+- Executes the full Phase 5 staging checklist against live hosted Supabase PostgreSQL 17.11 (`aws-0-eu-west-1.pooler.supabase.com:5432`): verifies `public.schema_migrations` (`0001`–`0004`), `GET /api/health` (`remote_pg`), user registration, session fixation rotation, logout revocation, password recovery & reset, `public` / `discoverable_approval` / `private` Circle creation & discovery, join requests, invitations, `members_only` profile RLS, last-owner protection, ownership transfer, capability settings & non-destructive disabling, spaces, discussions, moderation reports, member suspension/restoration, and audit logs.
 
 ### 1.1 [`tests/integration/postgres-executor-and-migrations.test.ts`](file:///C:/Users/HomePC/Desktop/circles/tests/integration/postgres-executor-and-migrations.test.ts) (3 Tests — Phase 3)
 1. **Migration Tracking & Session/Migration Table Isolation**:

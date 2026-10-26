@@ -2,12 +2,14 @@
 
 **Last Updated**: 2026-10-26  
 **Command**: `npm test` (`vitest run`)  
-**Total Suites**: 5 passed (5)  
-**Total Tests**: 20 passed (20)
+**Total Suites**: 6 passed (6)  
+**Total Tests**: 21 passed (21)
 
 ---
 
 ## 1. Suite Breakdown
+
+- **[`tests/integration/hosted-supabase-staging.test.ts`](file:///C:/Users/HomePC/Desktop/circles/tests/integration/hosted-supabase-staging.test.ts) (1 Live Hosted Supabase Suite)**: Executes the complete Phase 5 staging checklist against live hosted Supabase PostgreSQL 17.11 (`eu-west-1`).
 
 - **[`tests/integration/postgres-executor-and-migrations.test.ts`](file:///C:/Users/HomePC/Desktop/circles/tests/integration/postgres-executor-and-migrations.test.ts) (3 Tests)**: Verifies `0001`–`0004` migration tracking in `public.schema_migrations`, idempotency of `runDatabaseMigrations()`, `service_role`-only RLS on `public.user_sessions` and `public.schema_migrations`, `remote_pg` pool transaction lifecycle (`BEGIN`, `SET LOCAL ROLE`, `request.jwt.claim.sub`, `COMMIT`, `ROLLBACK`, `client.release()`), and `DATABASE_URL` validation.
 - **[`tests/integration/security-audit-regression.test.ts`](file:///C:/Users/HomePC/Desktop/circles/tests/integration/security-audit-regression.test.ts) (6 Tests)**: Verifies `AUD-01` through `AUD-08` (stateful session revocation, session fixation rotation, 1-hour single-use recovery tokens, PostgreSQL role hierarchy triggers, profile privacy levels, capability settings in RLS, health check sanitization, and transaction rollback/concurrency isolation).

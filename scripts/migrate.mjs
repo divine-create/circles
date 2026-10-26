@@ -58,7 +58,8 @@ async function applyMigrationsWithExecutor(executor, migrations) {
   const skipped = [];
 
   for (const m of migrations) {
-    if (appliedMap.has(m.version)) {
+    const existing = appliedMap.get(m.version);
+    if (existing && (existing.checksum === m.checksum || m.version === '0001')) {
       skipped.push(m.filename);
       continue;
     }
@@ -91,7 +92,33 @@ async function applyMigrationsWithExecutor(executor, migrations) {
   return { applied, skipped };
 }
 
+function loadEnvFileIfNeeded() {
+  for (const envFilename of ['.env.local', '.env']) {
+    const envPath = path.join(process.cwd(), envFilename);
+    if (!fs.existsSync(envPath)) continue;
+    const content = fs.readFileSync(envPath, 'utf8');
+    for (const rawLine of content.split(/\r?\n/)) {
+      const line = rawLine.trim();
+      if (!line || line.startsWith('#')) continue;
+      const eqIdx = line.indexOf('=');
+      if (eqIdx === -1) continue;
+      const key = line.slice(0, eqIdx).trim();
+      let val = line.slice(eqIdx + 1).trim();
+      if (
+        (val.startsWith('"') && val.endsWith('"')) ||
+        (val.startsWith("'") && val.endsWith("'"))
+      ) {
+        val = val.slice(1, -1);
+      }
+      if (process.env[key] === undefined) {
+        process.env[key] = val;
+      }
+    }
+  }
+}
+
 async function main() {
+  loadEnvFileIfNeeded();
   const migrationsDir = path.join(process.cwd(), 'supabase', 'migrations');
   const migrations = loadMigrations(migrationsDir);
   const connectionString = (process.env.DATABASE_URL || process.env.SUPABASE_DB_URL || '').trim();
@@ -107,10 +134,16 @@ async function main() {
       process.exit(1);
     }
 
+    const isLocalhost =
+      connectionString.includes('localhost') ||
+      connectionString.includes('127.0.0.1') ||
+      connectionString.includes('sslmode=disable');
+
     console.log('[db:migrate] Connecting to remote PostgreSQL via DATABASE_URL...');
     const pool = new Pool({
       connectionString,
       connectionTimeoutMillis: 15000,
+      ...(isLocalhost ? {} : { ssl: { rejectUnauthorized: false } }),
     });
 
     const client = await pool.connect();

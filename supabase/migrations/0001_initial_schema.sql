@@ -3,8 +3,17 @@
 -- Migration: 0001_initial_schema.sql
 -- ============================================================================
 
--- 1. Auth Schema & Roles Bootstrap (Compatible with Supabase & Local PGlite)
-CREATE SCHEMA IF NOT EXISTS auth;
+-- 1. Auth Schema & Roles Bootstrap (Compatible with Hosted Supabase & Local PGlite)
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'auth') THEN
+    CREATE SCHEMA auth;
+  END IF;
+EXCEPTION
+  WHEN insufficient_privilege THEN
+    NULL;
+END
+$$;
 
 DO $$
 BEGIN
@@ -17,34 +26,52 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
     CREATE ROLE service_role SUPERUSER BYPASSRLS NOLOGIN;
   END IF;
+EXCEPTION
+  WHEN insufficient_privilege THEN
+    NULL;
 END
 $$;
 
-CREATE TABLE IF NOT EXISTS auth.users (
-  id UUID PRIMARY KEY,
-  email TEXT UNIQUE NOT NULL,
-  encrypted_password TEXT NOT NULL,
-  raw_user_meta_data JSONB NOT NULL DEFAULT '{}'::jsonb,
-  recovery_token TEXT,
-  recovery_sent_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
+DO $$
+BEGIN
+  IF to_regclass('auth.users') IS NULL THEN
+    CREATE TABLE auth.users (
+      id UUID PRIMARY KEY,
+      email TEXT UNIQUE NOT NULL,
+      encrypted_password TEXT NOT NULL,
+      raw_user_meta_data JSONB NOT NULL DEFAULT '{}'::jsonb,
+      recovery_token TEXT,
+      recovery_sent_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  END IF;
+EXCEPTION
+  WHEN insufficient_privilege THEN
+    NULL;
+END
+$$;
 
 -- Wrapped in DO blocks so hosted Supabase (where supabase_auth_admin owns auth.uid / auth.role) does not fail
 DO $$
 BEGIN
-  CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid
-  LANGUAGE sql VOLATILE
-  AS $func$
-    SELECT NULLIF(
-      COALESCE(
-        NULLIF(current_setting('request.jwt.claim.sub', true), ''),
-        (NULLIF(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub')
-      ),
-      ''
-    )::uuid;
-  $func$;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'auth' AND p.proname = 'uid'
+  ) THEN
+    CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid
+    LANGUAGE sql VOLATILE
+    AS $func$
+      SELECT NULLIF(
+        COALESCE(
+          NULLIF(current_setting('request.jwt.claim.sub', true), ''),
+          (NULLIF(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub')
+        ),
+        ''
+      )::uuid;
+    $func$;
+  END IF;
 EXCEPTION
   WHEN insufficient_privilege THEN
     NULL;
@@ -53,22 +80,37 @@ $$;
 
 DO $$
 BEGIN
-  CREATE OR REPLACE FUNCTION auth.role() RETURNS text
-  LANGUAGE sql VOLATILE
-  AS $func$
-    SELECT COALESCE(
-      NULLIF(current_setting('request.jwt.claim.role', true), ''),
-      (NULLIF(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role'),
-      current_user
-    );
-  $func$;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'auth' AND p.proname = 'role'
+  ) THEN
+    CREATE OR REPLACE FUNCTION auth.role() RETURNS text
+    LANGUAGE sql VOLATILE
+    AS $func$
+      SELECT COALESCE(
+        NULLIF(current_setting('request.jwt.claim.role', true), ''),
+        (NULLIF(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role'),
+        current_user
+      );
+    $func$;
+  END IF;
 EXCEPTION
   WHEN insufficient_privilege THEN
     NULL;
 END
 $$;
 
-GRANT USAGE ON SCHEMA public, auth TO anon, authenticated, service_role;
+GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
+
+DO $$
+BEGIN
+  GRANT USAGE ON SCHEMA auth TO anon, authenticated, service_role;
+EXCEPTION
+  WHEN insufficient_privilege THEN
+    NULL;
+END
+$$;
 
 -- ============================================================================
 -- 2. CORE TABLES

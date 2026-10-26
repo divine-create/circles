@@ -57,10 +57,12 @@ export function getRemoteDatabaseUrl(): string | null {
 
 export function isSupabaseConfigured(): boolean {
   const remoteUrl = getRemoteDatabaseUrl();
+  const publicKey =
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   return Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL &&
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY &&
-      process.env.SUPABASE_SERVICE_ROLE_KEY &&
+      publicKey &&
       remoteUrl &&
       process.env.NEXT_PUBLIC_SUPABASE_URL.startsWith('http')
   );

@@ -7,14 +7,16 @@
 -- Guarded for hosted Supabase compatibility where GoTrue manages auth.sessions (superseded by public.user_sessions in 0004)
 DO $$
 BEGIN
-  CREATE TABLE IF NOT EXISTS auth.sessions (
-    id UUID PRIMARY KEY,
-    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    token_hash TEXT UNIQUE NOT NULL,
-    expires_at TIMESTAMPTZ NOT NULL,
-    revoked_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  );
+  IF to_regclass('auth.sessions') IS NULL THEN
+    CREATE TABLE auth.sessions (
+      id UUID PRIMARY KEY,
+      user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+      token_hash TEXT UNIQUE NOT NULL,
+      expires_at TIMESTAMPTZ NOT NULL,
+      revoked_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  END IF;
 
   IF EXISTS (
     SELECT 1 FROM information_schema.columns

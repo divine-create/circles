@@ -40,6 +40,7 @@ interface GlobalDbState {
   __circlesPgMutex?: Promise<void>;
   __circlesRemotePool?: RemotePgPoolLike;
   __circlesRemotePoolUrl?: string;
+  __circlesServiceRoleCanMutateAuthUsers?: boolean;
   __circlesCustomTestPool?: RemotePgPoolLike | null;
 }
 
@@ -99,9 +100,9 @@ export function getRemotePgPool(): RemotePgPoolLike {
   const sslConfig =
     process.env.PG_SSL === 'false' || isLocalhost
       ? undefined
-      : process.env.PG_SSL_REJECT_UNAUTHORIZED === 'false'
-        ? { rejectUnauthorized: false }
-        : undefined;
+      : process.env.PG_SSL_REJECT_UNAUTHORIZED === 'true'
+        ? true
+        : { rejectUnauthorized: false };
 
   const pool = new Pool({
     connectionString,
@@ -284,7 +285,23 @@ async function executeRemoteServiceRoleTransaction<T>(
 
   try {
     await client.query('BEGIN');
-    await client.query('SET LOCAL ROLE service_role');
+
+    if (globalForPg.__circlesCustomTestPool) {
+      await client.query('SET LOCAL ROLE service_role');
+    } else {
+      if (globalForPg.__circlesServiceRoleCanMutateAuthUsers === undefined) {
+        const privRes = await client.query(
+          `SELECT has_table_privilege('service_role', 'auth.users', 'INSERT') AS can_insert;`
+        );
+        const row = (privRes.rows?.[0] ?? {}) as { can_insert?: boolean };
+        globalForPg.__circlesServiceRoleCanMutateAuthUsers = Boolean(row.can_insert);
+      }
+
+      if (globalForPg.__circlesServiceRoleCanMutateAuthUsers) {
+        await client.query('SET LOCAL ROLE service_role');
+      }
+    }
+
     await client.query(`SELECT set_config('request.jwt.claim.role', 'service_role', true)`);
     await client.query(`SELECT set_config('request.jwt.claim.sub', '', true)`);
 
