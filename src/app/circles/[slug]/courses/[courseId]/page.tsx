@@ -61,7 +61,7 @@ export default async function CircleCourseDetailPage({
     <CoursePlayer
       circleId={circle.id}
       circleSlug={circle.slug}
-      initialCourse={course}
+      initialCourse={JSON.parse(JSON.stringify(course))}
       isMember={isMember}
       isStaff={isStaff}
     />

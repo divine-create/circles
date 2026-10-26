@@ -70,7 +70,7 @@ export default async function CircleCoursesPage({
     <CoursesCatalog
       circleId={circle.id}
       circleSlug={circle.slug}
-      initialCourses={courses}
+      initialCourses={JSON.parse(JSON.stringify(courses))}
       isMember={isMember}
       isStaff={isStaff}
     />

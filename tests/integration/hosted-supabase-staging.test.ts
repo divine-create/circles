@@ -146,7 +146,16 @@ describe.skipIf(!envLocalVars)(
 
         // 1. Verify migrations & GET /api/health on live Supabase
         const migrations = await listAppliedDatabaseMigrations();
-        expect(migrations.map((m) => m.version)).toEqual(['0001', '0002', '0003', '0004', '0005']);
+        expect(migrations.map((m) => m.version)).toEqual([
+          '0001',
+          '0002',
+          '0003',
+          '0004',
+          '0005',
+          '0006',
+          '0007',
+          '0008',
+        ]);
 
         const healthRes = await healthGetRoute();
         expect(healthRes.status).toBe(200);
