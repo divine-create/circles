@@ -25,7 +25,14 @@ export default async function CircleStudioPage({
     redirect('/login');
   }
 
-  const circle = await getCircleBySlugOrId(user.id, params.slug);
+  let circle = null;
+  try {
+    circle = await getCircleBySlugOrId(user.id, params.slug);
+  } catch (err) {
+    console.error('Failed to get circle in studio:', err);
+    notFound();
+  }
+
   if (!circle) {
     notFound();
   }
@@ -50,24 +57,59 @@ export default async function CircleStudioPage({
     );
   }
 
-  const [capabilities, spaces, members, joinRequests, invitations, auditLogs] = await Promise.all([
-    getCircleCapabilities(user.id, circle.id),
-    listCircleSpaces(user.id, circle.id, true),
-    listCircleMembers(user.id, circle.id),
-    listCircleJoinRequests(user.id, circle.id),
-    listCircleInvitations(user.id, circle.id),
-    getCircleAuditLogs(user.id, circle.id),
-  ]);
+  // Load datasets with isolated error boundaries to prevent pool exhaustion on serverless environments
+  const capabilities = await getCircleCapabilities(user.id, circle.id).catch((err) => {
+    console.error('Failed to load capabilities:', err);
+    return [];
+  });
+
+  const spaces = await listCircleSpaces(user.id, circle.id, true).catch((err) => {
+    console.error('Failed to load spaces:', err);
+    return [];
+  });
+
+  const members = await listCircleMembers(user.id, circle.id).catch((err) => {
+    console.error('Failed to load members:', err);
+    return [];
+  });
+
+  const joinRequests = await listCircleJoinRequests(user.id, circle.id).catch((err) => {
+    console.error('Failed to load join requests:', err);
+    return [];
+  });
+
+  const invitations = await listCircleInvitations(user.id, circle.id).catch((err) => {
+    console.error('Failed to load invitations:', err);
+    return [];
+  });
+
+  const auditLogs = await getCircleAuditLogs(user.id, circle.id).catch((err) => {
+    console.error('Failed to load audit logs:', err);
+    return [];
+  });
+
+  // Ensure clean JSON serialization across RSC boundary (converts Date objects/prototypes)
+  const serialized = JSON.parse(
+    JSON.stringify({
+      circle,
+      capabilities,
+      spaces,
+      members,
+      joinRequests,
+      invitations,
+      auditLogs,
+    })
+  );
 
   return (
     <CircleStudioClient
-      circle={circle}
-      capabilities={capabilities}
-      spaces={spaces}
-      members={members}
-      joinRequests={joinRequests}
-      invitations={invitations}
-      auditLogs={auditLogs}
+      circle={serialized.circle}
+      capabilities={serialized.capabilities}
+      spaces={serialized.spaces}
+      members={serialized.members}
+      joinRequests={serialized.joinRequests}
+      invitations={serialized.invitations}
+      auditLogs={serialized.auditLogs}
     />
   );
 }
