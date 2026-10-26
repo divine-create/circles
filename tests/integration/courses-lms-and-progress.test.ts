@@ -5,10 +5,15 @@ import { joinPublicCircle } from '@/features/memberships/service';
 import { updateCircleCapability } from '@/features/capabilities/service';
 import {
   createCourse,
-  createModule,
+  createCourseAssignment,
   createLesson,
+  createLessonComment,
+  createModule,
   getCourseWithCurriculum,
   listCourses,
+  listLessonComments,
+  reviewAssignmentSubmission,
+  submitAssignment,
   toggleLessonCompletion,
   updateCourse,
 } from '@/features/courses/service';
@@ -210,7 +215,80 @@ describe('Courses, LMS Curriculum & Student Learning Progress Integration Suite'
     expect(progress3.completed_lessons).toBe(1);
     expect(progress3.progress_percentage).toBe(33);
 
-    // 8. Direct PostgreSQL RLS Anti-IDOR Test
+    // 8. In-Lesson Contextual Discussions
+    const comment1 = await createLessonComment(student.id, {
+      circleId: circle.id,
+      courseId: course.id,
+      lessonId: lesson1.id,
+      body: 'Should we use strict type-checking in all database boundary functions?',
+    });
+    expect(comment1.id).toBeDefined();
+
+    // Outsider cannot comment
+    await expect(
+      createLessonComment(outsider.id, {
+        circleId: circle.id,
+        courseId: course.id,
+        lessonId: lesson1.id,
+        body: 'Spam comment',
+      })
+    ).rejects.toThrow(ForbiddenError);
+
+    const comments = await listLessonComments(student.id, circle.id, course.id, lesson1.id);
+    expect(comments.length).toBe(1);
+    expect(comments[0]?.body).toContain('strict type-checking');
+
+    // 9. Homework & Assignment Submissions
+    // Instructor creates assignment
+    const assignment = await createCourseAssignment(owner.id, {
+      circleId: circle.id,
+      courseId: course.id,
+      lessonId: lesson1.id,
+      title: 'Practical Exercise: Modular Monolith Design',
+      promptBody: 'Submit your architectural diagram and directory structure.',
+    });
+    expect(assignment.id).toBeDefined();
+
+    // Student submits assignment
+    const submission = await submitAssignment(student.id, {
+      circleId: circle.id,
+      courseId: course.id,
+      lessonId: lesson1.id,
+      assignmentId: assignment.id,
+      submissionBody: 'Here is my architecture repository link and notes.',
+      attachmentUrl: 'https://github.com/student/arch-exercise',
+      attachmentName: 'Repo Link',
+    });
+    expect(submission.id).toBeDefined();
+    expect(submission.status).toBe('submitted');
+
+    // Private student submission cannot be accessed by unrelated outsider under RLS
+    await expect(
+      withRlsTransaction(outsider.id, async (tx) => {
+        const res = await tx.query(`SELECT * FROM public.course_assignment_submissions WHERE id = $1;`, [submission.id]);
+        return res.rows;
+      })
+    ).resolves.toEqual([]);
+
+    // Instructor reviews and grades submission
+    const reviewed = await reviewAssignmentSubmission(owner.id, {
+      circleId: circle.id,
+      courseId: course.id,
+      submissionId: submission.id,
+      status: 'approved',
+      gradeScore: 95,
+      instructorFeedback: 'Excellent architecture separation and domain boundaries.',
+    });
+    expect(reviewed.status).toBe('approved');
+    expect(reviewed.grade_score).toBe(95);
+
+    // Student sees approved status and feedback in course curriculum
+    const courseWithSubmission = await getCourseWithCurriculum(student.id, circle.id, course.id);
+    const lesson1Data = courseWithSubmission.modules?.[0]?.lessons[0];
+    expect(lesson1Data?.assignment?.user_submission?.status).toBe('approved');
+    expect(lesson1Data?.assignment?.user_submission?.grade_score).toBe(95);
+
+    // 10. Direct PostgreSQL RLS Anti-IDOR Test
     // Create another Circle
     const circleB = await createCircle(outsider.id, {
       name: `Other School ${suffix}`,

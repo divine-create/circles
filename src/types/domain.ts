@@ -616,6 +616,54 @@ export interface MediaUploadItem {
   signed_download_url?: string;
 }
 
+export interface LessonCommentItem {
+  id: string;
+  lesson_id: string;
+  course_id: string;
+  circle_id: string;
+  author_id: string;
+  body: string;
+  status: 'published' | 'removed';
+  created_at: string;
+  updated_at: string;
+  author?: Pick<UserProfile, 'id' | 'username' | 'display_name' | 'avatar_url'>;
+}
+
+export interface AssignmentSubmissionItem {
+  id: string;
+  assignment_id: string;
+  lesson_id: string;
+  course_id: string;
+  circle_id: string;
+  student_id: string;
+  submission_body: string;
+  attachment_url: string | null;
+  attachment_name: string | null;
+  status: 'draft' | 'submitted' | 'in_review' | 'needs_revision' | 'approved';
+  grade_score: number | null;
+  instructor_feedback: string;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  updated_at: string;
+  student?: Pick<UserProfile, 'id' | 'username' | 'display_name' | 'avatar_url'>;
+  reviewer?: Pick<UserProfile, 'id' | 'username' | 'display_name'> | null;
+}
+
+export interface CourseAssignmentItem {
+  id: string;
+  lesson_id: string;
+  course_id: string;
+  circle_id: string;
+  title: string;
+  prompt_body: string;
+  due_date: string | null;
+  created_at: string;
+  updated_at: string;
+  user_submission?: AssignmentSubmissionItem | null;
+  all_submissions?: AssignmentSubmissionItem[];
+}
+
 export interface CourseLessonItem {
   id: string;
   module_id: string;
@@ -632,9 +680,13 @@ export interface CourseLessonItem {
   is_free_preview: boolean;
   status: 'draft' | 'published' | 'archived';
   sort_order: number;
+  live_event_id?: string | null;
+  is_live_session?: boolean;
   created_at: string;
   updated_at: string;
   is_completed?: boolean;
+  comments?: LessonCommentItem[];
+  assignment?: CourseAssignmentItem | null;
 }
 
 export interface CourseModuleItem {

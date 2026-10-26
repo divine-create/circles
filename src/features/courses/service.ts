@@ -6,6 +6,9 @@ import {
   CourseModuleItem,
   CourseLessonItem,
   StudentCourseProgress,
+  LessonCommentItem,
+  CourseAssignmentItem,
+  AssignmentSubmissionItem,
   CircleRole,
   MembershipStatus,
 } from '@/types/domain';
@@ -80,6 +83,8 @@ export const createLessonSchema = z.object({
   attachmentUrl: z.string().trim().max(1000).nullable().optional(),
   attachmentName: z.string().trim().max(200).nullable().optional(),
   isFreePreview: z.boolean().default(false),
+  liveEventId: z.string().uuid().nullable().optional(),
+  isLiveSession: z.boolean().default(false),
   status: z.enum(['draft', 'published', 'archived']).default('published'),
   sortOrder: z.number().int().min(0).default(0),
 });
@@ -100,8 +105,46 @@ export const updateLessonSchema = z.object({
   attachmentUrl: z.string().trim().max(1000).nullable().optional(),
   attachmentName: z.string().trim().max(200).nullable().optional(),
   isFreePreview: z.boolean().optional(),
+  liveEventId: z.string().uuid().nullable().optional(),
+  isLiveSession: z.boolean().optional(),
   status: z.enum(['draft', 'published', 'archived']).optional(),
   sortOrder: z.number().int().min(0).optional(),
+});
+
+export const createLessonCommentSchema = z.object({
+  circleId: z.string().uuid(),
+  courseId: z.string().uuid(),
+  lessonId: z.string().uuid(),
+  body: z.string().trim().min(1).max(4000),
+});
+
+export const createCourseAssignmentSchema = z.object({
+  circleId: z.string().uuid(),
+  courseId: z.string().uuid(),
+  lessonId: z.string().uuid(),
+  title: z.string().trim().min(3).max(180),
+  promptBody: z.string().trim().min(5).max(10000),
+  dueDate: z.string().datetime().nullable().optional(),
+});
+
+export const submitAssignmentSchema = z.object({
+  circleId: z.string().uuid(),
+  courseId: z.string().uuid(),
+  lessonId: z.string().uuid(),
+  assignmentId: z.string().uuid(),
+  submissionBody: z.string().trim().min(3).max(10000),
+  attachmentUrl: z.string().trim().max(1000).nullable().optional(),
+  attachmentName: z.string().trim().max(200).nullable().optional(),
+  status: z.enum(['draft', 'submitted']).default('submitted'),
+});
+
+export const reviewAssignmentSubmissionSchema = z.object({
+  circleId: z.string().uuid(),
+  courseId: z.string().uuid(),
+  submissionId: z.string().uuid(),
+  status: z.enum(['in_review', 'needs_revision', 'approved']),
+  gradeScore: z.number().int().min(0).max(100).nullable().optional(),
+  instructorFeedback: z.string().trim().max(5000).default(''),
 });
 
 /**
@@ -269,6 +312,34 @@ export async function getCourseWithCurriculum(
       completedLessonIds = new Set(compRes.rows.map((r) => r.lesson_id));
     }
 
+    // Assignments
+    const assignmentsRes = await tx.query<CourseAssignmentItem>(
+      `SELECT * FROM public.course_assignments
+       WHERE circle_id = $1 AND course_id = $2;`,
+      [circleId, course.id]
+    );
+
+    // If student actor, load submissions
+    const submissionsByAssignment: Record<string, AssignmentSubmissionItem> = {};
+    if (actorUserId) {
+      const subRes = await tx.query<AssignmentSubmissionItem>(
+        `SELECT * FROM public.course_assignment_submissions
+         WHERE circle_id = $1 AND course_id = $2 AND student_id = $3;`,
+        [circleId, course.id, actorUserId]
+      );
+      for (const sub of subRes.rows) {
+        submissionsByAssignment[sub.assignment_id] = sub;
+      }
+    }
+
+    const assignmentsByLesson: Record<string, CourseAssignmentItem> = {};
+    for (const a of assignmentsRes.rows) {
+      assignmentsByLesson[a.lesson_id] = {
+        ...a,
+        user_submission: submissionsByAssignment[a.id] || null,
+      };
+    }
+
     const lessonsByModule: Record<string, CourseLessonItem[]> = {};
     for (const lesson of lessonsRes.rows) {
       if (!lessonsByModule[lesson.module_id]) {
@@ -277,6 +348,7 @@ export async function getCourseWithCurriculum(
       lessonsByModule[lesson.module_id].push({
         ...lesson,
         is_completed: completedLessonIds.has(lesson.id),
+        assignment: assignmentsByLesson[lesson.id] || null,
       });
     }
 
@@ -526,8 +598,8 @@ export async function createLesson(
       `INSERT INTO public.course_lessons (
          id, module_id, course_id, circle_id, title, slug, description,
          content_body, video_url, duration_minutes, attachment_url,
-         attachment_name, is_free_preview, status, sort_order
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+         attachment_name, is_free_preview, live_event_id, is_live_session, status, sort_order
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
        RETURNING *;`,
       [
         lessonId,
@@ -543,6 +615,8 @@ export async function createLesson(
         parsed.attachmentUrl || null,
         parsed.attachmentName || null,
         parsed.isFreePreview,
+        parsed.liveEventId || null,
+        parsed.isLiveSession || false,
         parsed.status,
         parsed.sortOrder,
       ]
@@ -638,3 +712,259 @@ export async function toggleLessonCompletion(
     };
   });
 }
+
+/**
+ * Creates a comment in a course lesson discussion thread.
+ */
+export async function createLessonComment(
+  actorUserId: string,
+  input: z.input<typeof createLessonCommentSchema>
+): Promise<LessonCommentItem> {
+  const parsed = createLessonCommentSchema.parse(input);
+
+  return withRlsTransaction(actorUserId, async (tx) => {
+    const memRes = await tx.query<{ status: MembershipStatus }>(
+      `SELECT status FROM public.circle_memberships WHERE circle_id = $1 AND user_id = $2 LIMIT 1;`,
+      [parsed.circleId, actorUserId]
+    );
+    if (memRes.rows[0]?.status !== 'active') {
+      throw new ForbiddenError('Only active Circle members can post lesson comments.');
+    }
+
+    const commentId = crypto.randomUUID();
+    const res = await tx.query<LessonCommentItem>(
+      `INSERT INTO public.course_lesson_comments (id, lesson_id, course_id, circle_id, author_id, body)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING *;`,
+      [commentId, parsed.lessonId, parsed.courseId, parsed.circleId, actorUserId, parsed.body]
+    );
+
+    const profileRes = await tx.query<{
+      username: string;
+      display_name: string;
+      avatar_url: string | null;
+    }>(
+      `SELECT username, display_name, avatar_url FROM public.profiles WHERE id = $1 LIMIT 1;`,
+      [actorUserId]
+    );
+
+    return {
+      ...res.rows[0],
+      author: {
+        id: actorUserId,
+        username: profileRes.rows[0]?.username ?? 'member',
+        display_name: profileRes.rows[0]?.display_name ?? 'Member',
+        avatar_url: profileRes.rows[0]?.avatar_url ?? null,
+      },
+    };
+  });
+}
+
+/**
+ * Lists published comments for a course lesson ordered chronologically.
+ */
+export async function listLessonComments(
+  actorUserId: string | null,
+  circleId: string,
+  courseId: string,
+  lessonId: string
+): Promise<LessonCommentItem[]> {
+  return withRlsTransaction(actorUserId, async (tx) => {
+    const res = await tx.query<
+      LessonCommentItem & {
+        author_username: string;
+        author_display_name: string;
+        author_avatar_url: string | null;
+      }
+    >(
+      `SELECT 
+         c.*,
+         p.username AS author_username,
+         p.display_name AS author_display_name,
+         p.avatar_url AS author_avatar_url
+       FROM public.course_lesson_comments c
+       JOIN public.profiles p ON p.id = c.author_id
+       WHERE c.circle_id = $1 AND c.course_id = $2 AND c.lesson_id = $3 AND c.status = 'published'
+       ORDER BY c.created_at ASC;`,
+      [circleId, courseId, lessonId]
+    );
+
+    return res.rows.map((r) => ({
+      id: r.id,
+      lesson_id: r.lesson_id,
+      course_id: r.course_id,
+      circle_id: r.circle_id,
+      author_id: r.author_id,
+      body: r.body,
+      status: r.status,
+      created_at: r.created_at,
+      updated_at: r.updated_at,
+      author: {
+        id: r.author_id,
+        username: r.author_username,
+        display_name: r.author_display_name,
+        avatar_url: r.author_avatar_url,
+      },
+    }));
+  });
+}
+
+/**
+ * Creates or updates an assignment prompt for a lesson.
+ */
+export async function createCourseAssignment(
+  actorUserId: string,
+  input: z.input<typeof createCourseAssignmentSchema>
+): Promise<CourseAssignmentItem> {
+  const parsed = createCourseAssignmentSchema.parse(input);
+
+  return withRlsTransaction(actorUserId, async (tx) => {
+    const courseRes = await tx.query<{ instructor_id: string }>(
+      `SELECT instructor_id FROM public.courses WHERE id = $1 AND circle_id = $2 LIMIT 1;`,
+      [parsed.courseId, parsed.circleId]
+    );
+    if (!courseRes.rows[0]) throw new NotFoundError('Course not found.');
+
+    const memRes = await tx.query<{ role: CircleRole }>(
+      `SELECT role FROM public.circle_memberships WHERE circle_id = $1 AND user_id = $2 LIMIT 1;`,
+      [parsed.circleId, actorUserId]
+    );
+    const role = memRes.rows[0]?.role;
+    const isStaff = role === 'owner' || role === 'admin' || role === 'moderator';
+
+    if (!isStaff && courseRes.rows[0].instructor_id !== actorUserId) {
+      throw new ForbiddenError('Only the instructor or staff can create assignments.');
+    }
+
+    const assignmentId = crypto.randomUUID();
+    const res = await tx.query<CourseAssignmentItem>(
+      `INSERT INTO public.course_assignments (id, lesson_id, course_id, circle_id, title, prompt_body, due_date)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       ON CONFLICT (lesson_id, circle_id) DO UPDATE SET
+         title = EXCLUDED.title,
+         prompt_body = EXCLUDED.prompt_body,
+         due_date = EXCLUDED.due_date,
+         updated_at = NOW()
+       RETURNING *;`,
+      [
+        assignmentId,
+        parsed.lessonId,
+        parsed.courseId,
+        parsed.circleId,
+        parsed.title,
+        parsed.promptBody,
+        parsed.dueDate || null,
+      ]
+    );
+
+    return res.rows[0];
+  });
+}
+
+/**
+ * Submits homework/project for a lesson assignment.
+ */
+export async function submitAssignment(
+  actorUserId: string,
+  input: z.input<typeof submitAssignmentSchema>
+): Promise<AssignmentSubmissionItem> {
+  const parsed = submitAssignmentSchema.parse(input);
+
+  return withRlsTransaction(actorUserId, async (tx) => {
+    const memRes = await tx.query<{ status: MembershipStatus }>(
+      `SELECT status FROM public.circle_memberships WHERE circle_id = $1 AND user_id = $2 LIMIT 1;`,
+      [parsed.circleId, actorUserId]
+    );
+    if (memRes.rows[0]?.status !== 'active') {
+      throw new ForbiddenError('Only active Circle members can submit assignments.');
+    }
+
+    const subId = crypto.randomUUID();
+    const res = await tx.query<AssignmentSubmissionItem>(
+      `INSERT INTO public.course_assignment_submissions (
+         id, assignment_id, lesson_id, course_id, circle_id, student_id,
+         submission_body, attachment_url, attachment_name, status
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       ON CONFLICT (assignment_id, student_id) DO UPDATE SET
+         submission_body = EXCLUDED.submission_body,
+         attachment_url = EXCLUDED.attachment_url,
+         attachment_name = EXCLUDED.attachment_name,
+         status = EXCLUDED.status,
+         updated_at = NOW()
+       RETURNING *;`,
+      [
+        subId,
+        parsed.assignmentId,
+        parsed.lessonId,
+        parsed.courseId,
+        parsed.circleId,
+        actorUserId,
+        parsed.submissionBody,
+        parsed.attachmentUrl || null,
+        parsed.attachmentName || null,
+        parsed.status,
+      ]
+    );
+
+    return res.rows[0];
+  });
+}
+
+/**
+ * Reviews a student assignment submission with grade and feedback.
+ */
+export async function reviewAssignmentSubmission(
+  actorUserId: string,
+  input: z.input<typeof reviewAssignmentSubmissionSchema>
+): Promise<AssignmentSubmissionItem> {
+  const parsed = reviewAssignmentSubmissionSchema.parse(input);
+
+  return withRlsTransaction(actorUserId, async (tx) => {
+    const subRes = await tx.query<{ course_id: string }>(
+      `SELECT course_id FROM public.course_assignment_submissions WHERE id = $1 AND circle_id = $2 LIMIT 1;`,
+      [parsed.submissionId, parsed.circleId]
+    );
+    if (!subRes.rows[0]) throw new NotFoundError('Submission not found.');
+
+    const courseRes = await tx.query<{ instructor_id: string }>(
+      `SELECT instructor_id FROM public.courses WHERE id = $1 AND circle_id = $2 LIMIT 1;`,
+      [parsed.courseId, parsed.circleId]
+    );
+    if (!courseRes.rows[0]) throw new NotFoundError('Course not found.');
+
+    const memRes = await tx.query<{ role: CircleRole }>(
+      `SELECT role FROM public.circle_memberships WHERE circle_id = $1 AND user_id = $2 LIMIT 1;`,
+      [parsed.circleId, actorUserId]
+    );
+    const role = memRes.rows[0]?.role;
+    const isStaff = role === 'owner' || role === 'admin' || role === 'moderator';
+
+    if (!isStaff && courseRes.rows[0].instructor_id !== actorUserId) {
+      throw new ForbiddenError('Only the course instructor or staff can review submissions.');
+    }
+
+    const res = await tx.query<AssignmentSubmissionItem>(
+      `UPDATE public.course_assignment_submissions
+       SET 
+         status = $3,
+         grade_score = $4,
+         instructor_feedback = $5,
+         reviewed_by = $6,
+         reviewed_at = NOW(),
+         updated_at = NOW()
+       WHERE id = $1 AND circle_id = $2
+       RETURNING *;`,
+      [
+        parsed.submissionId,
+        parsed.circleId,
+        parsed.status,
+        parsed.gradeScore !== undefined ? parsed.gradeScore : null,
+        parsed.instructorFeedback,
+        actorUserId,
+      ]
+    );
+
+    return res.rows[0];
+  });
+}
+
