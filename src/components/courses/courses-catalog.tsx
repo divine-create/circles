@@ -398,15 +398,28 @@ export function CoursesCatalog({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-stone-700">URL Slug</label>
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-semibold text-stone-700">URL Slug</label>
+                  <span className="text-[10px] text-stone-500 font-mono">lowercase & dashes</span>
+                </div>
                 <input
                   type="text"
                   required
                   placeholder="e.g. web-dev-masterclass"
                   value={slug}
-                  onChange={(e) => setSlug(e.target.value)}
+                  onChange={(e) => {
+                    const sanitized = e.target.value
+                      .toLowerCase()
+                      .replace(/[^a-z0-9-]/g, '-')
+                      .replace(/-+/g, '-');
+                    setSlug(sanitized);
+                    setError(null);
+                  }}
                   className="mt-1 w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs text-stone-900 font-mono focus:border-stone-900 focus:outline-hidden"
                 />
+                <p className="mt-1 text-[11px] text-stone-500">
+                  Lowercase letters, numbers, and dashes only
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-3">

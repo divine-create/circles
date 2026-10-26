@@ -18,6 +18,8 @@ import {
   Calendar,
   CheckCircle,
   Lock,
+  AlertCircle,
+  X,
 } from 'lucide-react';
 import {
   CourseItem,
@@ -98,6 +100,20 @@ export function CoursePlayer({
 
   const [savingProgress, setSavingProgress] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [modalError, setModalError] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' } | null>(null);
+
+  function showToast(message: string, type: 'error' | 'success' = 'error') {
+    setToast({ message, type });
+  }
+
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => {
+      setToast(null);
+    }, 4500);
+    return () => clearTimeout(timer);
+  }, [toast]);
 
   const totalLessons = allLessons.length;
   const completedLessons = allLessons.filter((l) => l.is_completed).length;
@@ -243,6 +259,7 @@ export function CoursePlayer({
   async function handleCreateAssignment(e: React.FormEvent) {
     e.preventDefault();
     if (!activeLesson) return;
+    setModalError(null);
     try {
       const res = await fetch(`/api/circles/${circleId}/courses`, {
         method: 'POST',
@@ -251,13 +268,18 @@ export function CoursePlayer({
           action: 'create_assignment',
           courseId: course.id,
           lessonId: activeLesson.id,
-          title: assignTitle,
-          promptBody: assignPrompt,
+          title: assignTitle.trim(),
+          promptBody: assignPrompt.trim(),
           dueDate: assignDueDate ? new Date(assignDueDate).toISOString() : null,
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to create assignment.');
+      if (!res.ok) {
+        const msg = data.error || 'Failed to create assignment.';
+        setModalError(msg);
+        showToast(msg, 'error');
+        return;
+      }
 
       setCourse((prev) => ({
         ...prev,
@@ -271,15 +293,20 @@ export function CoursePlayer({
       setAssignTitle('');
       setAssignPrompt('');
       setAssignDueDate('');
+      setModalError(null);
       setShowAddAssignment(false);
+      showToast('Assignment created successfully!', 'success');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to create assignment.');
+      const msg = err instanceof Error ? err.message : 'Unable to create assignment.';
+      setModalError(msg);
+      showToast(msg, 'error');
     }
   }
 
   async function handleAddModule(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setModalError(null);
     try {
       const res = await fetch(`/api/circles/${circleId}/courses`, {
         method: 'POST',
@@ -287,8 +314,8 @@ export function CoursePlayer({
         body: JSON.stringify({
           action: 'create_module',
           courseId: course.id,
-          title: moduleTitle,
-          description: moduleDesc,
+          title: moduleTitle.trim(),
+          description: moduleDesc.trim(),
           sortOrder: (course.modules?.length || 0) + 1,
           dripType,
           dripDaysAfterEnrollment:
@@ -300,7 +327,12 @@ export function CoursePlayer({
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to add module.');
+      if (!res.ok) {
+        const msg = data.error || 'Failed to add module.';
+        setModalError(msg);
+        showToast(msg, 'error');
+        return;
+      }
 
       setCourse((prev) => ({
         ...prev,
@@ -311,15 +343,34 @@ export function CoursePlayer({
       setDripType('instant');
       setDripDays('7');
       setDripDate('');
+      setModalError(null);
       setShowAddModule(false);
+      showToast(`Module "${data.module.title}" created successfully!`, 'success');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to create module.');
+      const msg = err instanceof Error ? err.message : 'Unable to create module.';
+      setModalError(msg);
+      showToast(msg, 'error');
     }
   }
 
   async function handleAddLesson(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setModalError(null);
+
+    const rawSlug = lessonSlug.trim() || lessonTitle.trim();
+    const cleanSlug = rawSlug
+      .toLowerCase()
+      .replace(/[^a-z0-9-]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+
+    if (!cleanSlug || !/^[a-z0-9-]+$/.test(cleanSlug)) {
+      const msg = 'Slug must consist of lowercase letters, numbers, and dashes (e.g. dev-setup).';
+      setModalError(msg);
+      showToast(msg, 'error');
+      return;
+    }
+
     try {
       const res = await fetch(`/api/circles/${circleId}/courses`, {
         method: 'POST',
@@ -328,19 +379,24 @@ export function CoursePlayer({
           action: 'create_lesson',
           courseId: course.id,
           moduleId: targetModuleId,
-          title: lessonTitle,
-          slug: lessonSlug,
-          videoUrl: lessonVideo || null,
+          title: lessonTitle.trim(),
+          slug: cleanSlug,
+          videoUrl: lessonVideo.trim() || null,
           durationMinutes: parseInt(lessonDuration, 10) || 0,
           contentBody: lessonContent,
-          attachmentUrl: lessonAttachmentUrl || null,
-          attachmentName: lessonAttachmentName || null,
+          attachmentUrl: lessonAttachmentUrl.trim() || null,
+          attachmentName: lessonAttachmentName.trim() || null,
           isLiveSession,
           sortOrder: allLessons.length + 1,
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to add lesson.');
+      if (!res.ok) {
+        const msg = data.error || 'Failed to add lesson.';
+        setModalError(msg);
+        showToast(msg, 'error');
+        return;
+      }
 
       setCourse((prev) => ({
         ...prev,
@@ -362,9 +418,13 @@ export function CoursePlayer({
       setLessonAttachmentUrl('');
       setLessonAttachmentName('');
       setIsLiveSession(false);
+      setModalError(null);
       setShowAddLesson(false);
+      showToast(`Lesson "${data.lesson.title}" created successfully!`, 'success');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to create lesson.');
+      const msg = err instanceof Error ? err.message : 'Unable to create lesson.';
+      setModalError(msg);
+      showToast(msg, 'error');
     }
   }
 
@@ -450,6 +510,33 @@ export function CoursePlayer({
 
   return (
     <div className="space-y-6">
+      {/* Floating Toast Notification */}
+      {toast && (
+        <div
+          role="status"
+          className={`fixed top-5 right-5 z-[100] flex max-w-sm items-center gap-3 rounded-2xl border px-4 py-3 text-xs shadow-xl backdrop-blur-md transition-all animate-in slide-in-from-top-3 duration-200 ${
+            toast.type === 'success'
+              ? 'border-emerald-200 bg-emerald-50/95 text-emerald-950 font-medium'
+              : 'border-red-200 bg-red-50/95 text-red-950 font-medium'
+          }`}
+        >
+          {toast.type === 'success' ? (
+            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+          ) : (
+            <AlertCircle className="h-4 w-4 shrink-0 text-red-600" />
+          )}
+          <span className="flex-1 leading-snug">{toast.message}</span>
+          <button
+            type="button"
+            onClick={() => setToast(null)}
+            className="text-stone-400 hover:text-stone-700 p-0.5"
+            aria-label="Dismiss notification"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* Top Breadcrumb & Progress Banner */}
       <div className="flex flex-col justify-between gap-4 rounded-2xl border border-stone-200/80 bg-white p-5 shadow-xs sm:flex-row sm:items-center">
         <div>
@@ -1089,6 +1176,23 @@ export function CoursePlayer({
               Create an assignment prompt and submission requirements for this lesson.
             </p>
 
+            {modalError && (
+              <div className="mt-3 flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-800">
+                <AlertCircle className="h-4 w-4 shrink-0 text-red-600 mt-0.5" />
+                <div className="flex-1">
+                  <p className="font-semibold">Unable to Save Assignment</p>
+                  <p className="mt-0.5 text-red-700">{modalError}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setModalError(null)}
+                  className="text-stone-400 hover:text-stone-700"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
+
             <form onSubmit={handleCreateAssignment} className="mt-4 space-y-3.5">
               <div>
                 <label className="block text-xs font-semibold text-stone-700">
@@ -1156,6 +1260,23 @@ export function CoursePlayer({
             <p className="mt-1 text-xs text-stone-500">
               Create a section to group related video lessons and study materials.
             </p>
+
+            {modalError && (
+              <div className="mt-3 flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-800">
+                <AlertCircle className="h-4 w-4 shrink-0 text-red-600 mt-0.5" />
+                <div className="flex-1">
+                  <p className="font-semibold">Unable to Save Module</p>
+                  <p className="mt-0.5 text-red-700">{modalError}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setModalError(null)}
+                  className="text-stone-400 hover:text-stone-700"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
 
             <form onSubmit={handleAddModule} className="mt-4 space-y-3.5">
               <div>
@@ -1255,6 +1376,23 @@ export function CoursePlayer({
               Add video link, study notes, live session toggle, and downloadable assets.
             </p>
 
+            {modalError && (
+              <div className="mt-3 flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-800">
+                <AlertCircle className="h-4 w-4 shrink-0 text-red-600 mt-0.5" />
+                <div className="flex-1">
+                  <p className="font-semibold">Unable to Save Lesson</p>
+                  <p className="mt-0.5 text-red-700">{modalError}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setModalError(null)}
+                  className="text-stone-400 hover:text-stone-700"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
+
             <form onSubmit={handleAddLesson} className="mt-4 space-y-3.5">
               <div>
                 <label className="block text-xs font-semibold text-stone-700">Lesson Title</label>
@@ -1264,15 +1402,16 @@ export function CoursePlayer({
                   placeholder="e.g. Setting up the Development Environment"
                   value={lessonTitle}
                   onChange={(e) => {
-                    setLessonTitle(e.target.value);
-                    if (!lessonSlug) {
-                      setLessonSlug(
-                        e.target.value
-                          .toLowerCase()
-                          .replace(/[^a-z0-9]+/g, '-')
-                          .replace(/(^-|-$)/g, '')
-                      );
+                    const val = e.target.value;
+                    setLessonTitle(val);
+                    const autoSlug = val
+                      .toLowerCase()
+                      .replace(/[^a-z0-9]+/g, '-')
+                      .replace(/^-+|-+$/g, '');
+                    if (!lessonSlug || lessonSlug === autoSlug || lessonSlug.startsWith(autoSlug.slice(0, -1))) {
+                      setLessonSlug(autoSlug);
                     }
+                    setModalError(null);
                   }}
                   className="mt-1 w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs text-stone-900 focus:border-stone-900 focus:outline-hidden"
                 />
@@ -1280,15 +1419,28 @@ export function CoursePlayer({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-stone-700">URL Slug</label>
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-semibold text-stone-700">URL Slug</label>
+                    <span className="text-[10px] text-stone-500 font-mono">lowercase & dashes</span>
+                  </div>
                   <input
                     type="text"
                     required
                     placeholder="e.g. dev-setup"
                     value={lessonSlug}
-                    onChange={(e) => setLessonSlug(e.target.value)}
+                    onChange={(e) => {
+                      const sanitized = e.target.value
+                        .toLowerCase()
+                        .replace(/[^a-z0-9-]/g, '-')
+                        .replace(/-+/g, '-');
+                      setLessonSlug(sanitized);
+                      setModalError(null);
+                    }}
                     className="mt-1 w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs text-stone-900 font-mono focus:border-stone-900 focus:outline-hidden"
                   />
+                  <p className="mt-1 text-[11px] text-stone-500">
+                    Lowercase letters, numbers, and dashes only
+                  </p>
                 </div>
 
                 <div>
