@@ -1,110 +1,85 @@
-# Circles Platform — Supabase Staging Verification Checklist
+# Circles — Staging Verification Checklist & Environment Reference
 
-> **Status**: `PENDING` (No external Supabase staging credentials were present in the local audit environment. Execute this checklist step by step when provisioning the staging environment.)
-
----
-
-## 1. Environment Configuration Verification
-
-Configure the following environment variables in the staging deployment environment (never commit real values to Git):
-
-```ini
-NODE_ENV=production
-NEXT_PUBLIC_APP_URL=https://staging-circles.example.com
-NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<supabase-anon-public-key>
-SUPABASE_SERVICE_ROLE_KEY=<supabase-service-role-secret-key>
-DATABASE_URL=postgresql://postgres.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres
-CIRCLES_SESSION_SECRET=<64-hex-char-random-secret-generated-via-openssl-rand-hex-32>
-RESEND_API_KEY=<resend-api-key>
-RESEND_FROM_EMAIL=Circles Staging <no-reply@staging-circles.example.com>
-```
-
-### Fail-Closed Startup Checks
-1. **Missing `CIRCLES_SESSION_SECRET`**: Temporarily omit `CIRCLES_SESSION_SECRET` and call `GET /api/health` -> Verify response is HTTP `503` (`{"status":"unhealthy","code":"SERVICE_UNAVAILABLE"}`) and no internal stack trace or secret is leaked.
-2. **Weak `CIRCLES_SESSION_SECRET`**: Set `CIRCLES_SESSION_SECRET=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa` -> Verify `GET /api/health` returns HTTP `503`.
-3. **Missing `DATABASE_URL` or `SUPABASE_SERVICE_ROLE_KEY`** (with `ALLOW_EMBEDDED_POSTGRES_IN_PRODUCTION` unset) -> Verify `GET /api/health` returns HTTP `503` and does **not** fall back to local `.pgdata`.
+**Last Updated**: 2026-10-26  
+**Current Readiness Status**: `LOCAL STAGING READY` (All 20 automated unit, integration, RLS, `pg.Pool` remote executor, migration tracking, and HTTP API security tests pass locally; live hosted Supabase staging verification is pending external credentials).
 
 ---
 
-## 2. Database Migration Execution & Verification
+## 1. Authoritative Environment Variable Reference
 
-Apply migrations in strict chronological order against the fresh staging PostgreSQL database (using session-mode connection port `5432`, not transaction-mode port `6543`, so prepared statements, triggers, and `SET LOCAL ROLE` work deterministically):
+Every environment variable below is verified against [`src/lib/config/env.ts`](file:///C:/Users/HomePC/Desktop/circles/src/lib/config/env.ts), [`src/lib/db/postgres.ts`](file:///C:/Users/HomePC/Desktop/circles/src/lib/db/postgres.ts), [`src/lib/db/supabase.ts`](file:///C:/Users/HomePC/Desktop/circles/src/lib/db/supabase.ts), and [`src/lib/email/index.ts`](file:///C:/Users/HomePC/Desktop/circles/src/lib/email/index.ts):
 
-```bash
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/0001_initial_schema.sql
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/0002_security_hardening.sql
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/0003_staging_rls_and_role_hardening.sql
-```
+| Exact Variable Name | Exposure Scope | Required in Staging/Prod | Where to Obtain & How to Configure |
+| :--- | :--- | :--- | :--- |
+| `DATABASE_URL` (or `SUPABASE_DB_URL`) | **Server-Only** | **Yes** | **Supabase Dashboard → Connect → URI (Session Pooler port `5432` or Direct Connection port `5432`)**. Must begin with `postgresql://` or `postgres://`. Activates the `pg.Pool` remote PostgreSQL executor in [`src/lib/db/postgres.ts`](file:///C:/Users/HomePC/Desktop/circles/src/lib/db/postgres.ts). |
+| `NEXT_PUBLIC_SUPABASE_URL` | Client & Server | **Yes** | **Supabase Dashboard → Project Settings → API → Project URL** (`https://<project-ref>.supabase.co`). Must begin with `http://` or `https://`. |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Client & Server | **Yes** | **Supabase Dashboard → Project Settings → API → Project API keys → `anon` `public`**. Safe for browser bundle; subject to PostgreSQL RLS. |
+| `SUPABASE_SERVICE_ROLE_KEY` | **Server-Only** | **Yes** | **Supabase Dashboard → Project Settings → API → Project API keys → `service_role` `secret`**. Never expose to client components or `NEXT_PUBLIC_*`. |
+| `CIRCLES_SESSION_SECRET` | **Server-Only** | **Yes** | Generate locally via `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`. Validated by [`getVerifiedSessionSecret()`](file:///C:/Users/HomePC/Desktop/circles/src/lib/config/env.ts#L23-L39): must be $\ge 32$ characters with $\ge 10$ distinct characters. |
+| `NEXT_PUBLIC_APP_URL` | Client & Server | **Yes** | Public HTTPS origin of the staging/production deployment (e.g., `https://staging.circles.example.com`). Set to `http://localhost:3000` in local development. |
+| `RESEND_API_KEY` | **Server-Only** | Optional (Recommended) | **Resend Dashboard → API Keys → Create API Key**. Used by [`sendTransactionalEmail()`](file:///C:/Users/HomePC/Desktop/circles/src/lib/email/index.ts) for password recovery and notification emails. |
+| `RESEND_FROM_EMAIL` | **Server-Only** | Optional (Recommended) | Verified sender address in Resend (e.g., `Circles <notifications@circles.example.com>`). |
+| `PG_POOL_MAX` | **Server-Only** | Optional | Max connections per Node.js process in `pg.Pool` (default: `10`; set to `3`–`5` on serverless platforms). |
+| `PG_IDLE_TIMEOUT_MS` | **Server-Only** | Optional | Idle connection timeout in milliseconds (default: `30000`). |
+| `PG_CONNECTION_TIMEOUT_MS` | **Server-Only** | Optional | Connection acquisition timeout in milliseconds (default: `10000`). |
+| `PG_SSL` / `PG_SSL_REJECT_UNAUTHORIZED` | **Server-Only** | Optional | SSL configuration for `pg.Pool` when connecting to managed cloud PostgreSQL instances. |
+| `ALLOW_EMBEDDED_POSTGRES_IN_PRODUCTION` | **Server-Only** | Optional (`false`) | Must remain unset or `false` in staging/production so missing `DATABASE_URL` fails closed. |
 
-### Verify Schema, RLS & Role Grants in `psql`
-1. Confirm RLS and `FORCE ROW LEVEL SECURITY` are enabled on all 22 `public` tables and `auth.sessions`:
-   ```sql
-   SELECT schemaname, tablename, rowsecurity, forcerowsecurity
-   FROM pg_tables
-   WHERE schemaname IN ('public', 'auth')
-     AND tablename IN ('profiles', 'circles', 'circle_memberships', 'posts', 'comments', 'sessions');
-   ```
-   *Expected*: `rowsecurity = t` and `forcerowsecurity = t` on all protected tables.
-2. Confirm `anon` and `authenticated` cannot access `auth.users` or `auth.sessions`:
-   ```sql
-   BEGIN;
-   SET LOCAL ROLE authenticated;
-   SELECT COUNT(*) FROM auth.sessions; -- Expected: ERROR: permission denied for table sessions
-   ROLLBACK;
-   ```
-3. Confirm `service_role` can insert and query `auth.sessions`:
-   ```sql
-   BEGIN;
-   SET LOCAL ROLE service_role;
-   SELECT COUNT(*) FROM auth.sessions; -- Expected: succeeds (0 or current session count)
-   ROLLBACK;
-   ```
+### Credential Rotation Procedure
+- **`CIRCLES_SESSION_SECRET`**: Generate a new 32-byte hex secret, update the hosting environment variable, redeploy, and optionally run `UPDATE public.user_sessions SET revoked_at = NOW() WHERE revoked_at IS NULL;` to invalidate all active session records.
+- **`DATABASE_URL`**: Rotate the database password in **Supabase Dashboard → Project Settings → Database**, update `DATABASE_URL` in the hosting environment, and redeploy.
+- **`SUPABASE_SERVICE_ROLE_KEY` / `RESEND_API_KEY`**: Roll the secret key in the provider dashboard, update the server-only environment variable in the hosting platform, and redeploy.
 
 ---
 
-## 3. Authentication, Session Revocation & Recovery Checks
+## 2. Automated Local Pre-Staging Verification (`[x] Verified Locally`)
 
-1. **Registration & Cookie Security**:
-   - Register two distinct staging accounts (`user_a@staging.example.com` and `user_b@staging.example.com`) via `/register`.
-   - Inspect response `Set-Cookie` header for `circles_session_token`: verify `HttpOnly`, `Secure`, `SameSite=Lax`, and `Path=/`.
-2. **Logout Session Revocation**:
-   - Copy `user_a`'s `circles_session_token` value.
-   - Trigger `POST /api/auth/logout`.
-   - Replay the copied token via `Authorization: Bearer <token>` against `GET /api/profile`.
-   - *Expected*: HTTP `401 Unauthorized` (revoked in `auth.sessions`).
-3. **Password Recovery & Full Session Invalidation**:
-   - Log in as `user_a` on two separate browser sessions.
-   - Request password recovery via `POST /api/auth/recover` (`{"email":"user_a@staging.example.com"}`).
-   - Verify the HTTP response JSON does **not** include `previewToken` in staging (`NODE_ENV=production`).
-   - Retrieve the recovery link/token from the Resend email inbox and submit `POST /api/auth/recover` (`{"action":"reset","token":"<token>","newPassword":"NewStagingPassword123!"}`).
-   - Verify both prior browser sessions are immediately invalidated (`401` on `GET /api/profile`), and re-submitting the same recovery token a second time returns HTTP `400`.
+- [x] **Linting (`npm run lint`)**: Passed with zero ESLint warnings or errors.
+- [x] **Type Checking (`npm run typecheck`)**: Passed `tsc --noEmit` in strict mode with zero errors.
+- [x] **Automated Test Suite (`npm test`)**: Passed all 5 test files (**20/20 tests**):
+  - [`tests/unit/capabilities-and-permissions.test.ts`](file:///C:/Users/HomePC/Desktop/circles/tests/unit/capabilities-and-permissions.test.ts) (6 tests)
+  - [`tests/integration/vertical-slice-and-rls.test.ts`](file:///C:/Users/HomePC/Desktop/circles/tests/integration/vertical-slice-and-rls.test.ts) (4 tests)
+  - [`tests/integration/api-security.test.ts`](file:///C:/Users/HomePC/Desktop/circles/tests/integration/api-security.test.ts) (1 comprehensive HTTP API test)
+  - [`tests/integration/security-audit-regression.test.ts`](file:///C:/Users/HomePC/Desktop/circles/tests/integration/security-audit-regression.test.ts) (6 security regression tests)
+  - [`tests/integration/postgres-executor-and-migrations.test.ts`](file:///C:/Users/HomePC/Desktop/circles/tests/integration/postgres-executor-and-migrations.test.ts) (3 `pg.Pool` remote executor, migration tracking, and backend selection tests)
+- [x] **Migration Runner CLI (`npm run db:migrate`)**: Applied migrations `0001`, `0002`, `0003`, and `0004` in order, recorded SHA-256 checksums in `public.schema_migrations`, and verified idempotency on second run (`Applied: 0, Skipped: 4`).
+- [x] **Production Build (`npm run build`)**: Passed `next build` cleanly across all 21 routes.
 
 ---
 
-## 4. Multi-User Authorization, Privacy & Capability Checks
+## 3. Hosted Supabase Staging End-to-End Verification Checklist (`[ ] Pending Hosted Staging Verification`)
 
-1. **Private Circle Isolation**:
-   - As `user_a`, create a `private` Circle (`slug: staging-private`).
-   - As anonymous and as `user_b`, request `GET /api/circles/staging-private` and `GET /api/circles?search=staging-private`.
-   - *Expected*: `404 Not Found` on direct lookup and absent from discovery results.
-2. **Role Hierarchy & Ownership Protection**:
-   - As `user_a` (Owner), invite `user_b` as `admin` to a Circle.
-   - As `user_b` (Admin), attempt `PATCH /api/circles/<id>/membership` with `{"action":"transfer_ownership","newOwnerUserId":"<user_b_id>"}` -> *Expected*: HTTP `403 Forbidden`.
-   - As `user_b` (Admin), attempt to invite a third user with `role: "admin"` -> *Expected*: HTTP `403 Forbidden`.
-3. **Profile Visibility (`public`, `members_only`, `private`)**:
-   - Set `user_a`'s profile visibility to `private` via `/settings`.
-   - As anonymous, load `user_a`'s public Circle discussion feed -> *Expected*: Posts remain visible with fallback author name `"Circle Member"`, while `user_a`'s private profile fields (`bio`, `email`, `location`) are not exposed.
-4. **Capability Enforcement (`discussions`, `spaces`, `allowMemberPosts`, `allowReactions`)**:
-   - In Circle Studio (`/circles/<slug>/studio`), uncheck `Allow member posts` and `Allow reactions` under `Discussions & Posts`.
-   - As a regular `'member'`, attempt `POST /api/circles/<id>/posts` and `POST /api/circles/<id>/posts/<postId>` (`{"action":"react"}`) -> *Expected*: HTTP `403 Forbidden`.
-   - Disable `Discussions & Posts` capability in Circle Studio -> Verify `GET /api/circles/<id>/posts` returns `403`, re-enable it, and verify all prior posts and comments are intact.
+Execute and check off each item below once connected to a live hosted Supabase PostgreSQL project:
 
----
+### 3.1 Database Migrations & Schema Verification
+- [ ] Run `DATABASE_URL="postgresql://..." npm run db:migrate` against the fresh Supabase staging database.
+- [ ] Verify `SELECT version, filename, checksum, applied_at FROM public.schema_migrations ORDER BY version;` returns `0001`, `0002`, `0003`, and `0004`.
+- [ ] Re-run `npm run db:migrate` and confirm it reports `Applied: 0, Skipped: 4` with zero errors.
+- [ ] Confirm `GET /api/health` returns HTTP `200` with `{"status":"healthy","database":"connected","backend":"remote_pg","mode":"supabase_configured"}`.
 
-## 5. Health Check, Rollback & Monitoring
+### 3.2 Authentication & Session Lifecycle
+- [ ] Register a new user via `POST /api/auth/register` (or `/register` UI) and verify rows are created in `auth.users`, `public.profiles`, and `public.user_sessions`.
+- [ ] Sign in with valid credentials (`POST /api/auth/login`) and verify invalid passwords return HTTP `401`.
+- [ ] Verify signing in when already holding a session cookie revokes the previous session in `public.user_sessions`.
+- [ ] Sign out (`POST /api/auth/logout`) and verify replaying the old session token is immediately rejected (`401`).
+- [ ] Request password recovery (`POST /api/auth/recover`), confirm `previewToken` is **not** returned in `NODE_ENV=production`, receive the recovery email via Resend, reset the password, and confirm all prior sessions for that user have `revoked_at IS NOT NULL` in `public.user_sessions`.
 
-1. **Readiness Probe**: Configure load balancer health check to poll `GET /api/health` every 30s (expect HTTP `200` with `{"status":"healthy","database":"connected"}`).
-2. **Rollback Plan**:
-   - Migrations `0002_security_hardening.sql` and `0003_staging_rls_and_role_hardening.sql` are non-destructive (they add `auth.sessions`, triggers, and updated RLS policies without dropping application columns or user data).
-   - Take a logical snapshot (`pg_dump --format=custom "$DATABASE_URL" > pre_deploy_backup.dump`) prior to running migrations in any shared environment.
+### 3.3 Circle Lifecycle, Discovery & Visibility Isolation
+- [ ] Create a `public` Circle, a `discoverable_approval` Circle, and a `private` Circle.
+- [ ] Verify anonymous visitors can view the `public` Circle, see only the summary card for `discoverable_approval` (with internal spaces/posts/members hidden), and cannot discover or access the `private` Circle.
+
+### 3.4 Memberships, Role Hierarchy & Ownership Protection
+- [ ] Join a `public` Circle as an ordinary member.
+- [ ] Submit a join request to a `discoverable_approval` Circle, approve it as Circle admin/owner, and verify non-admin moderators cannot read `circle_join_requests`.
+- [ ] Issue an invitation (`circle_invitations`), verify a Circle admin cannot invite with `role = 'admin'`, and accept the invitation as the invited email owner.
+- [ ] Verify the sole Circle owner cannot leave, be removed, or be demoted without first transferring ownership (`transferCircleOwnership`).
+
+### 3.5 Capability Lifecycle & Settings Enforcement
+- [ ] Enable and disable capabilities in Circle Studio; verify dependency validation blocks invalid transitions.
+- [ ] Disable `discussions` and `spaces`, confirm underlying `posts` and `circle_spaces` rows remain intact in PostgreSQL, confirm read/write operations are blocked while disabled, and re-enable to restore access.
+- [ ] Set `allowMemberPosts: false` and `allowReactions: false` on `discussions` and confirm ordinary members are blocked from posting or reacting at both the service layer and PostgreSQL RLS layer.
+
+### 3.6 Moderation & Audit Logging
+- [ ] Submit a content report (`POST /api/moderation`), hide/remove a post, and suspend/restore an ordinary member via Circle Studio (`PATCH /api/moderation`).
+- [ ] Verify suspended members cannot post, comment, react, or self-restore their membership status.
+- [ ] Verify `public.moderation_actions` and `public.audit_logs` record every administrative action.

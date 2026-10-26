@@ -87,7 +87,7 @@ export async function issuePersistedSession(
 
   await withServiceRoleTransaction(async (tx) => {
     await tx.query(
-      `INSERT INTO auth.sessions (id, user_id, token_hash, expires_at)
+      `INSERT INTO public.user_sessions (id, user_id, token_hash, expires_at)
        VALUES ($1, $2, $3, $4);`,
       [jti, userId, tokenHash, expiresAt]
     );
@@ -124,7 +124,7 @@ export async function revokeSessionToken(rawToken?: string | null): Promise<void
     const tokenHash = hashSessionToken(tokenToRevoke);
     await withServiceRoleTransaction(async (tx) => {
       await tx.query(
-        `UPDATE auth.sessions
+        `UPDATE public.user_sessions
          SET revoked_at = NOW()
          WHERE token_hash = $1 AND revoked_at IS NULL;`,
         [tokenHash]
@@ -138,7 +138,7 @@ export async function revokeSessionToken(rawToken?: string | null): Promise<void
 export async function revokeAllUserSessions(userId: string): Promise<void> {
   await withServiceRoleTransaction(async (tx) => {
     await tx.query(
-      `UPDATE auth.sessions
+      `UPDATE public.user_sessions
        SET revoked_at = NOW()
        WHERE user_id = $1 AND revoked_at IS NULL;`,
       [userId]
@@ -163,7 +163,7 @@ export async function verifyAndResolveSessionUser(rawToken: string): Promise<Use
 
   return withServiceRoleTransaction(async (tx) => {
     const sessionRes = await tx.query<{ id: string }>(
-      `SELECT id FROM auth.sessions
+      `SELECT id FROM public.user_sessions
        WHERE id = $1
          AND user_id = $2
          AND token_hash = $3

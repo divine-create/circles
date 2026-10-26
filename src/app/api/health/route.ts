@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { withServiceRoleTransaction } from '@/lib/db/postgres';
+import { getActiveDatabaseBackend, withServiceRoleTransaction } from '@/lib/db/postgres';
 import {
   assertProductionDatabaseConfigured,
   getVerifiedSessionSecret,
@@ -35,9 +35,12 @@ export async function GET() {
       );
     }
 
+    const backend = getActiveDatabaseBackend();
+
     return NextResponse.json({
       status: 'healthy',
       database: 'connected',
+      backend,
       mode: isSupabaseConfigured() ? 'supabase_configured' : 'embedded_pglite_rls',
       timestamp: new Date().toISOString(),
     });

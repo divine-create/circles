@@ -4,17 +4,32 @@
 -- ============================================================================
 
 -- 1. Stateful Session Registry (Enables immediate logout revocation & password-reset session invalidation)
-CREATE TABLE IF NOT EXISTS auth.sessions (
-  id UUID PRIMARY KEY,
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  token_hash TEXT UNIQUE NOT NULL,
-  expires_at TIMESTAMPTZ NOT NULL,
-  revoked_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
+-- Guarded for hosted Supabase compatibility where GoTrue manages auth.sessions (superseded by public.user_sessions in 0004)
+DO $$
+BEGIN
+  CREATE TABLE IF NOT EXISTS auth.sessions (
+    id UUID PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    token_hash TEXT UNIQUE NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    revoked_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
 
-CREATE INDEX IF NOT EXISTS idx_auth_sessions_user ON auth.sessions(user_id, revoked_at);
-CREATE INDEX IF NOT EXISTS idx_auth_sessions_token ON auth.sessions(token_hash);
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'auth'
+      AND table_name = 'sessions'
+      AND column_name = 'token_hash'
+  ) THEN
+    CREATE INDEX IF NOT EXISTS idx_auth_sessions_user ON auth.sessions(user_id, revoked_at);
+    CREATE INDEX IF NOT EXISTS idx_auth_sessions_token ON auth.sessions(token_hash);
+  END IF;
+EXCEPTION
+  WHEN insufficient_privilege THEN
+    NULL;
+END
+$$;
 
 -- 2. Profile Identity & Email Immutability Trigger (Prevents email spoofing for invitation hijacking)
 CREATE OR REPLACE FUNCTION public.protect_profile_identity()

@@ -1,317 +1,480 @@
-import { PGlite, Transaction } from '@electric-sql/pglite';
+import { PGlite } from '@electric-sql/pglite';
+import { Pool } from 'pg';
 import fs from 'fs';
 import path from 'path';
-import crypto from 'crypto';
-import { assertProductionDatabaseConfigured } from '@/lib/config/env';
+import {
+  assertProductionDatabaseConfigured,
+  DatabaseBackendMode,
+  getDatabaseBackendMode,
+  getRemoteDatabaseUrl,
+} from '@/lib/config/env';
+import {
+  getAppliedMigrations,
+  MigrationRunResult,
+  runPendingMigrations,
+} from '@/lib/db/migrator';
+import { logger } from '@/lib/logging';
 
-export interface QueryExecutor {
-  query<T = Record<string, unknown>>(sql: string, params?: unknown[]): Promise<{ rows: T[] }>;
-  exec(sql: string): Promise<void>;
+export interface QueryResult<T = Record<string, unknown>> {
+  rows: T[];
 }
 
-declare global {
-  // eslint-disable-next-line no-var
-  var __circlesPgInstance: PGlite | undefined;
-  // eslint-disable-next-line no-var
-  var __circlesPgInitPromise: Promise<PGlite> | undefined;
+export interface DbTransaction {
+  query: <T = Record<string, unknown>>(sql: string, params?: unknown[]) => Promise<QueryResult<T>>;
+  exec: (sql: string) => Promise<void>;
 }
 
-function hashPasswordSync(password: string, salt = 'circles-static-demo-salt'): string {
-  const derived = crypto.scryptSync(password, salt, 64).toString('hex');
-  return `${salt}:${derived}`;
+export interface RemotePgClientLike {
+  query: (sql: string, values?: unknown[]) => Promise<{ rows: unknown[] }>;
+  release: (err?: Error | boolean) => void;
 }
 
-export async function initializeSchemaOnDb(pg: PGlite, includeDemoSeed = false): Promise<void> {
-  const check = await pg.query<{ exists: boolean }>(
-    `SELECT EXISTS (
-      SELECT 1 FROM information_schema.tables
-      WHERE table_schema = 'public' AND table_name = 'circles'
-    ) AS exists;`
-  );
+export interface RemotePgPoolLike {
+  connect: () => Promise<RemotePgClientLike>;
+  end: () => Promise<void>;
+}
 
-  if (!check.rows[0]?.exists) {
-    const migrationsDir = path.join(process.cwd(), 'supabase', 'migrations');
-    const seedPath = path.join(process.cwd(), 'supabase', 'seed.sql');
+interface GlobalDbState {
+  __circlesPgInstance?: PGlite;
+  __circlesPgInitPromise?: Promise<PGlite>;
+  __circlesPgMutex?: Promise<void>;
+  __circlesRemotePool?: RemotePgPoolLike;
+  __circlesRemotePoolUrl?: string;
+  __circlesCustomTestPool?: RemotePgPoolLike | null;
+}
 
-    const migrationFiles = fs
-      .readdirSync(migrationsDir)
-      .filter((f) => f.endsWith('.sql'))
-      .sort();
+const globalForPg = globalThis as unknown as GlobalDbState;
 
-    for (const file of migrationFiles) {
-      const migrationSql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
-      await pg.exec(migrationSql);
-    }
+/**
+ * Allows integration tests to inject a deterministic Pool implementation
+ * to test the remote_pg executor path without requiring an external TCP database.
+ */
+export function setCustomRemotePoolForTesting(pool: RemotePgPoolLike | null): void {
+  globalForPg.__circlesCustomTestPool = pool;
+}
 
-    if (fs.existsSync(seedPath)) {
-      const seedSql = fs.readFileSync(seedPath, 'utf8');
-      await pg.exec(seedSql);
-    }
-  } else {
-    // Ensure all hardening migrations (0002, 0003, etc.) are applied on existing persistent .pgdata directories
-    const migrationsDir = path.join(process.cwd(), 'supabase', 'migrations');
-    const hardeningFiles = fs
-      .readdirSync(migrationsDir)
-      .filter((f) => f.endsWith('.sql') && f !== '0001_initial_schema.sql')
-      .sort();
+/**
+ * Returns the active database backend mode ('remote_pg' or 'embedded_pglite'),
+ * accounting for any test pool override.
+ */
+export function getActiveDatabaseBackend(): DatabaseBackendMode {
+  if (globalForPg.__circlesCustomTestPool) {
+    return 'remote_pg';
+  }
+  return getDatabaseBackendMode();
+}
 
-    for (const file of hardeningFiles) {
-      const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
-      await pg.exec(sql);
-    }
+/**
+ * Returns or initializes the singleton `pg.Pool` for remote PostgreSQL / Supabase connections.
+ */
+export function getRemotePgPool(): RemotePgPoolLike {
+  if (globalForPg.__circlesCustomTestPool) {
+    return globalForPg.__circlesCustomTestPool;
   }
 
-  if (includeDemoSeed) {
-    const countRes = await pg.query<{ count: string }>(`SELECT COUNT(*)::text AS count FROM public.circles;`);
-    const count = parseInt(countRes.rows[0]?.count ?? '0', 10);
-    if (count === 0) {
-      await seedInitialDevelopmentCommunities(pg);
-    }
-  }
-}
-
-async function seedInitialDevelopmentCommunities(pg: PGlite): Promise<void> {
-  const founderId = '11111111-1111-4111-8111-111111111111';
-  const moderatorId = '22222222-2222-4222-8222-222222222222';
-  const memberId = '33333333-3333-4333-8333-333333333333';
-
-  const demoPasswordHash = hashPasswordSync('CirclesDemo123!');
-
-  await pg.query(
-    `INSERT INTO auth.users (id, email, encrypted_password, raw_user_meta_data)
-     VALUES
-       ($1, 'amara@circles.dev', $4, '{"display_name":"Amara Okafor","username":"amara_okafor"}'::jsonb),
-       ($2, 'liam@circles.dev', $4, '{"display_name":"Liam Chen","username":"liam_chen"}'::jsonb),
-       ($3, 'sofia@circles.dev', $4, '{"display_name":"Sofia Rossi","username":"sofia_rossi"}'::jsonb)
-     ON CONFLICT (id) DO NOTHING;`,
-    [founderId, moderatorId, memberId, demoPasswordHash]
-  );
-
-  await pg.query(
-    `INSERT INTO public.profiles (id, email, username, display_name, bio, location, profile_visibility)
-     VALUES
-       ($1, 'amara@circles.dev', 'amara_okafor', 'Amara Okafor', 'Community systems architect and urban gardening organizer.', 'London, UK', 'public'),
-       ($2, 'liam@circles.dev', 'liam_chen', 'Liam Chen', 'Computer science lecturer and open-source study group lead.', 'Edinburgh, UK', 'public'),
-       ($3, 'sofia@circles.dev', 'sofia_rossi', 'Sofia Rossi', 'Independent industrial designer & community builder.', 'Milan, IT', 'public')
-     ON CONFLICT (id) DO NOTHING;`,
-    [founderId, moderatorId, memberId]
-  );
-
-  await pg.query(
-    `INSERT INTO public.platform_roles (user_id, role)
-     VALUES ($1, 'platform_admin')
-     ON CONFLICT (user_id) DO NOTHING;`,
-    [founderId]
-  );
-
-  // Circle 1: Public University Circle
-  const uniCircleId = 'aaaa1111-1111-4111-8111-111111111111';
-  // Circle 2: Discoverable with Approval Neighbourhood Circle
-  const hoodCircleId = 'bbbb2222-2222-4222-8222-222222222222';
-  // Circle 3: Public Professional Network Circle
-  const proCircleId = 'cccc3333-3333-4333-8333-333333333333';
-
-  await pg.query(
-    `INSERT INTO public.circles (id, name, slug, description, category, location, visibility, membership_policy, owner_id, template_key, template_version)
-     VALUES
-       ($1, 'Edinburgh Computing & AI Society', 'edinburgh-computing-society', 'A collaborative university community for students, researchers, and alumni exploring systems engineering, AI safety, hackathons, and study groups.', 'university', 'Edinburgh, Scotland', 'public', 'open', $2, 'university', 1),
-       ($3, 'Highbury Green Residents Collective', 'highbury-green-residents', 'Our neighbourhood association for local announcements, tool sharing, seasonal street gatherings, and mutual aid requests.', 'neighbourhood', 'North London', 'discoverable_approval', 'approval', $4, 'neighbourhood', 1),
-       ($5, 'Civic Product Builders Guild', 'civic-product-builders', 'Practitioners designing resilient civic technology, community platforms, and local-first software.', 'professional', 'Global / Remote', 'public', 'open', $4, 'professional', 1)
-     ON CONFLICT (id) DO NOTHING;`,
-    [uniCircleId, moderatorId, hoodCircleId, founderId, proCircleId]
-  );
-
-  // Memberships
-  await pg.query(
-    `INSERT INTO public.circle_memberships (id, circle_id, user_id, role, status)
-     VALUES
-       ('d0000001-0000-4000-8000-000000000001', $1, $2, 'owner', 'active'),
-       ('d0000002-0000-4000-8000-000000000002', $1, $3, 'moderator', 'active'),
-       ('d0000003-0000-4000-8000-000000000003', $1, $4, 'member', 'active'),
-       ('d0000004-0000-4000-8000-000000000004', $5, $3, 'owner', 'active'),
-       ('d0000005-0000-4000-8000-000000000005', $5, $2, 'admin', 'active'),
-       ('d0000006-0000-4000-8000-000000000006', $6, $3, 'owner', 'active'),
-       ('d0000007-0000-4000-8000-000000000007', $6, $4, 'member', 'active')
-     ON CONFLICT (circle_id, user_id) DO NOTHING;`,
-    [uniCircleId, moderatorId, founderId, memberId, hoodCircleId, proCircleId]
-  );
-
-  // Capabilities
-  const capsToEnable: Array<[string, string]> = [
-    [uniCircleId, 'discussions'],
-    [uniCircleId, 'spaces'],
-    [uniCircleId, 'member_directory'],
-    [uniCircleId, 'events'],
-    [uniCircleId, 'rsvps'],
-    [uniCircleId, 'learning_resources'],
-    [uniCircleId, 'jobs_opportunities'],
-    [hoodCircleId, 'discussions'],
-    [hoodCircleId, 'spaces'],
-    [hoodCircleId, 'member_directory'],
-    [hoodCircleId, 'events'],
-    [hoodCircleId, 'help_desk'],
-    [hoodCircleId, 'shared_resources'],
-    [proCircleId, 'discussions'],
-    [proCircleId, 'spaces'],
-    [proCircleId, 'member_directory'],
-    [proCircleId, 'jobs_opportunities'],
-    [proCircleId, 'shared_resources'],
-  ];
-
-  for (const [cId, capKey] of capsToEnable) {
-    await pg.query(
-      `INSERT INTO public.circle_capabilities (id, circle_id, capability_key, enabled)
-       VALUES ($1, $2, $3, true)
-       ON CONFLICT (circle_id, capability_key) DO NOTHING;`,
-      [crypto.randomUUID(), cId, capKey]
+  assertProductionDatabaseConfigured();
+  const connectionString = getRemoteDatabaseUrl();
+  if (!connectionString) {
+    throw new Error(
+      'Remote PostgreSQL pool requested, but DATABASE_URL / SUPABASE_DB_URL is not configured.'
     );
   }
 
-  // Spaces
-  const uniGenSpace = 'e0000001-0000-4000-8000-000000000001';
-  const uniStudySpace = 'e0000002-0000-4000-8000-000000000002';
-  const hoodGenSpace = 'e0000003-0000-4000-8000-000000000003';
-  const proGenSpace = 'e0000004-0000-4000-8000-000000000004';
+  if (globalForPg.__circlesRemotePool && globalForPg.__circlesRemotePoolUrl === connectionString) {
+    return globalForPg.__circlesRemotePool;
+  }
 
-  await pg.query(
-    `INSERT INTO public.circle_spaces (id, circle_id, name, slug, description, icon, capability_key, visibility, posting_policy, sort_order)
-     VALUES
-       ($1, $5, 'Campus Commons', 'general', 'Open discussions, introductions, and society updates.', 'message-square', 'discussions', 'public', 'members', 1),
-       ($2, $5, 'Distributed Systems Study Cohort', 'study-cohort', 'Weekly paper readings, lab notes, and exam prep.', 'graduation-cap', 'learning_resources', 'public', 'members', 2),
-       ($3, $6, 'Neighbours Forum', 'general', 'Block updates, garden coordination, and neighbourly requests.', 'message-square', 'discussions', 'members', 'members', 1),
-       ($4, $7, 'Architecture & Design Patterns', 'general', 'Deep dives into modular community platforms and authorization design.', 'message-square', 'discussions', 'public', 'members', 1)
-     ON CONFLICT (circle_id, slug) DO NOTHING;`,
-    [uniGenSpace, uniStudySpace, hoodGenSpace, proGenSpace, uniCircleId, hoodCircleId, proCircleId]
+  const maxConnections = Math.max(1, Number(process.env.PG_POOL_MAX || 10));
+  const idleTimeoutMillis = Math.max(1000, Number(process.env.PG_IDLE_TIMEOUT_MS || 30000));
+  const connectionTimeoutMillis = Math.max(
+    1000,
+    Number(process.env.PG_CONNECTION_TIMEOUT_MS || 10000)
   );
 
-  // Sample Posts
-  const post1Id = 'f0000001-0000-4000-8000-000000000001';
-  const post2Id = 'f0000002-0000-4000-8000-000000000002';
-  const post3Id = 'f0000003-0000-4000-8000-000000000003';
+  const isLocalhost =
+    connectionString.includes('localhost') ||
+    connectionString.includes('127.0.0.1') ||
+    connectionString.includes('sslmode=disable');
 
-  await pg.query(
-    `INSERT INTO public.posts (id, circle_id, space_id, author_id, title, body, is_pinned, comment_count, reaction_count)
-     VALUES
-       ($1, $4, $6, $8, 'Welcome to the Autumn Semester Systems & AI Cohort', 'Welcome everyone! This semester we are running weekly reading groups on distributed consensus, PostgreSQL internals, and applied machine learning. Introduce yourself below and share what project you are building this term.', true, 1, 2),
-       ($2, $4, $7, $9, 'Week 1 Reading Notes: Row-Level Security & Multi-Tenant Isolation', 'Here are our consolidated notes on designing defense-in-depth authorization where application services and PostgreSQL RLS policies work together to prevent cross-tenant leaks.', false, 0, 1),
-       ($3, $5, $10, $9, 'Designing Configurable Community Capabilities Without Bloat', 'One of the hardest problems in community software is supporting diverse groups—from universities to neighbourhood associations—without turning every group into a cluttered dashboard. How do you decide which capabilities belong in the core registry?', true, 0, 1)
-     ON CONFLICT (id) DO NOTHING;`,
-    [
-      post1Id,
-      post2Id,
-      post3Id,
-      uniCircleId,
-      proCircleId,
-      uniGenSpace,
-      uniStudySpace,
-      moderatorId,
-      founderId,
-      proGenSpace,
-    ]
-  );
+  const sslConfig =
+    process.env.PG_SSL === 'false' || isLocalhost
+      ? undefined
+      : process.env.PG_SSL_REJECT_UNAUTHORIZED === 'false'
+        ? { rejectUnauthorized: false }
+        : undefined;
 
-  await pg.query(
-    `INSERT INTO public.comments (id, post_id, circle_id, author_id, body)
-     VALUES
-       ('c0000001-0000-4000-8000-000000000001', $1, $2, $3, 'Excited to join! Looking forward to the PostgreSQL internals workshop next Thursday.')
-     ON CONFLICT (id) DO NOTHING;`,
-    [post1Id, uniCircleId, memberId]
-  );
+  const pool = new Pool({
+    connectionString,
+    max: maxConnections,
+    idleTimeoutMillis,
+    connectionTimeoutMillis,
+    ...(sslConfig ? { ssl: sslConfig } : {}),
+  });
+
+  pool.on('error', (err) => {
+    logger.error('Unexpected idle client error in remote PostgreSQL pool', {
+      error: err.message,
+    });
+  });
+
+  globalForPg.__circlesRemotePool = pool as unknown as RemotePgPoolLike;
+  globalForPg.__circlesRemotePoolUrl = connectionString;
+  return globalForPg.__circlesRemotePool;
 }
 
+/**
+ * Gracefully closes any active remote PostgreSQL connection pool.
+ */
+export async function closeDatabasePools(): Promise<void> {
+  if (globalForPg.__circlesRemotePool) {
+    const pool = globalForPg.__circlesRemotePool;
+    globalForPg.__circlesRemotePool = undefined;
+    globalForPg.__circlesRemotePoolUrl = undefined;
+    await pool.end();
+  }
+}
+
+/**
+ * Resets the in-memory embedded PGlite database for deterministic integration tests.
+ */
+export async function resetTestDatabase(): Promise<void> {
+  const db = new PGlite();
+  await initializeEmbeddedSchemaAndSeed(db);
+  globalForPg.__circlesPgInstance = db;
+  globalForPg.__circlesPgInitPromise = Promise.resolve(db);
+}
+
+async function initializeEmbeddedSchemaAndSeed(db: PGlite): Promise<void> {
+  const executor: DbTransaction = {
+    query: async <T = Record<string, unknown>>(sql: string, params: unknown[] = []) => {
+      const res = await db.query<T>(sql, params);
+      return { rows: res.rows };
+    },
+    exec: async (sql: string) => {
+      await db.exec(sql);
+    },
+  };
+
+  await runPendingMigrations(executor);
+
+  if (process.env.SKIP_DB_SEED !== 'true') {
+    const countRes = await db.query<{ count: string }>(
+      `SELECT COUNT(*)::text AS count FROM public.circles;`
+    );
+    const circleCount = Number(countRes.rows[0]?.count ?? '0');
+    if (circleCount === 0) {
+      const seedPath = path.join(process.cwd(), 'supabase', 'seed.sql');
+      if (fs.existsSync(seedPath)) {
+        const seedSql = fs.readFileSync(seedPath, 'utf8');
+        await db.exec(seedSql);
+      }
+    }
+  }
+}
+
+/**
+ * Returns the initialized embedded PGlite instance for local development and local RLS tests.
+ * Fails closed in production unless `ALLOW_EMBEDDED_POSTGRES_IN_PRODUCTION=true` is set.
+ */
 export async function getPgDatabase(): Promise<PGlite> {
   assertProductionDatabaseConfigured();
 
-  if (global.__circlesPgInstance) {
-    return global.__circlesPgInstance;
-  }
-  if (global.__circlesPgInitPromise) {
-    return global.__circlesPgInitPromise;
+  if (globalForPg.__circlesPgInstance) {
+    return globalForPg.__circlesPgInstance;
   }
 
-  global.__circlesPgInitPromise = (async () => {
-    const isTest = process.env.NODE_ENV === 'test' || process.env.PGLITE_IN_MEMORY === 'true';
-    const dataDir = isTest
-      ? undefined
-      : path.join(process.cwd(), process.env.PGLITE_DATA_DIR || '.pgdata');
+  if (!globalForPg.__circlesPgInitPromise) {
+    globalForPg.__circlesPgInitPromise = (async () => {
+      const useInMemory =
+        process.env.NODE_ENV === 'test' || process.env.PGLITE_IN_MEMORY === 'true';
 
-    const pg = new PGlite(dataDir);
-    await initializeSchemaOnDb(pg, !isTest);
-    global.__circlesPgInstance = pg;
-    return pg;
-  })();
+      let db: PGlite;
+      if (useInMemory) {
+        db = new PGlite();
+      } else {
+        const dataDir =
+          process.env.PGLITE_DATA_DIR || path.join(process.cwd(), '.pgdata', 'circles-db');
+        fs.mkdirSync(path.dirname(dataDir), { recursive: true });
+        try {
+          db = new PGlite(dataDir);
+          await db.query('SELECT 1;');
+        } catch {
+          db = new PGlite();
+        }
+      }
 
-  return global.__circlesPgInitPromise;
+      await initializeEmbeddedSchemaAndSeed(db);
+      globalForPg.__circlesPgInstance = db;
+      return db;
+    })();
+  }
+
+  return globalForPg.__circlesPgInitPromise;
 }
 
 /**
- * Resets the database instance (used by isolated integration test suites).
+ * Serializes access to the single-connection embedded PGlite engine so concurrent
+ * async calls do not interleave `BEGIN` / `SET LOCAL ROLE` / `COMMIT`.
  */
-export async function resetTestDatabase(): Promise<PGlite> {
-  if (global.__circlesPgInstance) {
-    try {
-      await global.__circlesPgInstance.close();
-    } catch {
-      // ignore close errors
-    }
+async function withEmbeddedDbMutex<T>(fn: () => Promise<T>): Promise<T> {
+  const prev = globalForPg.__circlesPgMutex ?? Promise.resolve();
+  let release!: () => void;
+  globalForPg.__circlesPgMutex = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+
+  await prev;
+  try {
+    return await fn();
+  } finally {
+    release();
   }
-  global.__circlesPgInstance = undefined;
-  global.__circlesPgInitPromise = undefined;
-  return getPgDatabase();
 }
 
-/**
- * Executes a callback inside a PostgreSQL transaction where `ROLE` and `request.jwt.claim.sub`
- * are set to the active user (or `anon` if unauthenticated), enforcing all PostgreSQL RLS policies.
- */
-export async function withRlsTransaction<T>(
-  actorUserId: string | null,
-  callback: (tx: QueryExecutor) => Promise<T>
+async function executeRemoteRlsTransaction<T>(
+  userId: string | null,
+  callback: (tx: DbTransaction) => Promise<T>
 ): Promise<T> {
-  const pg = await getPgDatabase();
-  return pg.transaction(async (tx: Transaction) => {
-    if (actorUserId) {
-      await tx.exec(`SET LOCAL ROLE authenticated;`);
-      await tx.query(`SELECT set_config('request.jwt.claim.role', 'authenticated', true);`);
-      await tx.query(`SELECT set_config('request.jwt.claim.sub', $1, true);`, [actorUserId]);
+  const pool = getRemotePgPool();
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    if (userId) {
+      await client.query('SET LOCAL ROLE authenticated');
+      await client.query(`SELECT set_config('request.jwt.claim.role', 'authenticated', true)`);
+      await client.query(`SELECT set_config('request.jwt.claim.sub', $1, true)`, [userId]);
     } else {
-      await tx.exec(`SET LOCAL ROLE anon;`);
-      await tx.query(`SELECT set_config('request.jwt.claim.role', 'anon', true);`);
-      await tx.query(`SELECT set_config('request.jwt.claim.sub', '', true);`);
+      await client.query('SET LOCAL ROLE anon');
+      await client.query(`SELECT set_config('request.jwt.claim.role', 'anon', true)`);
+      await client.query(`SELECT set_config('request.jwt.claim.sub', '', true)`);
     }
 
-    const executor: QueryExecutor = {
-      query: <R = Record<string, unknown>>(sql: string, params?: unknown[]) =>
-        tx.query<R>(sql, params),
+    const tx: DbTransaction = {
+      query: async <R = Record<string, unknown>>(sql: string, params: unknown[] = []) => {
+        const res = await client.query(sql, params);
+        return { rows: (res.rows ?? []) as R[] };
+      },
       exec: async (sql: string) => {
-        await tx.exec(sql);
+        await client.query(sql);
       },
     };
 
-    return callback(executor);
+    const result = await callback(tx);
+    await client.query('COMMIT');
+    return result;
+  } catch (err) {
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      // Ignore rollback errors if connection was already terminated
+    }
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+async function executeRemoteServiceRoleTransaction<T>(
+  callback: (tx: DbTransaction) => Promise<T>
+): Promise<T> {
+  const pool = getRemotePgPool();
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+    await client.query('SET LOCAL ROLE service_role');
+    await client.query(`SELECT set_config('request.jwt.claim.role', 'service_role', true)`);
+    await client.query(`SELECT set_config('request.jwt.claim.sub', '', true)`);
+
+    const tx: DbTransaction = {
+      query: async <R = Record<string, unknown>>(sql: string, params: unknown[] = []) => {
+        const res = await client.query(sql, params);
+        return { rows: (res.rows ?? []) as R[] };
+      },
+      exec: async (sql: string) => {
+        await client.query(sql);
+      },
+    };
+
+    const result = await callback(tx);
+    await client.query('COMMIT');
+    return result;
+  } catch (err) {
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      // Ignore rollback errors if connection was already terminated
+    }
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+async function executeEmbeddedRlsTransaction<T>(
+  userId: string | null,
+  callback: (tx: DbTransaction) => Promise<T>
+): Promise<T> {
+  const db = await getPgDatabase();
+
+  return withEmbeddedDbMutex(async () => {
+    await db.exec('BEGIN;');
+    try {
+      if (userId) {
+        await db.exec(`SET LOCAL ROLE authenticated;`);
+        await db.query(`SELECT set_config('request.jwt.claim.role', 'authenticated', true);`);
+        await db.query(`SELECT set_config('request.jwt.claim.sub', $1, true);`, [userId]);
+      } else {
+        await db.exec(`SET LOCAL ROLE anon;`);
+        await db.query(`SELECT set_config('request.jwt.claim.role', 'anon', true);`);
+        await db.query(`SELECT set_config('request.jwt.claim.sub', '', true);`);
+      }
+
+      const tx: DbTransaction = {
+        query: async <R = Record<string, unknown>>(sql: string, params: unknown[] = []) => {
+          const res = await db.query<R>(sql, params);
+          return { rows: res.rows };
+        },
+        exec: async (sql: string) => {
+          await db.exec(sql);
+        },
+      };
+
+      const result = await callback(tx);
+      await db.exec('COMMIT;');
+      return result;
+    } catch (err) {
+      await db.exec('ROLLBACK;');
+      throw err;
+    }
+  });
+}
+
+async function executeEmbeddedServiceRoleTransaction<T>(
+  callback: (tx: DbTransaction) => Promise<T>
+): Promise<T> {
+  const db = await getPgDatabase();
+
+  return withEmbeddedDbMutex(async () => {
+    await db.exec('BEGIN;');
+    try {
+      await db.exec(`SET LOCAL ROLE service_role;`);
+      await db.query(`SELECT set_config('request.jwt.claim.role', 'service_role', true);`);
+      await db.query(`SELECT set_config('request.jwt.claim.sub', '', true);`);
+
+      const tx: DbTransaction = {
+        query: async <R = Record<string, unknown>>(sql: string, params: unknown[] = []) => {
+          const res = await db.query<R>(sql, params);
+          return { rows: res.rows };
+        },
+        exec: async (sql: string) => {
+          await db.exec(sql);
+        },
+      };
+
+      const result = await callback(tx);
+      await db.exec('COMMIT;');
+      return result;
+    } catch (err) {
+      await db.exec('ROLLBACK;');
+      throw err;
+    }
   });
 }
 
 /**
- * Executes a privileged operation under `service_role` (strictly server-only, for auth bootstrap,
- * token lookup, or system notifications across users).
+ * Executes a callback inside an isolated PostgreSQL transaction with
+ * Supabase-compatible Row-Level Security (RLS) session context (`auth.uid()`, `auth.role()`).
+ * Automatically routes to the remote `pg.Pool` executor when `DATABASE_URL` / `SUPABASE_DB_URL`
+ * is configured, or to embedded PGlite in local development/testing.
+ */
+export async function withRlsTransaction<T>(
+  userId: string | null,
+  callback: (tx: DbTransaction) => Promise<T>
+): Promise<T> {
+  const mode = getActiveDatabaseBackend();
+  if (mode === 'remote_pg') {
+    return executeRemoteRlsTransaction(userId, callback);
+  }
+  return executeEmbeddedRlsTransaction(userId, callback);
+}
+
+/**
+ * Executes a privileged `service_role` transaction (for system-level operations
+ * such as registration, session persistence, audit logging, and notification dispatch).
+ * Automatically routes to the remote `pg.Pool` executor when `DATABASE_URL` / `SUPABASE_DB_URL`
+ * is configured, or to embedded PGlite in local development/testing.
  */
 export async function withServiceRoleTransaction<T>(
-  callback: (tx: QueryExecutor) => Promise<T>
+  callback: (tx: DbTransaction) => Promise<T>
 ): Promise<T> {
-  const pg = await getPgDatabase();
-  return pg.transaction(async (tx: Transaction) => {
-    await tx.exec(`SET LOCAL ROLE service_role;`);
-    await tx.query(`SELECT set_config('request.jwt.claim.role', 'service_role', true);`);
+  const mode = getActiveDatabaseBackend();
+  if (mode === 'remote_pg') {
+    return executeRemoteServiceRoleTransaction(callback);
+  }
+  return executeEmbeddedServiceRoleTransaction(callback);
+}
 
-    const executor: QueryExecutor = {
-      query: <R = Record<string, unknown>>(sql: string, params?: unknown[]) =>
-        tx.query<R>(sql, params),
+/**
+ * Explicitly applies pending SQL migrations against the active database backend.
+ * For remote PostgreSQL (`remote_pg`), runs migrations as the connection's administrative user
+ * inside a transaction so partial failures roll back cleanly.
+ */
+export async function runDatabaseMigrations(
+  migrationsDir?: string
+): Promise<MigrationRunResult> {
+  const mode = getActiveDatabaseBackend();
+  if (mode === 'remote_pg') {
+    const pool = getRemotePgPool();
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const executor: DbTransaction = {
+        query: async <R = Record<string, unknown>>(sql: string, params: unknown[] = []) => {
+          const res = await client.query(sql, params);
+          return { rows: (res.rows ?? []) as R[] };
+        },
+        exec: async (sql: string) => {
+          await client.query(sql);
+        },
+      };
+      const result = await runPendingMigrations(executor, migrationsDir);
+      await client.query('COMMIT');
+      return result;
+    } catch (err) {
+      try {
+        await client.query('ROLLBACK');
+      } catch {
+        // Ignore rollback errors
+      }
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  const db = await getPgDatabase();
+  return withEmbeddedDbMutex(async () => {
+    const executor: DbTransaction = {
+      query: async <R = Record<string, unknown>>(sql: string, params: unknown[] = []) => {
+        const res = await db.query<R>(sql, params);
+        return { rows: res.rows };
+      },
       exec: async (sql: string) => {
-        await tx.exec(sql);
+        await db.exec(sql);
       },
     };
+    return runPendingMigrations(executor, migrationsDir);
+  });
+}
 
-    return callback(executor);
+/**
+ * Returns the list of applied migrations from `public.schema_migrations` on the active backend.
+ */
+export async function listAppliedDatabaseMigrations() {
+  return withServiceRoleTransaction(async (tx) => {
+    return getAppliedMigrations(tx);
   });
 }

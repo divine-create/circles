@@ -31,26 +31,41 @@ CREATE TABLE IF NOT EXISTS auth.users (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid
-LANGUAGE sql VOLATILE
-AS $$
-  SELECT NULLIF(
-    COALESCE(
-      NULLIF(current_setting('request.jwt.claim.sub', true), ''),
-      (NULLIF(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub')
-    ),
-    ''
-  )::uuid;
+-- Wrapped in DO blocks so hosted Supabase (where supabase_auth_admin owns auth.uid / auth.role) does not fail
+DO $$
+BEGIN
+  CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid
+  LANGUAGE sql VOLATILE
+  AS $func$
+    SELECT NULLIF(
+      COALESCE(
+        NULLIF(current_setting('request.jwt.claim.sub', true), ''),
+        (NULLIF(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub')
+      ),
+      ''
+    )::uuid;
+  $func$;
+EXCEPTION
+  WHEN insufficient_privilege THEN
+    NULL;
+END
 $$;
 
-CREATE OR REPLACE FUNCTION auth.role() RETURNS text
-LANGUAGE sql VOLATILE
-AS $$
-  SELECT COALESCE(
-    NULLIF(current_setting('request.jwt.claim.role', true), ''),
-    (NULLIF(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role'),
-    current_user
-  );
+DO $$
+BEGIN
+  CREATE OR REPLACE FUNCTION auth.role() RETURNS text
+  LANGUAGE sql VOLATILE
+  AS $func$
+    SELECT COALESCE(
+      NULLIF(current_setting('request.jwt.claim.role', true), ''),
+      (NULLIF(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role'),
+      current_user
+    );
+  $func$;
+EXCEPTION
+  WHEN insufficient_privilege THEN
+    NULL;
+END
 $$;
 
 GRANT USAGE ON SCHEMA public, auth TO anon, authenticated, service_role;

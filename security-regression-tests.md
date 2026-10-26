@@ -1,44 +1,42 @@
-# Circles Platform — Security Regression Test Catalog
+# Circles — Security & Staging Regression Test Suite Reference
 
-This document maps each security scenario audited in Phase 1 and Phase 2 to its expected outcome and the automated test that verifies it.
-
-## 1. Automated Test Suites
-
-Run all suites with:
-
-```bash
-npm test
-```
-
-| Test File | Scope | Test Count |
-| :--- | :--- | :--- |
-| [`tests/unit/capabilities-and-permissions.test.ts`](tests/unit/capabilities-and-permissions.test.ts) | Capability dependency graph & centralized role/visibility permission matrix | 6 |
-| [`tests/integration/vertical-slice-and-rls.test.ts`](tests/integration/vertical-slice-and-rls.test.ts) | Full multi-user P0 vertical slice, approval/private Circle RLS isolation, non-destructive capability disabling, last-owner protection, space posting policies | 4 |
-| [`tests/integration/api-security.test.ts`](tests/integration/api-security.test.ts) | HTTP Route Handler authentication, role escalation blocking, and capability gates | 1 |
-| [`tests/integration/security-audit-regression.test.ts`](tests/integration/security-audit-regression.test.ts) | Dedicated Phase 1 & Phase 2 security audit regression suite (sessions, tokens, direct SQL triggers/RLS, privacy, capability settings, fail-closed env, health endpoint, concurrency) | 6 |
+**Last Updated**: 2026-10-26  
+**Command**: `npm test` (`vitest run`)  
+**Total Suites**: 5 passed (5)  
+**Total Tests**: 20 passed (20)
 
 ---
 
-## 2. Security Scenario Matrix
+## 1. Suite Breakdown
 
-| Scenario | Threat / Vulnerability Tested | Expected Outcome | Covering Test |
-| :--- | :--- | :--- | :--- |
-| **Forged Session Token Signature** | Attacker modifies base64 payload or signature of `circles_session_token` | `verifySignedSessionToken` and `verifyAndResolveSessionUser` return `null` (timing-safe HMAC check) | `security-audit-regression.test.ts` — Test #1 |
-| **Expired Session Token** | Replay of a session token past its `exp` timestamp | Rejected (`null`) before and during DB lookup | `security-audit-regression.test.ts` — Test #1 |
-| **Logged-Out Session Replay** | Attacker replays a captured `Bearer` or cookie token after user logs out | `signOutUser` sets `revoked_at = NOW()` in `auth.sessions`; subsequent `verifyAndResolveSessionUser` returns `null` | `security-audit-regression.test.ts` — Test #1 |
-| **Session Fixation on Re-Login** | User logs in via `POST /api/auth/login` while holding a pre-existing session token | Pre-existing session token is revoked in `auth.sessions` and a fresh `jti` session is issued | `security-audit-regression.test.ts` — Test #1 |
-| **Active Session Invalidation on Password Reset** | Compromised account resets password while attacker holds active sessions | `resetPasswordWithToken` revokes all active rows in `auth.sessions` for that `user_id` | `security-audit-regression.test.ts` — Test #1 |
-| **Password Recovery Token Reuse & Expiration** | Attacker reuses a consumed reset token or uses a token $> 1$ hour old | Rejected with `ValidationError: Invalid or expired password recovery token` | `security-audit-regression.test.ts` — Test #1 & #2 |
-| **Production Recovery Token Leakage** | Calling `requestPasswordRecovery` in `NODE_ENV=production` when Resend is unconfigured | `previewToken` is `undefined` in production | `security-audit-regression.test.ts` — Test #2 |
-| **Profile Email Spoofing (Invitation Hijacking)** | Authenticated user runs direct SQL `UPDATE public.profiles SET email = 'vip@...'` to claim another user's pending Circle invitation | Blocked by PostgreSQL trigger `trg_protect_profile_identity` (`Profile email cannot be modified independently of verified authentication email`) | `security-audit-regression.test.ts` — Test #3a |
-| **Unauthorized Circle Ownership Takeover by Admin** | Circle `admin` executes direct SQL `UPDATE public.circles SET owner_id = ...` | Blocked by PostgreSQL trigger `trg_protect_circle_ownership` (`Only the current Circle owner can transfer Circle ownership`) | `security-audit-regression.test.ts` — Test #3b |
-| **Moderator Modifying Admin/Owner Membership** | Circle `moderator` executes direct SQL `UPDATE public.circle_memberships` on an `admin` or `owner` row | Blocked by PostgreSQL trigger `trg_enforce_membership_transitions` (`Moderators can only suspend or restore ordinary members`) | `security-audit-regression.test.ts` — Test #3c |
-| **Admin Promoting Member to Admin/Owner (`UPDATE` & `INSERT`)** | Circle `admin` executes direct SQL `UPDATE` or `INSERT` on `public.circle_memberships` with `role IN ('admin', 'owner')`, or invites with `role = 'admin'` | Blocked by `trg_enforce_membership_transitions`, `trg_enforce_membership_insert`, `memberships_insert` RLS, and `inviteToCircle` | `security-audit-regression.test.ts` — Test #3d, #3e, #3f |
-| **Unauthorized Post Pinning by Regular Member** | Post author (`role = 'member'`) attempts to set `is_pinned = true` via `updatePost` or direct SQL `UPDATE public.posts` | Blocked by both `updatePost` service guard and PostgreSQL trigger `trg_protect_post_mutations` | `security-audit-regression.test.ts` — Test #3g |
-| **Circle Studio Member Suspension & Self-Restore Prevention** | Staff suspends member via `PATCH /api/moderation`; suspended member attempts direct SQL `UPDATE public.circle_memberships SET status = 'active'` | `PATCH /api/moderation` suspends member (`status = 'suspended'`); self-restore is blocked by `trg_enforce_membership_transitions` | `security-audit-regression.test.ts` — Test #3h |
-| **Client Notification Spoofing** | Authenticated user attempts direct SQL `INSERT INTO public.notifications` with another user as `recipient_id` or `actor_id` | Blocked by `notifications_insert` RLS policy | `security-audit-regression.test.ts` — Test #3i |
-| **`private` & `members_only` Profile Isolation + Public Post Visibility** | Author sets `profile_visibility` to `'members_only'` or `'private'` after posting in a public Circle | Co-members can read `'members_only'` profile while outsiders cannot; nobody except owner/platform-admin can read `'private'` profile; public Circle post remains visible to `anon` with fallback display name `'Circle Member'` | `security-audit-regression.test.ts` — Test #4 |
-| **Server & RLS Enforcement of Capability Settings (`allowMemberPosts`, `allowReactions`, `spaces`, `discussions`)** | Owner disables `allowMemberPosts`, `allowReactions`, `discussions`, or `spaces`; member attempts mutations or direct SQL bypass | Blocked by both service layer and PostgreSQL RLS policies (`posts_insert`, `reactions_insert`, `spaces_select`) | `security-audit-regression.test.ts` — Test #5 |
-| **Fail-Closed Production Secret & Database Config** | `NODE_ENV=production` with missing/weak `CIRCLES_SESSION_SECRET` (`'a'.repeat(32)`) or partial Supabase config missing `DATABASE_URL` | `getVerifiedSessionSecret()` and `assertProductionDatabaseConfigured()` throw `ConfigurationError` | `security-audit-regression.test.ts` — Test #5 |
-| **Health Endpoint Error Redaction on Outage** | Database is unreachable during `GET /api/health` | Returns HTTP `503` with `{"status":"unhealthy","code":"SERVICE_UNAVAILABLE"}` and never leaks internal error messages | `security-audit-regression.test.ts` — Test #5 |
-| **Transaction Rollback & Concurrent User Isolation** | Mid-transaction exception and concurrent `Promise.all` transactions for `userA`, `userB`, and `anon` | Failed transaction rolls back cleanly; concurrent transactions maintain strict `auth.uid()` and role isolation | `security-audit-regression.test.ts` — Test #6 |
+### 1.1 [`tests/integration/postgres-executor-and-migrations.test.ts`](file:///C:/Users/HomePC/Desktop/circles/tests/integration/postgres-executor-and-migrations.test.ts) (3 Tests — Phase 3)
+1. **Migration Tracking & Session/Migration Table Isolation**:
+   - Verifies [`listAppliedDatabaseMigrations()`](file:///C:/Users/HomePC/Desktop/circles/src/lib/db/postgres.ts#L406-L410) returns `0001_initial_schema.sql`, `0002_security_hardening.sql`, `0003_staging_rls_and_role_hardening.sql`, and `0004_supabase_staging_compatibility.sql` in order with valid 64-character SHA-256 checksums.
+   - Verifies [`runDatabaseMigrations()`](file:///C:/Users/HomePC/Desktop/circles/src/lib/db/postgres.ts#L369-L401) is idempotent on re-run (`applied: []`, `skipped: ['0001...', '0002...', '0003...', '0004...']`).
+   - Verifies neither `authenticated` nor `anon` roles can query `public.user_sessions` or `public.schema_migrations` (`permission denied`).
+2. **Remote PostgreSQL Pool Executor (`remote_pg`)**:
+   - Verifies [`withRlsTransaction`](file:///C:/Users/HomePC/Desktop/circles/src/lib/db/postgres.ts#L341-L350) and [`withServiceRoleTransaction`](file:///C:/Users/HomePC/Desktop/circles/src/lib/db/postgres.ts#L357-L364) acquire a client from the `remote_pg` pool, execute `BEGIN`, `SET LOCAL ROLE authenticated | anon | service_role`, `set_config('request.jwt.claim.role', ...)`, and `set_config('request.jwt.claim.sub', ...)`, commit on success, execute `ROLLBACK` on error with zero partial writes, and always call `client.release()`.
+   - Verifies `GET /api/health` reports `backend: "remote_pg"` when the remote pool is active.
+3. **Database Backend Selection & Fail-Closed Production Guards**:
+   - Verifies [`getRemoteDatabaseUrl()`](file:///C:/Users/HomePC/Desktop/circles/src/lib/config/env.ts#L43-L55) rejects invalid protocols with `ConfigurationError`.
+   - Verifies [`getDatabaseBackendMode()`](file:///C:/Users/HomePC/Desktop/circles/src/lib/config/env.ts#L98-L115) selects `remote_pg` when `DATABASE_URL` is configured and fails closed in `NODE_ENV=production` when `DATABASE_URL` is missing.
+
+### 1.2 [`tests/integration/security-audit-regression.test.ts`](file:///C:/Users/HomePC/Desktop/circles/tests/integration/security-audit-regression.test.ts) (6 Tests — Phase 1 & 2)
+1. **Stateful Session Lifecycle (`AUD-02`)**: Verifies session creation in `public.user_sessions`, forged/expired token rejection, session fixation rotation on `POST /api/auth/login`, immediate server-side revocation on logout, and revocation of all user sessions on password reset.
+2. **Password Recovery Expiry & Production Token Redaction (`AUD-05`)**: Verifies recovery tokens older than 1 hour are rejected and `previewToken` is never included when `NODE_ENV=production`.
+3. **Direct SQL RLS & Trigger Privilege Escalation Prevention (`AUD-03`)**: Verifies `trg_protect_profile_identity`, `trg_protect_circle_ownership`, `trg_enforce_membership_transitions`, `trg_enforce_membership_insert`, `trg_protect_post_mutations`, Circle Studio `PATCH /api/moderation` member suspension/restoration, and anti-spoofing on `notifications`.
+4. **Profile Visibility Isolation (`AUD-04`)**: Verifies `public`, `members_only` (`shares_active_circle_with`), and `private` profile visibility under PostgreSQL RLS while preserving public Circle post readability.
+5. **Capability Settings & Disabled Capability Enforcement (`AUD-06`, `AUD-01`, `AUD-08`)**: Verifies `allowMemberPosts: false`, `allowReactions: false`, disabled `discussions` / `spaces` enforcement in both services and PostgreSQL RLS, `CIRCLES_SESSION_SECRET` entropy checks, and sanitized `503` responses on `GET /api/health`.
+6. **Transaction Rollback & Concurrency Isolation (`AUD-07`)**: Verifies multi-step failures roll back cleanly and concurrent `Promise.all` transactions across distinct users never bleed `auth.uid()`.
+
+### 1.3 [`tests/integration/vertical-slice-and-rls.test.ts`](file:///C:/Users/HomePC/Desktop/circles/tests/integration/vertical-slice-and-rls.test.ts) (4 Tests)
+- Complete P0 vertical slice (registration, Circle creation, template provisioning, public discovery, joining, posting, commenting, reacting, notifications, and audit logs).
+- Approval-based joining, private Circle isolation, email-verified invitations, and cross-Circle anti-IDOR protection.
+- Non-destructive capability disabling, last-owner protection, ownership transfer, and moderation workflows.
+- Custom space creation and space posting policy enforcement (`members`, `moderators`, `admins`).
+
+### 1.4 [`tests/integration/api-security.test.ts`](file:///C:/Users/HomePC/Desktop/circles/tests/integration/api-security.test.ts) (1 Comprehensive HTTP Suite)
+- Verifies HTTP route handlers (`/api/circles`, `/api/circles/[circleId]`, `/api/circles/[circleId]/capabilities`, `/api/circles/[circleId]/spaces`, `/api/circles/[circleId]/posts`, `/api/circles/[circleId]/membership`, `/api/moderation`, `/api/profile`) enforce authentication, role checks, anti-IDOR, and capability gates.
+
+### 1.5 [`tests/unit/capabilities-and-permissions.test.ts`](file:///C:/Users/HomePC/Desktop/circles/tests/unit/capabilities-and-permissions.test.ts) (6 Tests)
+- Verifies capability registry dependency graph validation and permission matrix role hierarchy.

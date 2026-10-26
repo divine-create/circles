@@ -38,12 +38,30 @@ export function getVerifiedSessionSecret(): string {
   return secret && secret.trim().length > 0 ? secret : DEFAULT_DEV_SECRET;
 }
 
+export type DatabaseBackendMode = 'remote_pg' | 'embedded_pglite';
+
+export function getRemoteDatabaseUrl(): string | null {
+  const raw = (process.env.DATABASE_URL || process.env.SUPABASE_DB_URL || '').trim();
+  if (!raw) {
+    return null;
+  }
+
+  if (!raw.startsWith('postgres://') && !raw.startsWith('postgresql://')) {
+    throw new ConfigurationError(
+      'Database configuration error: DATABASE_URL / SUPABASE_DB_URL must be a valid PostgreSQL connection string starting with postgres:// or postgresql://.'
+    );
+  }
+
+  return raw;
+}
+
 export function isSupabaseConfigured(): boolean {
+  const remoteUrl = getRemoteDatabaseUrl();
   return Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL &&
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY &&
       process.env.SUPABASE_SERVICE_ROLE_KEY &&
-      (process.env.DATABASE_URL || process.env.SUPABASE_DB_URL) &&
+      remoteUrl &&
       process.env.NEXT_PUBLIC_SUPABASE_URL.startsWith('http')
   );
 }
@@ -57,6 +75,9 @@ export function isEmbeddedPostgresAllowedInProduction(): boolean {
  * or partial embedded development database unless explicitly opted in.
  */
 export function assertProductionDatabaseConfigured(): void {
+  // Always validate connection string format if DATABASE_URL / SUPABASE_DB_URL is set
+  getRemoteDatabaseUrl();
+
   if (isProductionEnv() && process.env.NEXT_PHASE !== 'phase-production-build') {
     if (isEmbeddedPostgresAllowedInProduction()) {
       return;
@@ -68,4 +89,28 @@ export function assertProductionDatabaseConfigured(): void {
       );
     }
   }
+}
+
+/**
+ * Determines which PostgreSQL backend executor should handle transactions:
+ * - 'remote_pg' when a valid DATABASE_URL or SUPABASE_DB_URL is configured (unless PGLITE_IN_MEMORY='true' in local tests without CIRCLES_FORCE_REMOTE_PG='true')
+ * - 'embedded_pglite' for local development/tests or when ALLOW_EMBEDDED_POSTGRES_IN_PRODUCTION='true'
+ */
+export function getDatabaseBackendMode(): DatabaseBackendMode {
+  assertProductionDatabaseConfigured();
+
+  if (
+    process.env.PGLITE_IN_MEMORY === 'true' &&
+    process.env.CIRCLES_FORCE_REMOTE_PG !== 'true' &&
+    !isProductionEnv()
+  ) {
+    return 'embedded_pglite';
+  }
+
+  const remoteUrl = getRemoteDatabaseUrl();
+  if (remoteUrl) {
+    return 'remote_pg';
+  }
+
+  return 'embedded_pglite';
 }

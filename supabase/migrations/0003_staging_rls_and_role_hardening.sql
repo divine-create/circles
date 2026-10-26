@@ -3,18 +3,32 @@
 -- Migration: 0003_staging_rls_and_role_hardening.sql
 -- ============================================================================
 
--- 1. Explicit Grants & RLS on auth.sessions (Required for non-superuser service_role in hosted PostgreSQL)
-REVOKE ALL ON TABLE auth.sessions FROM PUBLIC, anon, authenticated;
-GRANT ALL ON TABLE auth.sessions TO postgres, service_role;
+-- 1. Explicit Grants & RLS on local auth.sessions if created by Circles (superseded by public.user_sessions in 0004)
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'auth'
+      AND table_name = 'sessions'
+      AND column_name = 'token_hash'
+  ) THEN
+    REVOKE ALL ON TABLE auth.sessions FROM PUBLIC, anon, authenticated;
+    GRANT ALL ON TABLE auth.sessions TO postgres, service_role;
 
-ALTER TABLE auth.sessions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE auth.sessions FORCE ROW LEVEL SECURITY;
+    ALTER TABLE auth.sessions ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE auth.sessions FORCE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS auth_sessions_service_only ON auth.sessions;
-CREATE POLICY auth_sessions_service_only ON auth.sessions
-  FOR ALL TO service_role
-  USING (true)
-  WITH CHECK (true);
+    DROP POLICY IF EXISTS auth_sessions_service_only ON auth.sessions;
+    CREATE POLICY auth_sessions_service_only ON auth.sessions
+      FOR ALL TO service_role
+      USING (true)
+      WITH CHECK (true);
+  END IF;
+EXCEPTION
+  WHEN insufficient_privilege THEN
+    NULL;
+END
+$$;
 
 -- 2. Capability Settings Helper for PostgreSQL RLS
 CREATE OR REPLACE FUNCTION public.is_capability_setting_enabled(
