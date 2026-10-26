@@ -138,6 +138,8 @@ export async function archiveCircleSpace(
   spaceId: string,
   archived = true
 ): Promise<CircleSpace> {
+  await requireEnabledCapability(actorUserId, circleId, 'spaces');
+
   return withRlsTransaction(actorUserId, async (tx) => {
     const circleRes = await tx.query<{ visibility: CircleVisibility }>(
       `SELECT visibility FROM public.circles WHERE id = $1 LIMIT 1;`,
@@ -192,6 +194,8 @@ export async function reorderCircleSpaces(
   circleId: string,
   orderedSpaceIds: string[]
 ): Promise<void> {
+  await requireEnabledCapability(actorUserId, circleId, 'spaces');
+
   await withRlsTransaction(actorUserId, async (tx) => {
     const circleRes = await tx.query<{ visibility: CircleVisibility }>(
       `SELECT visibility FROM public.circles WHERE id = $1 LIMIT 1;`,

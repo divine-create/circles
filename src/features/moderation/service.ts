@@ -86,7 +86,7 @@ export async function listModerationReports(
 export interface ModerateContentInput {
   circleId: string;
   reportId?: string | null;
-  actionType:
+  actionType?:
     | 'remove_post'
     | 'restore_post'
     | 'remove_comment'
@@ -95,15 +95,47 @@ export interface ModerateContentInput {
     | 'restore_member'
     | 'resolve_report'
     | 'dismiss_report';
-  targetId: string;
+  action?:
+    | 'remove_post'
+    | 'restore_post'
+    | 'remove_comment'
+    | 'restore_comment'
+    | 'suspend_member'
+    | 'restore_member'
+    | 'resolve_report'
+    | 'dismiss_report';
+  targetId?: string;
+  targetUserId?: string;
   reason?: string;
+  note?: string;
 }
+
+const VALID_MODERATION_ACTIONS = new Set([
+  'remove_post',
+  'restore_post',
+  'remove_comment',
+  'restore_comment',
+  'suspend_member',
+  'restore_member',
+  'resolve_report',
+  'dismiss_report',
+]);
 
 export async function moderateContent(
   actorUserId: string,
   input: ModerateContentInput
 ): Promise<void> {
-  const { circleId, reportId, actionType, targetId, reason = '' } = input;
+  const circleId = input.circleId;
+  const reportId = input.reportId ?? null;
+  const actionType = input.actionType ?? input.action;
+  const targetId = input.targetId ?? input.targetUserId;
+  const reason = (input.reason ?? input.note ?? '').trim().slice(0, 500);
+
+  if (!circleId || !actionType || !VALID_MODERATION_ACTIONS.has(actionType) || !targetId) {
+    throw new ValidationError(
+      'circleId, a valid moderation actionType, and targetId are required.'
+    );
+  }
 
   await withRlsTransaction(actorUserId, async (tx) => {
     const circleRes = await tx.query<{ visibility: CircleVisibility }>(
@@ -125,10 +157,13 @@ export async function moderateContent(
       [actorUserId]
     );
 
+    const actorRole = memberRes.rows[0]?.role ?? null;
+    const isPlatformAdmin = platformAdminRes.rows.length > 0;
+
     assertCirclePermission('moderation.review_reports', circle.visibility, {
       userId: actorUserId,
-      isPlatformAdmin: platformAdminRes.rows.length > 0,
-      circleRole: memberRes.rows[0]?.role ?? null,
+      isPlatformAdmin,
+      circleRole: actorRole,
       membershipStatus: memberRes.rows[0]?.status ?? null,
     });
 
@@ -152,20 +187,36 @@ export async function moderateContent(
         `UPDATE public.comments SET status = 'published', updated_at = NOW() WHERE id = $1 AND circle_id = $2;`,
         [targetId, circleId]
       );
-    } else if (actionType === 'suspend_member') {
-      await tx.query(
-        `UPDATE public.circle_memberships
-         SET status = 'suspended', updated_at = NOW()
-         WHERE circle_id = $1 AND user_id = $2 AND role <> 'owner';`,
+    } else if (actionType === 'suspend_member' || actionType === 'restore_member') {
+      const targetMemberRes = await tx.query<{ role: CircleRole }>(
+        `SELECT role FROM public.circle_memberships WHERE circle_id = $1 AND user_id = $2 LIMIT 1;`,
         [circleId, targetId]
       );
-    } else if (actionType === 'restore_member') {
-      await tx.query(
+      const targetMember = targetMemberRes.rows[0];
+      if (!targetMember) {
+        throw new NotFoundError('Target member not found in this Circle.');
+      }
+      if (targetMember.role === 'owner') {
+        throw new ForbiddenError('Cannot suspend a Circle owner.');
+      }
+      if (actorRole === 'moderator' && !isPlatformAdmin && targetMember.role !== 'member') {
+        throw new ForbiddenError('Moderators can only suspend or restore ordinary members.');
+      }
+      if (actorRole === 'admin' && !isPlatformAdmin && targetMember.role === 'admin') {
+        throw new ForbiddenError('Administrators cannot suspend fellow administrators.');
+      }
+
+      const nextStatus = actionType === 'suspend_member' ? 'suspended' : 'active';
+      const updatedRes = await tx.query<{ id: string }>(
         `UPDATE public.circle_memberships
-         SET status = 'active', updated_at = NOW()
-         WHERE circle_id = $1 AND user_id = $2;`,
-        [circleId, targetId]
+         SET status = $1, updated_at = NOW()
+         WHERE circle_id = $2 AND user_id = $3 AND role <> 'owner'
+         RETURNING id;`,
+        [nextStatus, circleId, targetId]
       );
+      if (updatedRes.rows.length === 0) {
+        throw new ForbiddenError('Unable to update member status.');
+      }
     }
 
     if (reportId) {

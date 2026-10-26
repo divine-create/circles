@@ -48,16 +48,16 @@ export async function initializeSchemaOnDb(pg: PGlite, includeDemoSeed = false):
       await pg.exec(seedSql);
     }
   } else {
-    // Ensure 0002_security_hardening.sql is applied on existing persistent .pgdata directories
-    const hardeningPath = path.join(
-      process.cwd(),
-      'supabase',
-      'migrations',
-      '0002_security_hardening.sql'
-    );
-    if (fs.existsSync(hardeningPath)) {
-      const hardeningSql = fs.readFileSync(hardeningPath, 'utf8');
-      await pg.exec(hardeningSql);
+    // Ensure all hardening migrations (0002, 0003, etc.) are applied on existing persistent .pgdata directories
+    const migrationsDir = path.join(process.cwd(), 'supabase', 'migrations');
+    const hardeningFiles = fs
+      .readdirSync(migrationsDir)
+      .filter((f) => f.endsWith('.sql') && f !== '0001_initial_schema.sql')
+      .sort();
+
+    for (const file of hardeningFiles) {
+      const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
+      await pg.exec(sql);
     }
   }
 

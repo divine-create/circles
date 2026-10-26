@@ -4,7 +4,11 @@ import {
   moderateContent,
   reportContent,
 } from '@/features/moderation/service';
-import { handleApiError, resolveApiUser } from '@/lib/auth/api-helpers';
+import {
+  checkRateLimit,
+  handleApiError,
+  resolveApiUser,
+} from '@/lib/auth/api-helpers';
 import { UnauthorizedError } from '@/lib/errors';
 
 export async function GET(req: NextRequest) {
@@ -25,6 +29,13 @@ export async function POST(req: NextRequest) {
   try {
     const user = await resolveApiUser(req);
     if (!user) throw new UnauthorizedError();
+
+    if (!checkRateLimit(`report:${user.id}`, 15, 60_000)) {
+      return NextResponse.json(
+        { error: 'Too many content reports submitted. Please wait before submitting more.' },
+        { status: 429 }
+      );
+    }
 
     const body = await req.json();
     const report = await reportContent(user.id, body);

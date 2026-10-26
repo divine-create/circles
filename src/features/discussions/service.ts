@@ -355,6 +355,14 @@ export async function updatePost(
       throw new ForbiddenError('You can only edit your own posts unless you are a moderator.');
     }
 
+    if (
+      parsed.data.isPinned !== undefined &&
+      parsed.data.isPinned !== existing.is_pinned &&
+      !['owner', 'admin', 'moderator'].includes(membership?.role ?? '')
+    ) {
+      throw new ForbiddenError('Only Circle moderators, administrators, or owners can pin posts.');
+    }
+
     const updated = await tx.query<PostItem>(
       `UPDATE public.posts
        SET title = $1,
@@ -549,6 +557,8 @@ export async function saveItem(
   circleId: string,
   postId: string
 ): Promise<{ saved: boolean }> {
+  await requireEnabledCapability(actorUserId, circleId, 'discussions');
+
   return withRlsTransaction(actorUserId, async (tx) => {
     const existing = await tx.query<{ id: string }>(
       `SELECT id FROM public.saved_items

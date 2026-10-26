@@ -261,9 +261,12 @@ export function CircleStudioClient({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           circleId: initialCircle.id,
-          action,
-          targetUserId,
-          note: action === 'suspend_member' ? 'Suspended from Circle Studio' : 'Restored from Circle Studio',
+          actionType: action,
+          targetId: targetUserId,
+          reason:
+            action === 'suspend_member'
+              ? 'Suspended from Circle Studio'
+              : 'Restored from Circle Studio',
         }),
       });
       const data = await res.json();

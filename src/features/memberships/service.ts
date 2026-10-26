@@ -399,6 +399,10 @@ export async function inviteToCircle(
       membershipStatus: actorMember.rows[0]?.status ?? null,
     });
 
+    if (role === 'admin' && actorMember.rows[0]?.role !== 'owner') {
+      throw new ForbiddenError('Only a Circle owner can invite a member as an administrator.');
+    }
+
     const userRes = await tx.query<{ id: string }>(
       `SELECT id FROM public.profiles WHERE lower(email) = $1 LIMIT 1;`,
       [cleanEmail]

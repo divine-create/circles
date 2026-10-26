@@ -1,12 +1,22 @@
 import { NextResponse } from 'next/server';
 import { withServiceRoleTransaction } from '@/lib/db/postgres';
-import { getVerifiedSessionSecret, isSupabaseConfigured } from '@/lib/config/env';
+import {
+  assertProductionDatabaseConfigured,
+  getVerifiedSessionSecret,
+  isSupabaseConfigured,
+} from '@/lib/config/env';
+import { logger } from '@/lib/logging';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
     getVerifiedSessionSecret();
+    assertProductionDatabaseConfigured();
+
+    if (process.env.CIRCLES_SIMULATE_DB_UNAVAILABLE === 'true') {
+      throw new Error('Simulated database outage');
+    }
 
     const dbCheck = await withServiceRoleTransaction(async (tx) => {
       const res = await tx.query<{ ok: number }>(`SELECT 1 AS ok;`);
@@ -15,7 +25,12 @@ export async function GET() {
 
     if (!dbCheck) {
       return NextResponse.json(
-        { status: 'unhealthy', database: 'unreachable' },
+        {
+          status: 'unhealthy',
+          code: 'DATABASE_UNREACHABLE',
+          database: 'unreachable',
+          timestamp: new Date().toISOString(),
+        },
         { status: 503 }
       );
     }
@@ -23,14 +38,20 @@ export async function GET() {
     return NextResponse.json({
       status: 'healthy',
       database: 'connected',
-      mode: isSupabaseConfigured() ? 'supabase_cloud' : 'embedded_pglite_rls',
+      mode: isSupabaseConfigured() ? 'supabase_configured' : 'embedded_pglite_rls',
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
+    logger.error('Health check failed', {
+      error: error instanceof Error ? error.message : 'Unknown health check error',
+    });
+
     return NextResponse.json(
       {
         status: 'unhealthy',
-        error: error instanceof Error ? error.message : 'Health check failed.',
+        code: 'SERVICE_UNAVAILABLE',
+        database: 'unavailable',
+        timestamp: new Date().toISOString(),
       },
       { status: 503 }
     );

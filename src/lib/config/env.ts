@@ -13,13 +13,24 @@ export function isProductionEnv(): boolean {
   return process.env.NODE_ENV === 'production';
 }
 
+export function hasSufficientSecretEntropy(secret: string): boolean {
+  const trimmed = secret.trim();
+  if (trimmed.length < 32) return false;
+  const uniqueChars = new Set(trimmed.split('')).size;
+  return uniqueChars >= 10;
+}
+
 export function getVerifiedSessionSecret(): string {
   const secret = process.env.CIRCLES_SESSION_SECRET;
 
   if (isProductionEnv() && process.env.NEXT_PHASE !== 'phase-production-build') {
-    if (!secret || secret === DEFAULT_DEV_SECRET || secret.trim().length < 32) {
+    if (
+      !secret ||
+      secret === DEFAULT_DEV_SECRET ||
+      !hasSufficientSecretEntropy(secret)
+    ) {
       throw new ConfigurationError(
-        'Production security error: CIRCLES_SESSION_SECRET must be explicitly configured with a high-entropy secret of at least 32 characters.'
+        'Production security error: CIRCLES_SESSION_SECRET must be explicitly configured with a high-entropy secret of at least 32 characters (minimum 10 distinct characters).'
       );
     }
   }
@@ -31,23 +42,30 @@ export function isSupabaseConfigured(): boolean {
   return Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL &&
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY &&
+      process.env.SUPABASE_SERVICE_ROLE_KEY &&
+      (process.env.DATABASE_URL || process.env.SUPABASE_DB_URL) &&
       process.env.NEXT_PUBLIC_SUPABASE_URL.startsWith('http')
   );
 }
 
+export function isEmbeddedPostgresAllowedInProduction(): boolean {
+  return process.env.ALLOW_EMBEDDED_POSTGRES_IN_PRODUCTION === 'true';
+}
+
 /**
  * Ensures production deployments do not silently route traffic to an unconfigured
- * embedded development database unless explicitly opted in.
+ * or partial embedded development database unless explicitly opted in.
  */
 export function assertProductionDatabaseConfigured(): void {
-  if (
-    isProductionEnv() &&
-    process.env.NEXT_PHASE !== 'phase-production-build' &&
-    !isSupabaseConfigured() &&
-    process.env.ALLOW_EMBEDDED_POSTGRES_IN_PRODUCTION !== 'true'
-  ) {
-    throw new ConfigurationError(
-      'Production database error: NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are required in production. Refusing to silently fall back to embedded development storage.'
-    );
+  if (isProductionEnv() && process.env.NEXT_PHASE !== 'phase-production-build') {
+    if (isEmbeddedPostgresAllowedInProduction()) {
+      return;
+    }
+
+    if (!isSupabaseConfigured()) {
+      throw new ConfigurationError(
+        'Production database error: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, and DATABASE_URL are required in production unless ALLOW_EMBEDDED_POSTGRES_IN_PRODUCTION=true is explicitly set.'
+      );
+    }
   }
 }

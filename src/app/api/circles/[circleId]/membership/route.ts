@@ -10,7 +10,11 @@ import {
   transferCircleOwnership,
   updateMemberRole,
 } from '@/features/memberships/service';
-import { handleApiError, resolveApiUser } from '@/lib/auth/api-helpers';
+import {
+  checkRateLimit,
+  handleApiError,
+  resolveApiUser,
+} from '@/lib/auth/api-helpers';
 import { UnauthorizedError, ValidationError } from '@/lib/errors';
 
 export async function POST(
@@ -20,6 +24,13 @@ export async function POST(
   try {
     const user = await resolveApiUser(req);
     if (!user) throw new UnauthorizedError();
+
+    if (!checkRateLimit(`membership:${user.id}`, 30, 60_000)) {
+      return NextResponse.json(
+        { error: 'Too many membership requests. Please try again shortly.' },
+        { status: 429 }
+      );
+    }
 
     const body = await req.json();
     const action = body.action as string;
