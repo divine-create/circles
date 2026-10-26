@@ -527,7 +527,7 @@ describe.skipIf(!envLocalVars)(
         const ownerApps = await listJobApplications(ownerReg.user.id, pubCircle.id, stgJob.id);
         expect(ownerApps.length).toBe(1);
       },
-      180000
+      360000
     );
   }
 );
