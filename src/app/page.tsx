@@ -177,38 +177,6 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Platform Scale & Security Metrics */}
-      <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="rounded-2xl border border-stone-200/80 bg-white p-6 sm:p-8 shadow-xs">
-          <div className="grid grid-cols-2 gap-6 md:grid-cols-4 text-center divide-y md:divide-y-0 md:divide-x divide-stone-100">
-            <div className="px-4 py-2">
-              <p className="text-2xl sm:text-3xl font-extrabold text-stone-900 tracking-tight">99.99%</p>
-              <p className="mt-1 text-xs font-medium text-stone-500 uppercase tracking-wider">
-                Uptime & Reliability
-              </p>
-            </div>
-            <div className="px-4 py-2">
-              <p className="text-2xl sm:text-3xl font-extrabold text-stone-900 tracking-tight">22</p>
-              <p className="mt-1 text-xs font-medium text-stone-500 uppercase tracking-wider">
-                Modular Capabilities
-              </p>
-            </div>
-            <div className="px-4 py-2">
-              <p className="text-2xl sm:text-3xl font-extrabold text-stone-900 tracking-tight">Sub-ms</p>
-              <p className="mt-1 text-xs font-medium text-stone-500 uppercase tracking-wider">
-                Response Latency
-              </p>
-            </div>
-            <div className="px-4 py-2">
-              <p className="text-2xl sm:text-3xl font-extrabold text-stone-900 tracking-tight">Bank-Grade</p>
-              <p className="mt-1 text-xs font-medium text-stone-500 uppercase tracking-wider">
-                Multi-Tenant Isolation
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* Live Discoverable Circles */}
       <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
