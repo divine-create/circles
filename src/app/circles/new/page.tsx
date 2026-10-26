@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertCircle, ArrowRight, Check, Globe, Lock, Shield } from 'lucide-react';
+import { AlertCircle, ArrowRight, Check, Globe, Lock, PlusCircle, Shield } from 'lucide-react';
 import { CIRCLE_TEMPLATES } from '@/features/templates/registry';
 import { CircleCategory, CircleVisibility, MembershipPolicy } from '@/types/domain';
 
@@ -69,24 +69,26 @@ export default function CreateCirclePage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8">
-      <div className="mb-8">
-        <p className="text-xs font-semibold uppercase tracking-wider text-forest-700">
-          Community Initialization
-        </p>
-        <h1 className="mt-1 text-3xl font-bold tracking-tight text-stone-900">
+    <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8 space-y-8">
+      {/* Top Header */}
+      <div className="border-b border-stone-200/80 pb-6">
+        <div className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-forest-700">
+          <PlusCircle className="h-3.5 w-3.5" />
+          <span>New Community Setup</span>
+        </div>
+        <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-stone-900 sm:text-4xl">
           Create a New Circle
         </h1>
-        <p className="mt-1.5 text-sm text-stone-600">
-          Choose a starting template to pre-configure capabilities and spaces. You can customize
-          every module anytime in Circle Studio.
+        <p className="mt-1.5 text-sm text-stone-600 max-w-2xl">
+          Choose a blueprint to auto-configure spaces and capabilities. You can fully customize
+          and toggle every module later in Circle Studio.
         </p>
       </div>
 
       {error && (
         <div
           role="alert"
-          className="mb-6 flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"
+          className="flex items-start gap-2.5 rounded-2xl border border-red-200 bg-red-50/80 p-4 text-xs text-red-800"
         >
           <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-red-600" />
           <span>{error}</span>
@@ -95,13 +97,17 @@ export default function CreateCirclePage() {
 
       <form onSubmit={handleSubmit} className="space-y-8">
         {/* Step 1: Template Selection */}
-        <section className="rounded-2xl border border-sand-200 bg-white p-6 shadow-sm">
-          <h2 className="text-base font-bold text-stone-900">1. Choose a Community Blueprint</h2>
-          <p className="mt-1 text-xs text-stone-500">
-            Templates initialize default capabilities, topical spaces, and governance rules.
-          </p>
+        <section className="rounded-2xl border border-stone-200/90 bg-white p-6 shadow-xs space-y-4">
+          <div className="flex items-center gap-2">
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-black text-[10px] font-bold text-white">
+              1
+            </span>
+            <h2 className="text-sm font-bold uppercase tracking-wider text-stone-800">
+              Select a Blueprint
+            </h2>
+          </div>
 
-          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {templates.map((tpl) => {
               const active = selectedTemplate === tpl.key;
               return (
@@ -109,24 +115,26 @@ export default function CreateCirclePage() {
                   key={tpl.key}
                   type="button"
                   onClick={() => handleSelectTemplate(tpl.key)}
-                  className={`flex flex-col justify-between rounded-xl border p-3.5 text-left transition-all ${
+                  className={`flex flex-col justify-between rounded-xl border p-4 text-left transition-all ${
                     active
-                      ? 'border-forest-600 bg-forest-50/60 ring-1 ring-forest-600'
-                      : 'border-sand-200 bg-sand-50/40 hover:border-sand-300'
+                      ? 'border-forest-600 bg-forest-50/70 shadow-xs ring-1 ring-forest-600'
+                      : 'border-stone-200 bg-stone-50/40 hover:border-stone-300 hover:bg-stone-50'
                   }`}
                 >
                   <div>
                     <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-semibold uppercase tracking-wider text-forest-700">
+                      <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-forest-800">
                         {tpl.category.replace('_', ' ')}
                       </span>
                       {active && <Check className="h-3.5 w-3.5 text-forest-700" />}
                     </div>
-                    <p className="mt-1 text-sm font-bold text-stone-900">{tpl.name}</p>
-                    <p className="mt-1 line-clamp-2 text-xs text-stone-600">{tpl.summary}</p>
+                    <p className="mt-2 text-sm font-bold text-stone-900">{tpl.name}</p>
+                    <p className="mt-1 line-clamp-2 text-xs text-stone-500 leading-relaxed font-normal">
+                      {tpl.summary}
+                    </p>
                   </div>
-                  <div className="mt-3 pt-2 border-t border-sand-200/80 text-[11px] text-stone-500">
-                    {tpl.enabledCapabilities.length} capabilities · {tpl.suggestedSpaces.length} spaces
+                  <div className="mt-4 pt-2.5 border-t border-stone-200/60 text-[10px] font-mono text-stone-400">
+                    {tpl.enabledCapabilities.length} modules · {tpl.suggestedSpaces.length} spaces
                   </div>
                 </button>
               );
@@ -135,12 +143,19 @@ export default function CreateCirclePage() {
         </section>
 
         {/* Step 2: Core Identity */}
-        <section className="rounded-2xl border border-sand-200 bg-white p-6 shadow-sm space-y-4">
-          <h2 className="text-base font-bold text-stone-900">2. Circle Identity</h2>
+        <section className="rounded-2xl border border-stone-200/90 bg-white p-6 shadow-xs space-y-4">
+          <div className="flex items-center gap-2">
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-black text-[10px] font-bold text-white">
+              2
+            </span>
+            <h2 className="text-sm font-bold uppercase tracking-wider text-stone-800">
+              Circle Identity
+            </h2>
+          </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label htmlFor="circle-name" className="block text-xs font-semibold uppercase tracking-wider text-stone-700">
+              <label htmlFor="circle-name" className="block text-[11px] font-mono font-bold uppercase tracking-wider text-stone-600">
                 Circle Name *
               </label>
               <input
@@ -160,13 +175,13 @@ export default function CreateCirclePage() {
                   );
                 }}
                 placeholder="e.g. Oxford Robotics & Hardware Collective"
-                className="mt-1.5 w-full rounded-xl border border-sand-300 bg-sand-50/50 px-3.5 py-2.5 text-sm text-stone-900 focus:border-forest-600 focus:bg-white focus:outline-none"
+                className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2.5 text-sm text-stone-900 placeholder:text-stone-400 focus:border-forest-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-600/20 transition-all"
               />
             </div>
 
             <div>
-              <label htmlFor="circle-slug" className="block text-xs font-semibold uppercase tracking-wider text-stone-700">
-                URL Slug
+              <label htmlFor="circle-slug" className="block text-[11px] font-mono font-bold uppercase tracking-wider text-stone-600">
+                Custom URL Slug
               </label>
               <input
                 id="circle-slug"
@@ -175,21 +190,21 @@ export default function CreateCirclePage() {
                 value={slug}
                 onChange={(e) => setSlug(e.target.value.toLowerCase())}
                 placeholder="oxford-robotics-collective"
-                className="mt-1.5 w-full rounded-xl border border-sand-300 bg-sand-50/50 px-3.5 py-2.5 text-sm font-mono text-stone-900 focus:border-forest-600 focus:bg-white focus:outline-none"
+                className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2.5 text-sm font-mono text-stone-900 placeholder:text-stone-400 focus:border-forest-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-600/20 transition-all"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label htmlFor="circle-category" className="block text-xs font-semibold uppercase tracking-wider text-stone-700">
+              <label htmlFor="circle-category" className="block text-[11px] font-mono font-bold uppercase tracking-wider text-stone-600">
                 Category
               </label>
               <select
                 id="circle-category"
                 value={category}
                 onChange={(e) => setCategory(e.target.value as CircleCategory)}
-                className="mt-1.5 w-full rounded-xl border border-sand-300 bg-sand-50/50 px-3.5 py-2.5 text-sm text-stone-900 focus:border-forest-600 focus:bg-white focus:outline-none"
+                className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2.5 text-sm text-stone-900 focus:border-forest-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-600/20 transition-all"
               >
                 <option value="university">University</option>
                 <option value="neighbourhood">Neighbourhood</option>
@@ -204,7 +219,7 @@ export default function CreateCirclePage() {
             </div>
 
             <div>
-              <label htmlFor="circle-location" className="block text-xs font-semibold uppercase tracking-wider text-stone-700">
+              <label htmlFor="circle-location" className="block text-[11px] font-mono font-bold uppercase tracking-wider text-stone-600">
                 Location (Optional)
               </label>
               <input
@@ -212,14 +227,14 @@ export default function CreateCirclePage() {
                 type="text"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
-                placeholder="e.g. Oxford, UK or Remote"
-                className="mt-1.5 w-full rounded-xl border border-sand-300 bg-sand-50/50 px-3.5 py-2.5 text-sm text-stone-900 focus:border-forest-600 focus:bg-white focus:outline-none"
+                placeholder="e.g. Oxford, UK or Worldwide / Remote"
+                className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2.5 text-sm text-stone-900 placeholder:text-stone-400 focus:border-forest-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-600/20 transition-all"
               />
             </div>
           </div>
 
           <div>
-            <label htmlFor="circle-description" className="block text-xs font-semibold uppercase tracking-wider text-stone-700">
+            <label htmlFor="circle-description" className="block text-[11px] font-mono font-bold uppercase tracking-wider text-stone-600">
               Purpose & Description
             </label>
             <textarea
@@ -227,35 +242,40 @@ export default function CreateCirclePage() {
               rows={3}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Describe who this Circle is for and how members participate..."
-              className="mt-1.5 w-full rounded-xl border border-sand-300 bg-sand-50/50 px-3.5 py-2.5 text-sm text-stone-900 focus:border-forest-600 focus:bg-white focus:outline-none"
+              placeholder="Describe who this Circle is for and how members collaborate..."
+              className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2.5 text-sm text-stone-900 placeholder:text-stone-400 focus:border-forest-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-600/20 transition-all"
             />
           </div>
         </section>
 
         {/* Step 3: Visibility & Membership Policy */}
-        <section className="rounded-2xl border border-sand-200 bg-white p-6 shadow-sm space-y-4">
-          <h2 className="text-base font-bold text-stone-900">
-            3. Visibility & Joining Policy
-          </h2>
+        <section className="rounded-2xl border border-stone-200/90 bg-white p-6 shadow-xs space-y-4">
+          <div className="flex items-center gap-2">
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-black text-[10px] font-bold text-white">
+              3
+            </span>
+            <h2 className="text-sm font-bold uppercase tracking-wider text-stone-800">
+              Visibility & Access Rules
+            </h2>
+          </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <button
               type="button"
               onClick={() => {
                 setVisibility('public');
                 setMembershipPolicy('open');
               }}
-              className={`rounded-xl border p-4 text-left ${
+              className={`rounded-xl border p-4 text-left transition-all ${
                 visibility === 'public'
-                  ? 'border-forest-600 bg-forest-50/60 ring-1 ring-forest-600'
-                  : 'border-sand-200 hover:border-sand-300'
+                  ? 'border-forest-600 bg-forest-50/70 shadow-xs ring-1 ring-forest-600'
+                  : 'border-stone-200 bg-stone-50/40 hover:border-stone-300'
               }`}
             >
               <Globe className="h-5 w-5 text-forest-700" />
-              <p className="mt-2 text-sm font-bold text-stone-900">Public</p>
-              <p className="mt-1 text-xs text-stone-600">
-                Listed in discovery. Anyone can preview and join according to policy.
+              <p className="mt-2 text-sm font-bold text-stone-900">Public Community</p>
+              <p className="mt-1 text-xs text-stone-500 leading-relaxed">
+                Listed in discovery. Anyone can preview and join based on your policy.
               </p>
             </button>
 
@@ -265,16 +285,16 @@ export default function CreateCirclePage() {
                 setVisibility('discoverable_approval');
                 setMembershipPolicy('approval');
               }}
-              className={`rounded-xl border p-4 text-left ${
+              className={`rounded-xl border p-4 text-left transition-all ${
                 visibility === 'discoverable_approval'
-                  ? 'border-forest-600 bg-forest-50/60 ring-1 ring-forest-600'
-                  : 'border-sand-200 hover:border-sand-300'
+                  ? 'border-forest-600 bg-forest-50/70 shadow-xs ring-1 ring-forest-600'
+                  : 'border-stone-200 bg-stone-50/40 hover:border-stone-300'
               }`}
             >
               <Shield className="h-5 w-5 text-amber-700" />
-              <p className="mt-2 text-sm font-bold text-stone-900">Discoverable with Approval</p>
-              <p className="mt-1 text-xs text-stone-600">
-                Visible in discovery, but non-members must request approval to join and access content.
+              <p className="mt-2 text-sm font-bold text-stone-900">Discoverable · Approval</p>
+              <p className="mt-1 text-xs text-stone-500 leading-relaxed">
+                Visible in directory, but new members must submit a join request to participate.
               </p>
             </button>
 
@@ -284,45 +304,45 @@ export default function CreateCirclePage() {
                 setVisibility('private');
                 setMembershipPolicy('invite_only');
               }}
-              className={`rounded-xl border p-4 text-left ${
+              className={`rounded-xl border p-4 text-left transition-all ${
                 visibility === 'private'
-                  ? 'border-forest-600 bg-forest-50/60 ring-1 ring-forest-600'
-                  : 'border-sand-200 hover:border-sand-300'
+                  ? 'border-forest-600 bg-forest-50/70 shadow-xs ring-1 ring-forest-600'
+                  : 'border-stone-200 bg-stone-50/40 hover:border-stone-300'
               }`}
             >
               <Lock className="h-5 w-5 text-stone-700" />
-              <p className="mt-2 text-sm font-bold text-stone-900">Private</p>
-              <p className="mt-1 text-xs text-stone-600">
-                Hidden from public discovery. Accessible only via authorized invitations.
+              <p className="mt-2 text-sm font-bold text-stone-900">Private Community</p>
+              <p className="mt-1 text-xs text-stone-500 leading-relaxed">
+                Hidden from discovery. Accessible only through direct invitations.
               </p>
             </button>
           </div>
 
           {visibility === 'public' && (
             <div className="pt-2">
-              <label htmlFor="membership-policy" className="block text-xs font-semibold uppercase tracking-wider text-stone-700">
-                Public Circle Joining Rule
+              <label htmlFor="membership-policy" className="block text-[11px] font-mono font-bold uppercase tracking-wider text-stone-600">
+                Join Request Rule
               </label>
               <select
                 id="membership-policy"
                 value={membershipPolicy}
                 onChange={(e) => setMembershipPolicy(e.target.value as MembershipPolicy)}
-                className="mt-1.5 w-full sm:w-72 rounded-xl border border-sand-300 bg-sand-50/50 px-3.5 py-2 text-sm text-stone-900"
+                className="mt-1.5 w-full sm:w-72 rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:border-forest-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-600/20 transition-all"
               >
                 <option value="open">Open — Anyone can join immediately</option>
-                <option value="approval">Approval Required — Admins review join requests</option>
+                <option value="approval">Approval Required — Staff approves join requests</option>
               </select>
             </div>
           )}
         </section>
 
-        <div className="flex items-center justify-end gap-4">
+        <div className="flex items-center justify-end gap-3 pt-2">
           <button
             type="submit"
             disabled={loading}
-            className="inline-flex items-center gap-2 rounded-xl bg-forest-700 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-forest-800 disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-xl bg-black px-6 py-2.5 text-sm font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_1px_3px_rgba(0,0,0,0.15)] hover:bg-zinc-800 disabled:opacity-50 transition-all active:scale-[0.98]"
           >
-            <span>{loading ? 'Initializing Circle...' : 'Create Circle'}</span>
+            <span>{loading ? 'Bootstrapping Circle...' : 'Create Community'}</span>
             <ArrowRight className="h-4 w-4" />
           </button>
         </div>

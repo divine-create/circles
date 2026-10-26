@@ -190,6 +190,24 @@ export async function updateCircleCapability(
   });
 }
 
+export async function requireAnyEnabledCapability(
+  actorUserId: string | null,
+  circleId: string,
+  capabilityKeys: string[]
+): Promise<string[]> {
+  return withRlsTransaction(actorUserId, async (tx) => {
+    const res = await tx.query<{ capability_key: string }>(
+      `SELECT capability_key FROM public.circle_capabilities
+       WHERE circle_id = $1 AND capability_key = ANY($2::text[]) AND enabled = true;`,
+      [circleId, capabilityKeys]
+    );
+    if (res.rows.length === 0) {
+      throw new CapabilityDisabledError(capabilityKeys[0] ?? 'capability');
+    }
+    return res.rows.map((r) => r.capability_key);
+  });
+}
+
 /**
  * Generates safe navigation items for a Circle, filtering out spaces and links
  * whose backing capability is currently disabled.
@@ -240,11 +258,44 @@ export async function getCircleNavigation(
       },
     ];
 
+    const orderedNavCapabilityKeys = [
+      'discussions',
+      'spaces',
+      'member_directory',
+      'events',
+      'activities_meetups',
+      'polls_decisions',
+      'marketplace',
+      'listings_discovery',
+      'services_bookings',
+      'rentals_sharing',
+      'housing_property',
+      'jobs_opportunities',
+      'learning_resources',
+      'shared_resources',
+      'media_publishing',
+      'projects_collaboration',
+      'governance_committees',
+      'fundraising_causes',
+      'challenges_rewards',
+      'help_desk',
+    ];
+
     let order = 1;
-    for (const key of ['discussions', 'spaces', 'member_directory']) {
+    const seenBaseRoutes = new Set<string>();
+    for (const key of orderedNavCapabilityKeys) {
       if (enabledKeys.has(key)) {
         const def = CAPABILITY_REGISTRY[key];
         if (def) {
+          const baseRoute = def.navigation_config.path.split('?')[0];
+          // Avoid duplicate top-level tabs if primary module route is already added (e.g., events + rsvps + attendance)
+          if (
+            seenBaseRoutes.has(baseRoute) &&
+            ['events', 'resources'].includes(baseRoute)
+          ) {
+            continue;
+          }
+          seenBaseRoutes.add(baseRoute);
           navItems.push({
             id: `nav-cap-${key}`,
             circle_id: circleId,

@@ -659,9 +659,21 @@ export async function transferCircleOwnership(
 
 export async function listCircleMembers(
   actorUserId: string | null,
-  circleId: string
+  circleId: string,
+  options?: {
+    search?: string;
+    role?: CircleRole | 'all';
+  }
 ): Promise<CircleMembership[]> {
   return withRlsTransaction(actorUserId, async (tx) => {
+    const capRes = await tx.query<{ enabled: boolean; settings: Record<string, unknown> }>(
+      `SELECT enabled, settings FROM public.circle_capabilities
+       WHERE circle_id = $1 AND capability_key = 'member_directory' LIMIT 1;`,
+      [circleId]
+    );
+    const capRow = capRes.rows[0];
+    const showBio = capRow?.settings?.showBio !== false;
+
     const res = await tx.query<
       CircleMembership & {
         username: string;
@@ -684,22 +696,34 @@ export async function listCircleMembers(
       [circleId]
     );
 
-    return res.rows.map((r) => ({
-      id: r.id,
-      circle_id: r.circle_id,
-      user_id: r.user_id,
-      role: r.role,
-      status: r.status,
-      joined_at: r.joined_at,
-      updated_at: r.updated_at,
-      profile: {
-        id: r.user_id,
-        username: r.username,
-        display_name: r.display_name,
-        avatar_url: r.avatar_url,
-        bio: r.bio,
-      },
-    }));
+    const searchQuery = options?.search?.trim().toLowerCase() ?? '';
+    const roleFilter = options?.role && options.role !== 'all' ? options.role : null;
+
+    return res.rows
+      .filter((r) => {
+        if (roleFilter && r.role !== roleFilter) return false;
+        if (searchQuery) {
+          const haystack = `${r.display_name} ${r.username} ${showBio ? r.bio : ''}`.toLowerCase();
+          if (!haystack.includes(searchQuery)) return false;
+        }
+        return true;
+      })
+      .map((r) => ({
+        id: r.id,
+        circle_id: r.circle_id,
+        user_id: r.user_id,
+        role: r.role,
+        status: r.status,
+        joined_at: r.joined_at,
+        updated_at: r.updated_at,
+        profile: {
+          id: r.user_id,
+          username: r.username,
+          display_name: r.display_name,
+          avatar_url: r.avatar_url,
+          bio: showBio ? r.bio : '',
+        },
+      }));
   });
 }
 

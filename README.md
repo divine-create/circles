@@ -35,6 +35,11 @@ On first boot in local development, three accounts are seeded (password: `Circle
 
 ## Verification & Testing
 
+- **Database Migrations (`npm run db:migrate`)**:
+  ```bash
+  npm run db:migrate
+  ```
+  Applies migrations `0001` through `0005` in order to the configured PostgreSQL database (`DATABASE_URL`), tracking SHA-256 checksums in `public.schema_migrations`.
 - **TypeScript Strict Check**:
   ```bash
   npm run typecheck
@@ -47,21 +52,28 @@ On first boot in local development, three accounts are seeded (password: `Circle
   ```bash
   npm test
   ```
+  Runs 7 test suites (28 tests) covering capability registries, PostgreSQL RLS policies, CSRF protection, distributed rate limiting, and live hosted Supabase PostgreSQL 17.11 integration.
 - **Production Build**:
   ```bash
   npm run build
   ```
+  Compiles all 22 static and dynamic App Router routes.
 
 ---
 
-## Deployment (Vercel + Supabase)
+## Deployment & Staging (Vercel + Hosted Supabase)
 
-1. Provision a Supabase project and apply `supabase/migrations/0001_initial_schema.sql` followed by `supabase/seed.sql`.
-2. Configure the following environment variables in Vercel:
-   - `NEXT_PUBLIC_APP_URL`
-   - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - `SUPABASE_SERVICE_ROLE_KEY`
-   - `CIRCLES_SESSION_SECRET` (32+ byte random hex string)
+1. Provision a Supabase project and obtain the **Session Pooler URI (port 5432)**.
+2. Run database migrations:
+   ```bash
+   DATABASE_URL="postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres" npm run db:migrate
+   ```
+3. Configure environment variables in your deployment environment (Vercel / Railway / Docker):
+   - `DATABASE_URL` — Supabase Session Pooler URI (IPv4 compatible)
+   - `NEXT_PUBLIC_APP_URL` — Canonical origin (e.g. `https://circles.example.com`)
+   - `NEXT_PUBLIC_SUPABASE_URL` — Supabase project URL (`https://<ref>.supabase.co`)
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` — Supabase anon/publishable key
+   - `SUPABASE_SERVICE_ROLE_KEY` — Supabase service role secret key
+   - `CIRCLES_SESSION_SECRET` — 64-character random hex string (`crypto.randomBytes(32).toString('hex')`)
    - `RESEND_API_KEY` & `RESEND_FROM_EMAIL` (optional, for transactional email delivery)
-3. Deploy via Vercel (`vercel --prod`).
+4. Deploy and verify readiness at `GET /api/health`. See [`staging-deployment-guide.md`](file:///C:/Users/HomePC/Desktop/circles/staging-deployment-guide.md) for full procedures and credential rotation runbooks.

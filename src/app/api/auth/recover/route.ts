@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requestPasswordRecovery, resetPasswordWithToken } from '@/features/auth/service';
-import { checkRateLimit, handleApiError } from '@/lib/auth/api-helpers';
+import {
+  assertCsrfProtection,
+  checkDistributedRateLimit,
+  handleApiError,
+} from '@/lib/auth/api-helpers';
 
 export async function POST(req: NextRequest) {
   try {
+    assertCsrfProtection(req);
     const ip = req.headers.get('x-forwarded-for') || 'local';
-    if (!checkRateLimit(`recover:${ip}`, 10, 60_000)) {
+    if (!(await checkDistributedRateLimit(`recover:${ip}`, 10, 60_000))) {
       return NextResponse.json({ error: 'Too many password recovery attempts.' }, { status: 429 });
     }
 

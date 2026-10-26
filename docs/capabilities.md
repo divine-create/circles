@@ -6,31 +6,31 @@ The capability catalog is defined in `src/features/capabilities/registry.ts` and
 
 ### Capability Catalog & Release Stages
 
-| Key | Name | Category | Default | Dependencies | Stage |
-| --- | --- | --- | :---: | --- | :---: |
-| `discussions` | Discussions & Posts | Community | Enabled | — | **Stable (P0)** |
-| `spaces` | Spaces & Subgroups | Community | Enabled | — | **Stable (P0)** |
-| `member_directory` | Member Directory | Community | Enabled | — | **Stable (P0)** |
-| `shared_resources` | Shared Resources | Community | Disabled | `spaces` | Beta (P0 Space-backed) |
-| `polls_decisions` | Polls & Decisions | Community | Disabled | `discussions` | Beta (P0 Space-backed) |
-| `help_desk` | Help Desk & Requests | Community | Disabled | `discussions` | Beta (P0 Space-backed) |
-| `events` | Events | Events & Activities | Disabled | `spaces` | Beta (P0 Space-backed) |
-| `rsvps` | RSVPs | Events & Activities | Disabled | `events` | Beta (P0 Space-backed) |
-| `jobs_opportunities` | Jobs & Opportunities | Commerce & Discovery | Disabled | `spaces` | Beta (P0 Space-backed) |
-| `learning_resources` | Learning & Resources | Knowledge & Collaboration | Disabled | `spaces` | Beta (P0 Space-backed) |
-| `projects_collaboration` | Projects & Collaboration | Knowledge & Collaboration | Disabled | `spaces` | Beta (P0 Space-backed) |
-| `governance_committees` | Governance & Committees | Community | Disabled | `member_directory` | Planned (P1) |
-| `challenges_rewards` | Challenges & Rewards | Community | Disabled | `member_directory` | Planned (P1) |
-| `attendance` | Attendance | Events & Activities | Disabled | `rsvps` | Planned (P1) |
-| `activities_meetups` | Activities & Meetups | Events & Activities | Disabled | `events` | Planned (P1) |
-| `marketplace` | Marketplace | Commerce & Discovery | Disabled | `spaces` | Planned (P1) |
-| `listings_discovery` | Listings & Discovery | Commerce & Discovery | Disabled | `spaces` | Planned (P1) |
-| `services_bookings` | Services & Bookings | Commerce & Discovery | Disabled | `listings_discovery` | Planned (P1) |
-| `rentals_sharing` | Rentals & Sharing | Commerce & Discovery | Disabled | `listings_discovery` | Planned (P1) |
-| `housing_property` | Housing & Property | Commerce & Discovery | Disabled | `listings_discovery` | Planned (P1) |
-| `media_publishing` | Media & Publishing | Knowledge & Collaboration | Disabled | `discussions` | Planned (P1) |
-| `fundraising_causes` | Fundraising & Causes | Organization & Finance | Disabled | `member_directory` | Planned (P1) |
-| `payments_finances` | Payments & Finances | Organization & Finance | Disabled | `member_directory` | Planned (P1) |
+| Key | Name | Category | Default | Dependencies | Stage | Dedicated Domain & UI Route |
+| --- | --- | --- | :---: | --- | :---: | :--- |
+| `discussions` | Discussions & Posts | Community | Enabled | — | **Stable** | `/circles/[slug]` (Feed & Space discussions) |
+| `spaces` | Spaces & Subgroups | Community | Enabled | — | **Stable** | `/circles/[slug]` (Space switcher & management) |
+| `member_directory` | Member Directory | Community | Enabled | — | **Stable** | `/circles/[slug]/members` (Directory & search) |
+| `events` | Events | Events & Activities | Disabled | `spaces` | **Stable** | `/circles/[slug]/events` ([`EventsBoard`](file:///C:/Users/HomePC/Desktop/circles/src/components/circles/events-board.tsx)) |
+| `rsvps` | RSVPs | Events & Activities | Disabled | `events` | **Stable** | `/circles/[slug]/events` (Capacity & waitlist) |
+| `attendance` | Attendance | Events & Activities | Disabled | `rsvps` | **Stable** | `/circles/[slug]/events` (Organizer check-in) |
+| `activities_meetups`| Activities & Meetups | Events & Activities | Disabled | `events` | **Stable** | `/circles/[slug]/events` (Meetup coordination) |
+| `polls_decisions` | Polls & Decisions | Community | Disabled | `discussions` | **Stable** | `/circles/[slug]/polls` ([`PollsBoard`](file:///C:/Users/HomePC/Desktop/circles/src/components/circles/polls-board.tsx)) |
+| `marketplace` | Marketplace | Commerce & Discovery | Disabled | `spaces` | **Stable** | `/circles/[slug]/marketplace` ([`MarketplaceBoard`](file:///C:/Users/HomePC/Desktop/circles/src/components/circles/marketplace-board.tsx)) |
+| `listings_discovery`| Listings & Discovery | Commerce & Discovery | Disabled | `spaces` | **Stable** | `/circles/[slug]/marketplace` (Listing filters) |
+| `services_bookings` | Services & Bookings | Commerce & Discovery | Disabled | `listings_discovery`| **Stable** | `/circles/[slug]/marketplace` (Double-booking protection) |
+| `rentals_sharing` | Rentals & Sharing | Commerce & Discovery | Disabled | `listings_discovery`| **Stable** | `/circles/[slug]/marketplace` (Return tracking) |
+| `housing_property` | Housing & Property | Commerce & Discovery | Disabled | `listings_discovery`| **Stable** | `/circles/[slug]/marketplace` (Property listings) |
+| `jobs_opportunities`| Jobs & Opportunities | Commerce & Discovery | Disabled | `spaces` | **Stable** | `/circles/[slug]/jobs` ([`JobsBoard`](file:///C:/Users/HomePC/Desktop/circles/src/components/circles/jobs-board.tsx), RLS privacy) |
+| `learning_resources`| Learning & Resources | Knowledge & Collaboration | Disabled | `spaces` | **Stable** | `/circles/[slug]/resources` ([`ResourcesBoard`](file:///C:/Users/HomePC/Desktop/circles/src/components/circles/resources-board.tsx)) |
+| `shared_resources` | Shared Resources | Community | Disabled | `spaces` | **Stable** | `/circles/[slug]/resources` (Resource bookmarks) |
+| `media_publishing` | Media & Publishing | Knowledge & Collaboration | Disabled | `discussions` | **Stable** | `/circles/[slug]/resources` (Media uploads & signed URLs) |
+| `projects_collaboration` | Projects & Collaboration | Knowledge & Collaboration | Disabled | `spaces` | **Stable** | `/circles/[slug]/projects` ([`ProjectsBoard`](file:///C:/Users/HomePC/Desktop/circles/src/components/circles/projects-board.tsx)) |
+| `governance_committees` | Governance & Committees | Community | Disabled | `member_directory` | **Stable** | `/circles/[slug]/community` ([`CommunityHubBoard`](file:///C:/Users/HomePC/Desktop/circles/src/components/circles/community-hub-board.tsx)) |
+| `fundraising_causes` | Fundraising & Causes | Organization & Finance | Disabled | `member_directory` | **Stable** | `/circles/[slug]/community` (Pledges, non-custodial) |
+| `challenges_rewards` | Challenges & Rewards | Community | Disabled | `member_directory` | **Stable** | `/circles/[slug]/community` (Anti-self-award trigger) |
+| `help_desk` | Help Desk & Requests | Community | Disabled | `discussions` | **Stable** | `/circles/[slug]/community` (Strict RLS ticket privacy) |
+| `payments_finances` | Payments & Finances | Organization & Finance | Disabled | `member_directory` | **Pledge/Intent Only** | Out of scope for raw card handling (Pledges supported) |
 
 ---
 

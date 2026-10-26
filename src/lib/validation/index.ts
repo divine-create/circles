@@ -115,10 +115,11 @@ export const createCommentSchema = z.object({
 
 export const createReportSchema = z.object({
   circleId: z.string().uuid(),
-  targetType: z.enum(['post', 'comment', 'member']),
+  targetType: z.enum(['post', 'comment', 'member', 'listing']),
   targetPostId: z.string().uuid().nullable().optional(),
   targetCommentId: z.string().uuid().nullable().optional(),
   targetUserId: z.string().uuid().nullable().optional(),
+  targetListingId: z.string().uuid().nullable().optional(),
   reason: z.enum(['spam', 'harassment', 'misinformation', 'rule_violation', 'other']),
   details: z.string().trim().max(1000).default(''),
 });

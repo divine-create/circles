@@ -72,13 +72,13 @@ export function NotificationsClient({
             <div
               key={n.id}
               className={`flex flex-col justify-between gap-3 p-5 sm:flex-row sm:items-center ${
-                !n.is_read ? 'bg-forest-50/40' : ''
+                !n.is_read ? 'bg-zinc-50' : ''
               }`}
             >
               <div>
                 <div className="flex items-center gap-2">
                   {!n.is_read && (
-                    <span className="h-2 w-2 rounded-full bg-forest-600" />
+                    <span className="h-2 w-2 rounded-full bg-black" />
                   )}
                   <span className="text-sm font-bold text-stone-900">{n.title}</span>
                   <span className="text-xs text-stone-400">
@@ -92,7 +92,7 @@ export function NotificationsClient({
                 <Link
                   href={n.link_url}
                   onClick={() => !n.is_read && handleMarkRead(n.id)}
-                  className="inline-flex items-center gap-1 rounded-lg bg-forest-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-forest-800"
+                  className="inline-flex items-center gap-1 rounded-lg bg-black px-3 py-1.5 text-xs font-semibold text-white hover:bg-zinc-800"
                 >
                   <span>Open</span>
                   <ExternalLink className="h-3 w-3" />

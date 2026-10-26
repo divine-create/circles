@@ -479,7 +479,7 @@ export function CircleStudioClient({
               onClick={() => setActiveTab(tab.id as typeof activeTab)}
               className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold transition-colors ${
                 active
-                  ? 'bg-forest-700 text-white shadow-sm'
+                  ? 'bg-black text-white shadow-sm'
                   : 'bg-white text-stone-700 border border-sand-200 hover:bg-sand-100'
               }`}
             >
@@ -503,9 +503,9 @@ export function CircleStudioClient({
       {savedBanner && (
         <div
           role="status"
-          className="flex items-center gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-xs font-semibold text-emerald-900"
+          className="flex items-center gap-2.5 rounded-xl border border-zinc-200 bg-zinc-100 p-4 text-xs font-semibold text-zinc-900"
         >
-          <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-700" />
+          <CheckCircle2 className="h-4 w-4 shrink-0 text-zinc-900" />
           <span>{savedBanner}</span>
         </div>
       )}
@@ -633,7 +633,7 @@ export function CircleStudioClient({
             <button
               type="submit"
               disabled={busy || !hasUnsavedChanges}
-              className="rounded-xl bg-forest-700 px-5 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-forest-800 disabled:opacity-50"
+              className="rounded-xl bg-black px-5 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-zinc-800 disabled:opacity-50"
             >
               {busy ? 'Saving...' : 'Save Settings'}
             </button>
@@ -675,7 +675,7 @@ export function CircleStudioClient({
                       <span
                         className={`rounded px-2 py-0.5 text-[10px] font-semibold uppercase ${
                           def.release_stage === 'stable'
-                            ? 'bg-emerald-100 text-emerald-900'
+                            ? 'bg-zinc-950 text-white font-mono'
                             : def.release_stage === 'beta'
                               ? 'bg-blue-100 text-blue-900'
                               : 'bg-sand-200 text-stone-700'
@@ -744,7 +744,7 @@ export function CircleStudioClient({
                         className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
                           cap.enabled
                             ? 'border border-sand-300 bg-white text-stone-700 hover:bg-red-50 hover:text-red-800'
-                            : 'bg-forest-700 text-white hover:bg-forest-800'
+                            : 'bg-black text-white hover:bg-zinc-800'
                         }`}
                       >
                         {cap.enabled ? 'Disable' : 'Enable'}
@@ -836,7 +836,7 @@ export function CircleStudioClient({
               <button
                 type="submit"
                 disabled={busy}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-forest-700 px-4 py-2 text-xs font-semibold text-white hover:bg-forest-800"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-black px-4 py-2 text-xs font-semibold text-white hover:bg-zinc-800"
               >
                 <Plus className="h-3.5 w-3.5" />
                 <span>Create Space</span>
@@ -942,7 +942,7 @@ export function CircleStudioClient({
                         <button
                           type="button"
                           onClick={() => handleReviewJoinRequest(jr.id, 'approve_request')}
-                          className="rounded-lg bg-forest-700 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-forest-800"
+                          className="rounded-lg bg-black px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-zinc-800"
                         >
                           Approve
                         </button>
@@ -996,14 +996,14 @@ export function CircleStudioClient({
               <button
                 type="submit"
                 disabled={busy}
-                className="rounded-xl bg-forest-700 px-5 py-2 text-xs font-semibold text-white hover:bg-forest-800"
+                className="rounded-xl bg-black px-5 py-2 text-xs font-semibold text-white hover:bg-zinc-800"
               >
                 Send Invitation
               </button>
             </div>
 
             {lastIssuedToken && (
-              <div className="rounded-xl border border-forest-200 bg-forest-50 p-3 text-xs text-forest-900">
+              <div className="rounded-xl border border-zinc-200 bg-zinc-100 p-3 text-xs text-zinc-900">
                 <p className="font-semibold">Invitation Link Ready:</p>
                 <p className="mt-1 font-mono break-all">
                   /circles/{initialCircle.slug}?inviteToken={lastIssuedToken}
@@ -1044,7 +1044,7 @@ export function CircleStudioClient({
                   </div>
 
                   {m.role === 'owner' ? (
-                    <span className="rounded-full bg-forest-700 px-3 py-1 text-xs font-semibold text-white">
+                    <span className="rounded-full bg-black px-3 py-1 text-xs font-semibold text-white">
                       Circle Owner
                     </span>
                   ) : (

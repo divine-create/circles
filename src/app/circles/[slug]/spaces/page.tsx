@@ -69,7 +69,7 @@ export default async function CircleSpacesPage({
         {(circle.current_user_role === 'owner' || circle.current_user_role === 'admin') && (
           <Link
             href={`/circles/${circle.slug}/studio`}
-            className="rounded-xl bg-forest-700 px-4 py-2 text-xs font-semibold text-white hover:bg-forest-800"
+            className="rounded-xl bg-black px-4 py-2 text-xs font-semibold text-white hover:bg-zinc-800"
           >
             Manage Spaces in Studio
           </Link>

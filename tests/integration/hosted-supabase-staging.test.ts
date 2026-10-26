@@ -50,6 +50,18 @@ import {
   moderateContent,
   reportContent,
 } from '@/features/moderation/service';
+import { createCircleEvent, rsvpToCircleEvent } from '@/features/events/service';
+import { castPollVote, createCirclePoll } from '@/features/polls/service';
+import {
+  createMarketplaceListing,
+  createServiceOrRentalBooking,
+  updateServiceOrRentalBookingStatus,
+} from '@/features/marketplace/service';
+import {
+  createJobOpportunity,
+  listJobApplications,
+  submitJobApplication,
+} from '@/features/jobs/service';
 import {
   closeDatabasePools,
   getActiveDatabaseBackend,
@@ -134,7 +146,7 @@ describe.skipIf(!envLocalVars)(
 
         // 1. Verify migrations & GET /api/health on live Supabase
         const migrations = await listAppliedDatabaseMigrations();
-        expect(migrations.map((m) => m.version)).toEqual(['0001', '0002', '0003', '0004']);
+        expect(migrations.map((m) => m.version)).toEqual(['0001', '0002', '0003', '0004', '0005']);
 
         const healthRes = await healthGetRoute();
         expect(healthRes.status).toBe(200);
@@ -431,8 +443,91 @@ describe.skipIf(!envLocalVars)(
 
         const auditLogs = await getCircleAuditLogs(ownerReg.user.id, pubCircle.id);
         expect(auditLogs.length).toBeGreaterThanOrEqual(4);
+
+        // 7. Verify Phase B-D Capabilities on Live Hosted Supabase (Events, Polls, Marketplace Booking Conflicts, Job Application RLS)
+        await updateCircleCapability(ownerReg.user.id, pubCircle.id, 'events', true);
+        await updateCircleCapability(ownerReg.user.id, pubCircle.id, 'rsvps', true);
+        await updateCircleCapability(ownerReg.user.id, pubCircle.id, 'polls_decisions', true);
+        await updateCircleCapability(ownerReg.user.id, pubCircle.id, 'listings_discovery', true);
+        await updateCircleCapability(ownerReg.user.id, pubCircle.id, 'services_bookings', true);
+        await updateCircleCapability(ownerReg.user.id, pubCircle.id, 'jobs_opportunities', true);
+
+        const stgEvent = await createCircleEvent(ownerReg.user.id, {
+          circleId: pubCircle.id,
+          title: 'Hosted Supabase Townhall',
+          startsAt: new Date(Date.now() + 86400_000).toISOString(),
+          endsAt: new Date(Date.now() + 90000_000).toISOString(),
+          capacity: 1,
+        });
+        const rsvp1 = await rsvpToCircleEvent(
+          memberReg.user.id,
+          pubCircle.id,
+          stgEvent.id,
+          'register'
+        );
+        expect(rsvp1.rsvp.status).toBe('going');
+
+        const stgPoll = await createCirclePoll(ownerReg.user.id, {
+          circleId: pubCircle.id,
+          question: 'Approve staging release?',
+          allowMultiple: false,
+          resultsVisibility: 'after_vote',
+          options: ['Ship to staging', 'Hold'],
+        });
+        const votedPoll = await castPollVote(memberReg.user.id, pubCircle.id, stgPoll.id, {
+          optionIds: [stgPoll.options[0].id],
+        });
+        expect(votedPoll.total_votes).toBe(1);
+
+        const stgListing = await createMarketplaceListing(ownerReg.user.id, {
+          circleId: pubCircle.id,
+          listingType: 'service',
+          category: 'mentorship',
+          title: 'Architecture Review Session',
+          priceAmount: 50,
+          pricingUnit: 'hourly',
+        });
+        const bk1 = await createServiceOrRentalBooking(
+          memberReg.user.id,
+          pubCircle.id,
+          stgListing.id,
+          {
+            bookingType: 'service',
+            startsAt: '2027-06-01T10:00:00.000Z',
+            endsAt: '2027-06-01T11:00:00.000Z',
+          }
+        );
+        const bk2 = await createServiceOrRentalBooking(
+          adminReg.user.id,
+          pubCircle.id,
+          stgListing.id,
+          {
+            bookingType: 'service',
+            startsAt: '2027-06-01T10:30:00.000Z',
+            endsAt: '2027-06-01T11:30:00.000Z',
+          }
+        );
+        await updateServiceOrRentalBookingStatus(ownerReg.user.id, pubCircle.id, bk1.id, {
+          status: 'approved',
+        });
+        await expect(
+          updateServiceOrRentalBookingStatus(ownerReg.user.id, pubCircle.id, bk2.id, {
+            status: 'approved',
+          })
+        ).rejects.toThrow(/Booking conflict/i);
+
+        const stgJob = await createJobOpportunity(ownerReg.user.id, {
+          circleId: pubCircle.id,
+          title: 'Platform Engineer',
+          description: 'Build multi-tenant community tools.',
+        });
+        await submitJobApplication(memberReg.user.id, pubCircle.id, stgJob.id, {
+          coverNote: 'Applying on live Supabase staging.',
+        });
+        const ownerApps = await listJobApplications(ownerReg.user.id, pubCircle.id, stgJob.id);
+        expect(ownerApps.length).toBe(1);
       },
-      120000
+      180000
     );
   }
 );

@@ -213,7 +213,16 @@ export interface NotificationItem {
     | 'new_comment'
     | 'role_changed'
     | 'circle_announcement'
-    | 'moderation_notice';
+    | 'moderation_notice'
+    | 'event_rsvp'
+    | 'event_updated'
+    | 'listing_inquiry'
+    | 'booking_status'
+    | 'job_application'
+    | 'support_ticket'
+    | 'challenge_reward'
+    | 'governance_update'
+    | 'system';
   title: string;
   body: string;
   link_url: string;
@@ -229,10 +238,11 @@ export interface ContentReportItem {
   circle_slug?: string;
   reporter_id: string;
   reporter_name?: string;
-  target_type: 'post' | 'comment' | 'member';
+  target_type: 'post' | 'comment' | 'member' | 'listing';
   target_post_id: string | null;
   target_comment_id: string | null;
   target_user_id: string | null;
+  target_listing_id?: string | null;
   target_preview?: string;
   reason: 'spam' | 'harassment' | 'misinformation' | 'rule_violation' | 'other';
   details: string;
@@ -253,4 +263,355 @@ export interface AuditLogItem {
   entity_id: string;
   metadata: Record<string, unknown>;
   created_at: string;
+}
+
+export interface CircleEventItem {
+  id: string;
+  circle_id: string;
+  space_id: string | null;
+  organizer_id: string;
+  title: string;
+  description: string;
+  event_type: 'event' | 'meetup' | 'workshop' | 'online';
+  location_type: 'in_person' | 'online' | 'hybrid';
+  venue_text: string;
+  meeting_url: string | null;
+  starts_at: string;
+  ends_at: string;
+  timezone: string;
+  capacity: number | null;
+  registration_closes_at: string | null;
+  status: 'draft' | 'published' | 'cancelled' | 'completed';
+  created_at: string;
+  updated_at: string;
+  organizer?: Pick<UserProfile, 'id' | 'username' | 'display_name' | 'avatar_url'>;
+  going_count?: number;
+  waitlisted_count?: number;
+  attended_count?: number;
+  viewer_rsvp_status?: 'going' | 'waitlisted' | 'cancelled' | null;
+  viewer_attended?: boolean;
+}
+
+export interface EventRsvpItem {
+  id: string;
+  event_id: string;
+  circle_id: string;
+  user_id: string;
+  status: 'going' | 'waitlisted' | 'cancelled';
+  attended: boolean;
+  checked_in_at: string | null;
+  checked_in_by: string | null;
+  created_at: string;
+  updated_at: string;
+  profile?: Pick<UserProfile, 'id' | 'username' | 'display_name' | 'avatar_url'>;
+}
+
+export interface PollOptionItem {
+  id: string;
+  poll_id: string;
+  circle_id: string;
+  label: string;
+  sort_order: number;
+  vote_count: number | null;
+  percentage: number | null;
+  viewer_voted: boolean;
+}
+
+export interface CirclePollItem {
+  id: string;
+  circle_id: string;
+  space_id: string | null;
+  creator_id: string;
+  question: string;
+  description: string;
+  allow_multiple: boolean;
+  results_visibility: 'always' | 'after_vote' | 'after_close';
+  closes_at: string | null;
+  status: 'open' | 'closed' | 'archived';
+  decision_summary: string | null;
+  created_at: string;
+  updated_at: string;
+  creator?: Pick<UserProfile, 'id' | 'username' | 'display_name' | 'avatar_url'>;
+  total_votes: number | null;
+  results_visible_to_viewer: boolean;
+  viewer_has_voted: boolean;
+  options: PollOptionItem[];
+}
+
+export interface MarketplaceListingItem {
+  id: string;
+  circle_id: string;
+  seller_id: string;
+  listing_type: 'product' | 'service' | 'rental' | 'housing' | 'directory';
+  category: string;
+  title: string;
+  description: string;
+  price_amount: number | null;
+  price_currency: string;
+  pricing_unit: 'fixed' | 'hourly' | 'daily' | 'monthly' | 'free' | 'negotiable';
+  condition: 'new' | 'like_new' | 'good' | 'fair' | 'not_applicable' | null;
+  location: string | null;
+  contact_preference: 'in_app_inquiry' | 'email' | 'both';
+  image_urls: string[];
+  service_duration_minutes: number | null;
+  available_from: string | null;
+  available_until: string | null;
+  status: 'draft' | 'published' | 'reserved' | 'sold' | 'archived' | 'removed';
+  created_at: string;
+  updated_at: string;
+  seller?: Pick<UserProfile, 'id' | 'username' | 'display_name' | 'avatar_url'>;
+  viewer_has_saved?: boolean;
+}
+
+export interface ListingInquiryItem {
+  id: string;
+  circle_id: string;
+  listing_id: string;
+  listing_title?: string;
+  buyer_id: string;
+  seller_id: string;
+  message: string;
+  seller_response: string | null;
+  status: 'open' | 'responded' | 'accepted' | 'declined' | 'closed';
+  created_at: string;
+  updated_at: string;
+  buyer?: Pick<UserProfile, 'id' | 'username' | 'display_name'>;
+  seller?: Pick<UserProfile, 'id' | 'username' | 'display_name'>;
+}
+
+export interface ServiceBookingItem {
+  id: string;
+  circle_id: string;
+  listing_id: string;
+  listing_title?: string;
+  requester_id: string;
+  provider_id: string;
+  booking_type: 'service' | 'rental';
+  starts_at: string;
+  ends_at: string;
+  notes: string;
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled' | 'completed' | 'returned';
+  provider_note: string | null;
+  returned_at: string | null;
+  created_at: string;
+  updated_at: string;
+  requester?: Pick<UserProfile, 'id' | 'username' | 'display_name'>;
+  provider?: Pick<UserProfile, 'id' | 'username' | 'display_name'>;
+}
+
+export interface JobOpportunityItem {
+  id: string;
+  circle_id: string;
+  poster_id: string;
+  title: string;
+  organization_name: string;
+  opportunity_type: 'full_time' | 'part_time' | 'internship' | 'freelance' | 'volunteer' | 'collaboration';
+  work_mode: 'remote' | 'on_site' | 'hybrid';
+  location: string | null;
+  compensation_text: string | null;
+  description: string;
+  requirements: string;
+  application_deadline: string | null;
+  status: 'open' | 'closed' | 'archived';
+  created_at: string;
+  updated_at: string;
+  poster?: Pick<UserProfile, 'id' | 'username' | 'display_name' | 'avatar_url'>;
+  application_count?: number;
+  viewer_application_status?: string | null;
+}
+
+export interface JobApplicationItem {
+  id: string;
+  circle_id: string;
+  opportunity_id: string;
+  opportunity_title?: string;
+  applicant_id: string;
+  cover_note: string;
+  resume_url: string | null;
+  portfolio_url: string | null;
+  status: 'submitted' | 'under_review' | 'shortlisted' | 'accepted' | 'rejected' | 'withdrawn';
+  reviewer_note: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  updated_at: string;
+  applicant?: Pick<UserProfile, 'id' | 'username' | 'display_name' | 'email' | 'avatar_url'>;
+}
+
+export interface LearningResourceItem {
+  id: string;
+  circle_id: string;
+  author_id: string;
+  capability_key: 'learning_resources' | 'shared_resources' | 'media_publishing';
+  category: string;
+  title: string;
+  summary: string;
+  content_body: string;
+  external_url: string | null;
+  attachment_url: string | null;
+  difficulty_level: 'beginner' | 'intermediate' | 'advanced' | null;
+  status: 'draft' | 'published' | 'archived';
+  created_at: string;
+  updated_at: string;
+  author?: Pick<UserProfile, 'id' | 'username' | 'display_name' | 'avatar_url'>;
+  viewer_has_bookmarked?: boolean;
+  bookmark_count?: number;
+}
+
+export interface ProjectMemberItem {
+  id: string;
+  project_id: string;
+  circle_id: string;
+  user_id: string;
+  role: 'lead' | 'contributor' | 'reviewer';
+  joined_at: string;
+  profile?: Pick<UserProfile, 'id' | 'username' | 'display_name' | 'avatar_url'>;
+}
+
+export interface ProjectTaskItem {
+  id: string;
+  project_id: string;
+  circle_id: string;
+  creator_id: string;
+  assignee_id: string | null;
+  title: string;
+  description: string;
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  status: 'todo' | 'in_progress' | 'review' | 'done';
+  due_date: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+  assignee?: Pick<UserProfile, 'id' | 'username' | 'display_name'> | null;
+}
+
+export interface CircleProjectItem {
+  id: string;
+  circle_id: string;
+  space_id: string | null;
+  owner_id: string;
+  name: string;
+  description: string;
+  status: 'planning' | 'active' | 'completed' | 'archived';
+  target_date: string | null;
+  created_at: string;
+  updated_at: string;
+  owner?: Pick<UserProfile, 'id' | 'username' | 'display_name' | 'avatar_url'>;
+  members?: ProjectMemberItem[];
+  tasks?: ProjectTaskItem[];
+}
+
+export interface GovernanceProposalItem {
+  id: string;
+  circle_id: string;
+  proposer_id: string;
+  committee_name: string | null;
+  title: string;
+  body: string;
+  status: 'draft' | 'under_review' | 'approved' | 'rejected' | 'implemented' | 'archived';
+  decision_rationale: string | null;
+  decided_by: string | null;
+  decided_at: string | null;
+  created_at: string;
+  updated_at: string;
+  proposer?: Pick<UserProfile, 'id' | 'username' | 'display_name'>;
+}
+
+export interface FundraisingCampaignItem {
+  id: string;
+  circle_id: string;
+  creator_id: string;
+  title: string;
+  description: string;
+  goal_amount: number;
+  currency: string;
+  deadline: string | null;
+  status: 'active' | 'completed' | 'closed';
+  created_at: string;
+  updated_at: string;
+  pledged_total?: number;
+  pledge_count?: number;
+}
+
+export interface FundraisingPledgeItem {
+  id: string;
+  campaign_id: string;
+  circle_id: string;
+  pledger_id: string;
+  pledge_amount: number;
+  message: string;
+  status: 'pledged' | 'fulfilled_verified' | 'cancelled';
+  created_at: string;
+  updated_at: string;
+  pledger?: Pick<UserProfile, 'id' | 'username' | 'display_name'>;
+}
+
+export interface CommunityChallengeItem {
+  id: string;
+  circle_id: string;
+  creator_id: string;
+  title: string;
+  description: string;
+  rules: string;
+  reward_badge_name: string;
+  reward_points: number;
+  ends_at: string | null;
+  status: 'active' | 'completed' | 'archived';
+  created_at: string;
+  updated_at: string;
+  submission_count?: number;
+  viewer_submission?: ChallengeSubmissionItem | null;
+}
+
+export interface ChallengeSubmissionItem {
+  id: string;
+  challenge_id: string;
+  circle_id: string;
+  participant_id: string;
+  submission_text: string;
+  proof_url: string | null;
+  status: 'submitted' | 'approved' | 'rejected';
+  awarded_points: number;
+  awarded_badge: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  updated_at: string;
+  participant?: Pick<UserProfile, 'id' | 'username' | 'display_name'>;
+}
+
+export interface SupportTicketItem {
+  id: string;
+  circle_id: string;
+  requester_id: string;
+  assigned_to: string | null;
+  category: 'general' | 'technical' | 'membership' | 'mutual_aid' | 'facilities';
+  priority: 'low' | 'normal' | 'high' | 'urgent';
+  is_private: boolean;
+  subject: string;
+  description: string;
+  resolution_notes: string | null;
+  status: 'open' | 'in_progress' | 'resolved' | 'closed';
+  created_at: string;
+  updated_at: string;
+  requester?: Pick<UserProfile, 'id' | 'username' | 'display_name'>;
+  assignee?: Pick<UserProfile, 'id' | 'username' | 'display_name'> | null;
+}
+
+export interface MediaUploadItem {
+  id: string;
+  circle_id: string | null;
+  uploader_id: string;
+  bucket_name: string;
+  object_path: string;
+  original_filename: string;
+  safe_filename: string;
+  mime_type: string;
+  size_bytes: number;
+  sha256_checksum: string;
+  visibility: 'public' | 'circle_members' | 'private';
+  storage_backend: string;
+  status: 'active' | 'orphaned' | 'deleted';
+  created_at: string;
+  signed_download_url?: string;
 }

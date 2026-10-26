@@ -27,20 +27,20 @@ Every environment variable below is verified against [`src/lib/config/env.ts`](f
 
 - [x] **Linting (`npm run lint`)**: Passed with zero ESLint warnings or errors.
 - [x] **Type Checking (`npm run typecheck`)**: Passed `tsc --noEmit` in strict mode with zero errors.
-- [x] **Automated Test Suite (`npm test`)**: Passed all **6 test files (21/21 tests)** including [`tests/integration/hosted-supabase-staging.test.ts`](file:///C:/Users/HomePC/Desktop/circles/tests/integration/hosted-supabase-staging.test.ts).
-- [x] **Migration Runner CLI (`npm run db:migrate`)**: Applied migrations `0001`, `0002`, `0003`, and `0004` in order to live hosted Supabase PostgreSQL 17.11 (`aws-0-eu-west-1.pooler.supabase.com:5432`) and verified idempotency on re-run (`Applied: 0, Skipped: 4`).
-- [x] **Production Build (`npm run build`)**: Passed `next build` cleanly across all 21 routes.
+- [x] **Automated Test Suite (`npm test`)**: Passed all **7 test files (28/28 tests)** including [`tests/integration/hosted-supabase-staging.test.ts`](file:///C:/Users/HomePC/Desktop/circles/tests/integration/hosted-supabase-staging.test.ts) and [`tests/integration/remaining-features-and-security.test.ts`](file:///C:/Users/HomePC/Desktop/circles/tests/integration/remaining-features-and-security.test.ts).
+- [x] **Migration Runner CLI (`npm run db:migrate`)**: Applied migrations `0001`, `0002`, `0003`, `0004`, and `0005` in order to live hosted Supabase PostgreSQL 17.11 (`aws-0-eu-west-1.pooler.supabase.com:5432`) and verified idempotency on re-run (`Applied: 0, Skipped: 5`).
+- [x] **Production Build (`npm run build`)**: Passed `next build` cleanly across all 22 static and dynamic routes.
 
 ---
 
 ## 3. Hosted Supabase Staging End-to-End Verification Checklist (`[x] Verified on Live Hosted Supabase PostgreSQL 17.11`)
 
-Every item below was executed and verified against the live hosted Supabase project (`vfbqurszheoyyqbugdse`, PostgreSQL 17.11, `eu-west-1`) via [`tests/integration/hosted-supabase-staging.test.ts`](file:///C:/Users/HomePC/Desktop/circles/tests/integration/hosted-supabase-staging.test.ts):
+Every item below was executed and verified against the live hosted Supabase project (`vfbqurszheoyyqbugdse`, PostgreSQL 17.11, `eu-west-1`) via [`tests/integration/hosted-supabase-staging.test.ts`](file:///C:/Users/HomePC/Desktop/circles/tests/integration/hosted-supabase-staging.test.ts) and [`tests/integration/remaining-features-and-security.test.ts`](file:///C:/Users/HomePC/Desktop/circles/tests/integration/remaining-features-and-security.test.ts):
 
 ### 3.1 Database Migrations & Schema Verification
-- [x] Executed `npm run db:migrate` against the hosted Supabase database (`Applied: 4, Skipped: 0`).
-- [x] Verified `public.schema_migrations` contains `0001`, `0002`, `0003`, and `0004` with SHA-256 checksums.
-- [x] Re-ran `npm run db:migrate` and confirmed idempotency (`Applied: 0, Skipped: 4`).
+- [x] Executed `npm run db:migrate` against the hosted Supabase database (`Applied: 5, Skipped: 0`).
+- [x] Verified `public.schema_migrations` contains `0001`, `0002`, `0003`, `0004`, and `0005` with SHA-256 checksums.
+- [x] Re-ran `npm run db:migrate` and confirmed idempotency (`Applied: 0, Skipped: 5`).
 - [x] Confirmed `GET /api/health` returns HTTP `200` with `{"status":"healthy","database":"connected","backend":"remote_pg","mode":"supabase_configured"}`.
 
 ### 3.2 Authentication & Session Lifecycle
@@ -69,3 +69,15 @@ Every item below was executed and verified against the live hosted Supabase proj
 
 ### 3.6 Moderation & Audit Logging
 - [x] Submitted content reports (`reportContent`), listed reports (`listModerationReports`), suspended and restored a member via `PATCH /api/moderation`, confirmed suspended members cannot post, and verified `public.audit_logs` on hosted Supabase.
+
+### 3.7 Remaining Capabilities & Production Security Controls
+- [x] **Events & RSVPs**: Created events, RSVPed with capacity limit, waitlist overflow, and waitlist auto-promotion on cancellation. Verified attendance check-in restricted to organizers.
+- [x] **Polls & Decisions**: Cast single and multi-choice votes, verified single-vote enforcement by `trg_enforce_poll_vote_integrity`, tested `after_vote` and `after_close` visibility, and recorded final decision summaries.
+- [x] **Marketplace, Bookings & Rentals**: Created listings, inquiries, service/rental bookings, double-booking prevention by `trg_prevent_booking_conflicts`, and return condition tracking.
+- [x] **Jobs & Strict Applicant Privacy**: Posted job openings, submitted applications, verified applicant privacy under RLS preventing third-party members from reading candidate records.
+- [x] **Resources & Collaborative Projects**: Created modules, bookmarks, projects, task assignments, and completion states.
+- [x] **Governance, Causes & Challenges**: Submitted proposals, cast votes, recorded decisions, created fundraising causes with pledge intentions, created community challenges, and verified `trg_protect_challenge_rewards` prevents self-awarding.
+- [x] **Help Desk Support Tickets**: Created private member tickets, verified non-author members cannot access tickets, and verified responses by support staff.
+- [x] **Secure Media Uploads**: Validated file size ($\le 10$ MB), allowlisted MIME types, binary magic-byte inspection, HMAC-SHA256 signed download URL verification, and RLS delete cleanup.
+- [x] **CSRF Protection**: Verified cross-site mutation blocking with `Sec-Fetch-Site` inspection and origin validation across state-changing endpoints.
+- [x] **Distributed Rate Limiting**: Verified atomic counter increments in `public.rate_limit_buckets` enforcing rate limits under concurrent requests.

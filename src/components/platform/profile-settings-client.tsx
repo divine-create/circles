@@ -65,7 +65,7 @@ export function ProfileSettingsClient({ initialUser }: { initialUser: UserProfil
         </div>
 
         {initialUser.is_platform_admin && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-forest-700 px-3 py-1 text-xs font-semibold text-white">
+          <span className="inline-flex items-center gap-1 rounded-full bg-black px-3 py-1 text-xs font-semibold text-white">
             <Shield className="h-3.5 w-3.5" />
             Platform Administrator
           </span>
@@ -85,9 +85,9 @@ export function ProfileSettingsClient({ initialUser }: { initialUser: UserProfil
       {saved && (
         <div
           role="status"
-          className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 text-xs font-semibold text-emerald-900"
+          className="flex items-center gap-2 rounded-xl border border-zinc-200 bg-zinc-100 p-3.5 text-xs font-semibold text-zinc-900"
         >
-          <CheckCircle2 className="h-4 w-4 text-emerald-700" />
+          <CheckCircle2 className="h-4 w-4 text-zinc-900" />
           <span>Profile changes saved to PostgreSQL.</span>
         </div>
       )}
@@ -186,7 +186,7 @@ export function ProfileSettingsClient({ initialUser }: { initialUser: UserProfil
         <button
           type="submit"
           disabled={saving}
-          className="rounded-xl bg-forest-700 px-6 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-forest-800 disabled:opacity-50"
+          className="rounded-xl bg-black px-6 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-zinc-800 disabled:opacity-50"
         >
           {saving ? 'Saving...' : 'Save Profile'}
         </button>

@@ -63,7 +63,7 @@ export default async function CircleDiscussionsPage({
         {(circle.current_user_role === 'owner' || circle.current_user_role === 'admin') && (
           <Link
             href={`/circles/${circle.slug}/studio`}
-            className="mt-4 inline-block rounded-xl bg-forest-700 px-4 py-2 text-xs font-semibold text-white"
+            className="mt-4 inline-block rounded-xl bg-black px-4 py-2 text-xs font-semibold text-white hover:bg-zinc-800"
           >
             Open Circle Studio
           </Link>

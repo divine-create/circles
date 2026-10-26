@@ -70,8 +70,8 @@ export function ModerationClient({
       </div>
 
       {feedback && (
-        <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 text-xs font-semibold text-emerald-900">
-          <CheckCircle2 className="h-4 w-4 text-emerald-700" />
+        <div className="flex items-center gap-2 rounded-xl border border-zinc-200 bg-zinc-100 p-3.5 text-xs font-semibold text-zinc-900">
+          <CheckCircle2 className="h-4 w-4 text-zinc-900" />
           <span>{feedback}</span>
         </div>
       )}
@@ -140,7 +140,7 @@ export function ModerationClient({
                   <button
                     type="button"
                     onClick={() => handleModerate(report, 'resolve_report')}
-                    className="rounded-lg bg-forest-700 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-forest-800"
+                    className="rounded-lg bg-black px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-zinc-800"
                   >
                     Mark Resolved
                   </button>

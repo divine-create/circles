@@ -147,7 +147,7 @@ export function CircleMembershipActions({
             type="button"
             onClick={handleAcceptInvite}
             disabled={loading}
-            className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-emerald-800 disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-xl bg-black px-4 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-zinc-800 disabled:opacity-50"
           >
             <CheckCircle2 className="h-4 w-4" />
             <span>Accept Circle Invitation</span>
@@ -156,15 +156,15 @@ export function CircleMembershipActions({
 
         {isMember ? (
           <>
-            <span className="inline-flex items-center gap-1.5 rounded-xl bg-forest-50 border border-forest-200 px-3.5 py-2 text-xs font-semibold capitalize text-forest-800">
-              <CheckCircle2 className="h-3.5 w-3.5 text-forest-700" />
+            <span className="inline-flex items-center gap-1.5 rounded-xl bg-zinc-100 border border-zinc-200 px-3.5 py-2 text-xs font-semibold capitalize text-zinc-900">
+              <CheckCircle2 className="h-3.5 w-3.5 text-zinc-900" />
               Active {circle.current_user_role}
             </span>
 
             {isStaff && (
               <Link
                 href={`/circles/${circle.slug}/studio`}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-forest-700 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-forest-800"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-black px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-zinc-800"
               >
                 <Sliders className="h-3.5 w-3.5" />
                 <span>Circle Studio</span>
@@ -193,7 +193,7 @@ export function CircleMembershipActions({
             type="button"
             onClick={handleJoin}
             disabled={loading}
-            className="inline-flex items-center gap-2 rounded-xl bg-forest-700 px-5 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-forest-800 disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-xl bg-black px-5 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-zinc-800 disabled:opacity-50"
           >
             <UserPlus className="h-4 w-4" />
             <span>{loading ? 'Joining...' : 'Join Circle'}</span>
@@ -209,7 +209,7 @@ export function CircleMembershipActions({
               setShowRequestForm(!showRequestForm);
             }}
             disabled={loading}
-            className="inline-flex items-center gap-2 rounded-xl bg-forest-700 px-5 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-forest-800 disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-xl bg-black px-5 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-zinc-800 disabled:opacity-50"
           >
             <UserPlus className="h-4 w-4" />
             <span>Request to Join Circle</span>
@@ -244,7 +244,7 @@ export function CircleMembershipActions({
             <button
               type="submit"
               disabled={loading}
-              className="rounded-lg bg-forest-700 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-forest-800"
+              className="rounded-lg bg-black px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-zinc-800"
             >
               {loading ? 'Submitting...' : 'Submit Request'}
             </button>
@@ -265,9 +265,9 @@ export function CircleMembershipActions({
       {feedback && (
         <div
           role="status"
-          className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-xs text-emerald-900"
+          className="flex items-center gap-2 rounded-xl border border-zinc-200 bg-zinc-100 px-3.5 py-2 text-xs text-zinc-900"
         >
-          <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-700" />
+          <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-zinc-900" />
           <span>{feedback}</span>
         </div>
       )}

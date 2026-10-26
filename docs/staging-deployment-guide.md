@@ -45,6 +45,7 @@ Configure the following environment variables in your staging/production hosting
 1. Create a new project in [Supabase Dashboard](https://supabase.com/dashboard).
 2. Wait for the PostgreSQL database to finish provisioning.
 3. Copy the **Database Connection String** (`DATABASE_URL`), **Project URL** (`NEXT_PUBLIC_SUPABASE_URL`), **Anon Key** (`NEXT_PUBLIC_SUPABASE_ANON_KEY`), and **Service Role Key** (`SUPABASE_SERVICE_ROLE_KEY`).
+   - *Connection Pooling Note*: Because every query in [`src/lib/db/postgres.ts`](file:///C:/Users/HomePC/Desktop/circles/src/lib/db/postgres.ts) wraps `SET LOCAL ROLE` and `set_config('request.jwt.claim.sub', ..., true)` inside an explicit `BEGIN ... COMMIT` transaction block, both Supabase **Session Mode Pooler (port 5432)** and **Direct Connection (port 5432)** work out of the box.
 
 ### Step 2: Run Database Migrations (`npm run db:migrate`)
 Run the ordered SQL migrations against your staging database before starting or deploying the application:
@@ -58,10 +59,11 @@ What `npm run db:migrate` ([`scripts/migrate.mjs`](file:///C:/Users/HomePC/Deskt
 1. Connects to `DATABASE_URL` and begins a transaction.
 2. Creates `public.schema_migrations` if it does not exist.
 3. Checks already-applied versions in `public.schema_migrations` and applies unapplied migrations in strict lexicographical order:
-   - [`0001_initial_schema.sql`](file:///C:/Users/HomePC/Desktop/circles/supabase/migrations/0001_initial_schema.sql)
-   - [`0002_security_hardening.sql`](file:///C:/Users/HomePC/Desktop/circles/supabase/migrations/0002_security_hardening.sql)
-   - [`0003_staging_rls_and_role_hardening.sql`](file:///C:/Users/HomePC/Desktop/circles/supabase/migrations/0003_staging_rls_and_role_hardening.sql)
-   - [`0004_supabase_staging_compatibility.sql`](file:///C:/Users/HomePC/Desktop/circles/supabase/migrations/0004_supabase_staging_compatibility.sql)
+   - [`0001_initial_schema.sql`](file:///C:/Users/HomePC/Desktop/circles/supabase/migrations/0001_initial_schema.sql) — Core domain tables, composite foreign keys, RLS policies, and `DO $$` guarded `auth.uid()` / `auth.role()` functions that safely coexist with hosted Supabase's `supabase_auth_admin` functions.
+   - [`0002_security_hardening.sql`](file:///C:/Users/HomePC/Desktop/circles/supabase/migrations/0002_security_hardening.sql) — Profile email immutability trigger, Circle ownership protection trigger, membership role transition trigger, and notification RLS hardening.
+   - [`0003_staging_rls_and_role_hardening.sql`](file:///C:/Users/HomePC/Desktop/circles/supabase/migrations/0003_staging_rls_and_role_hardening.sql) — Capability settings RLS helper (`is_capability_setting_enabled`), co-membership profile visibility helper (`shares_active_circle_with`), role hierarchy enforcement on membership `INSERT`, and post/comment identity immutability triggers.
+   - [`0004_supabase_staging_compatibility.sql`](file:///C:/Users/HomePC/Desktop/circles/supabase/migrations/0004_supabase_staging_compatibility.sql) — `public.schema_migrations` tracking table, `public.user_sessions` table (avoiding any collision with Supabase GoTrue's internal `auth.sessions` table), reference catalog idempotent seeding, and `service_role` grants.
+   - [`0005_remaining_capabilities_and_security.sql`](file:///C:/Users/HomePC/Desktop/circles/supabase/migrations/0005_remaining_capabilities_and_security.sql) — Distributed rate limiting table (`public.rate_limit_buckets`), 19 domain tables covering Events & RSVPs, Polls & Decisions, Marketplace (Listings, Rentals, Bookings), Jobs & Applications, Resources & Projects, Governance & Proposals, Causes & Pledges, Challenges & Rewards, Support Tickets, and Media Uploads with composite foreign keys, RLS policies, and database triggers (`trg_enforce_poll_vote_integrity`, `trg_prevent_booking_conflicts`, `trg_protect_challenge_rewards`).
 4. Records each migration's `version`, `filename`, and SHA-256 `checksum` in `public.schema_migrations`.
 5. Exits with code `0` on success, or rolls back and exits with code `1` on any SQL error.
 
@@ -86,3 +88,26 @@ Expected response (`200 OK`):
   "timestamp": "2026-10-26T09:15:00.000Z"
 }
 ```
+If the database is unreachable or credentials are invalid, `GET /api/health` returns `503 Service Unavailable` without leaking internal connection strings or stack traces.
+
+---
+
+## 4. Multi-Instance & Serverless Compatibility
+
+- **Session Persistence**: Application sessions are stored in PostgreSQL (`public.user_sessions`) and verified on every request via [`verifyAndResolveSessionUser()`](file:///C:/Users/HomePC/Desktop/circles/src/lib/auth/session.ts#L158-L182). Any instance can validate or revoke sessions created on any other instance.
+- **Database-Backed Rate Limiting**: Authentication and mutation rate limits (`public.rate_limit_buckets`) are stored in PostgreSQL rather than in-process memory, ensuring consistent enforcement across horizontal replicas.
+- **No Local File Uploads**: User profile and Circle updates do not write to the local container filesystem.
+
+---
+
+## 5. Credential Rotation Runbook
+
+1. **Rotating `CIRCLES_SESSION_SECRET`**:
+   - Generate a new 64-character hex secret (`crypto.randomBytes(32).toString('hex')`).
+   - Update `CIRCLES_SESSION_SECRET` in the hosting environment and redeploy.
+   - All existing browser cookies signed with the old secret will immediately fail HMAC verification, requiring users to sign in again. To also purge database session rows, run `UPDATE public.user_sessions SET revoked_at = NOW() WHERE revoked_at IS NULL;`.
+2. **Rotating `DATABASE_URL` / PostgreSQL Password**:
+   - Reset the database password in **Supabase Dashboard → Project Settings → Database**.
+   - Update `DATABASE_URL` in the hosting environment and redeploy.
+3. **Rotating `SUPABASE_SERVICE_ROLE_KEY` or `RESEND_API_KEY`**:
+   - Roll the key in the Supabase or Resend dashboard, update the environment variable in the deployment platform, and redeploy.

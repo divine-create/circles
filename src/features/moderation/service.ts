@@ -14,8 +14,16 @@ export async function reportContent(
     throw new ValidationError(parsed.error.issues[0]?.message ?? 'Invalid report submission.');
   }
 
-  const { circleId, targetType, targetPostId, targetCommentId, targetUserId, reason, details } =
-    parsed.data;
+  const {
+    circleId,
+    targetType,
+    targetPostId,
+    targetCommentId,
+    targetUserId,
+    targetListingId,
+    reason,
+    details,
+  } = parsed.data;
 
   if (targetType === 'post' && !targetPostId) {
     throw new ValidationError('targetPostId is required when reporting a post.');
@@ -26,13 +34,16 @@ export async function reportContent(
   if (targetType === 'member' && !targetUserId) {
     throw new ValidationError('targetUserId is required when reporting a member.');
   }
+  if (targetType === 'listing' && !targetListingId) {
+    throw new ValidationError('targetListingId is required when reporting a listing.');
+  }
 
   return withRlsTransaction(actorUserId, async (tx) => {
     const reportId = crypto.randomUUID();
     const res = await tx.query<ContentReportItem>(
       `INSERT INTO public.content_reports (
-         id, circle_id, reporter_id, target_type, target_post_id, target_comment_id, target_user_id, reason, details, status
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'open')
+         id, circle_id, reporter_id, target_type, target_post_id, target_comment_id, target_user_id, target_listing_id, reason, details, status
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'open')
        RETURNING *;`,
       [
         reportId,
@@ -42,6 +53,7 @@ export async function reportContent(
         targetPostId ?? null,
         targetCommentId ?? null,
         targetUserId ?? null,
+        targetListingId ?? null,
         reason,
         details,
       ]

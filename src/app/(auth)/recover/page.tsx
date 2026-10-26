@@ -100,7 +100,7 @@ export default function RecoverPasswordPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-xl bg-forest-700 py-3 text-sm font-semibold text-white hover:bg-forest-800 disabled:opacity-50"
+              className="w-full rounded-xl bg-black py-3 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-50"
             >
               {loading ? 'Sending...' : 'Send Recovery Token'}
             </button>
@@ -149,7 +149,7 @@ export default function RecoverPasswordPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-xl bg-forest-700 py-3 text-sm font-semibold text-white hover:bg-forest-800 disabled:opacity-50"
+              className="w-full rounded-xl bg-black py-3 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-50"
             >
               {loading ? 'Updating Password...' : 'Confirm Password Reset'}
             </button>
@@ -158,7 +158,7 @@ export default function RecoverPasswordPage() {
 
         {step === 'done' && (
           <div className="mt-6 space-y-4 text-center">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-forest-50 text-forest-700">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-zinc-100 text-zinc-900">
               <CheckCircle2 className="h-6 w-6" />
             </div>
             <p className="text-sm font-medium text-stone-800">
@@ -166,7 +166,7 @@ export default function RecoverPasswordPage() {
             </p>
             <Link
               href="/login"
-              className="inline-block w-full rounded-xl bg-forest-700 py-3 text-sm font-semibold text-white"
+              className="inline-block w-full rounded-xl bg-black py-3 text-sm font-semibold text-white hover:bg-zinc-800"
             >
               Return to Sign In
             </Link>
