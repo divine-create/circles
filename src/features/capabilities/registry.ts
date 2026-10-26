@@ -332,9 +332,9 @@ export const CAPABILITY_REGISTRY: Record<string, CapabilityDefinition> = {
   },
   learning_resources: {
     key: 'learning_resources',
-    name: 'Learning & Resources',
-    description: 'Structured cohorts, study modules, and curriculum discussions.',
-    version: '1.0.0',
+    name: 'Courses & Learning',
+    description: 'Structured courses, video lessons, curriculum modules, and student progress.',
+    version: '1.1.0',
     category: 'knowledge_collaboration',
     default_enabled: false,
     release_stage: 'stable',
@@ -344,8 +344,8 @@ export const CAPABILITY_REGISTRY: Record<string, CapabilityDefinition> = {
     },
     required_permissions: ['learning.read'],
     navigation_config: {
-      label: 'Learning',
-      path: 'resources',
+      label: 'Courses',
+      path: 'courses',
       icon: 'graduation-cap',
     },
   },

@@ -21,13 +21,14 @@ import { GET as healthGetRoute } from '@/app/api/health/route';
 describe('Phase 3: Remote PostgreSQL Pool Executor, Migration Tracking & Supabase Compatibility', () => {
   it('1. Tracks all five migrations in public.schema_migrations in order, enforces idempotency, and blocks non-service_role access to public.user_sessions & public.schema_migrations', async () => {
     const applied = await listAppliedDatabaseMigrations();
-    expect(applied.map((m) => m.version)).toEqual(['0001', '0002', '0003', '0004', '0005']);
+    expect(applied.map((m) => m.version)).toEqual(['0001', '0002', '0003', '0004', '0005', '0006']);
     expect(applied.map((m) => m.filename)).toEqual([
       '0001_initial_schema.sql',
       '0002_security_hardening.sql',
       '0003_staging_rls_and_role_hardening.sql',
       '0004_supabase_staging_compatibility.sql',
       '0005_remaining_capabilities_and_security.sql',
+      '0006_courses_and_learning_progress.sql',
     ]);
     for (const record of applied) {
       expect(record.checksum).toMatch(/^[a-f0-9]{64}$/);
@@ -42,6 +43,7 @@ describe('Phase 3: Remote PostgreSQL Pool Executor, Migration Tracking & Supabas
       '0003_staging_rls_and_role_hardening.sql',
       '0004_supabase_staging_compatibility.sql',
       '0005_remaining_capabilities_and_security.sql',
+      '0006_courses_and_learning_progress.sql',
     ]);
 
     const suffix = Date.now();

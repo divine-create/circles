@@ -615,3 +615,77 @@ export interface MediaUploadItem {
   created_at: string;
   signed_download_url?: string;
 }
+
+export interface CourseLessonItem {
+  id: string;
+  module_id: string;
+  course_id: string;
+  circle_id: string;
+  title: string;
+  slug: string;
+  description: string;
+  content_body: string;
+  video_url: string | null;
+  duration_minutes: number;
+  attachment_url: string | null;
+  attachment_name: string | null;
+  is_free_preview: boolean;
+  status: 'draft' | 'published' | 'archived';
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+  is_completed?: boolean;
+}
+
+export interface CourseModuleItem {
+  id: string;
+  course_id: string;
+  circle_id: string;
+  title: string;
+  description: string;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+  lessons: CourseLessonItem[];
+}
+
+export interface CourseItem {
+  id: string;
+  circle_id: string;
+  instructor_id: string;
+  title: string;
+  slug: string;
+  description: string;
+  thumbnail_url: string | null;
+  difficulty_level: 'beginner' | 'intermediate' | 'advanced' | 'all_levels' | null;
+  estimated_duration_hours: number;
+  status: 'draft' | 'published' | 'archived';
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+  instructor?: Pick<UserProfile, 'id' | 'username' | 'display_name' | 'avatar_url'>;
+  modules?: CourseModuleItem[];
+  total_lessons_count?: number;
+  completed_lessons_count?: number;
+  progress_percentage?: number;
+  is_enrolled?: boolean;
+}
+
+export interface CourseLessonCompletionItem {
+  id: string;
+  lesson_id: string;
+  course_id: string;
+  circle_id: string;
+  user_id: string;
+  completed_at: string;
+}
+
+export interface StudentCourseProgress {
+  course_id: string;
+  total_lessons: number;
+  completed_lessons: number;
+  progress_percentage: number;
+  completed_lesson_ids: string[];
+  next_lesson_id: string | null;
+}
+
