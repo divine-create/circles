@@ -107,7 +107,7 @@ export function JobsBoard({
             </span>
           </div>
           <p className="mt-1 text-xs text-stone-500 font-normal">
-            Positions, internships, and project partnerships with strict PostgreSQL RLS candidate privacy.
+            Positions, internships, and project partnerships with confidential candidate privacy.
           </p>
         </div>
         {isMember && (
@@ -317,7 +317,7 @@ export function JobsBoard({
                 )}
                 <span className="ml-auto inline-flex items-center gap-1 text-[11px] font-mono text-zinc-700">
                   <ShieldCheck className="h-3 w-3" />
-                  RLS Protected
+                  Confidential
                 </span>
               </div>
             </div>

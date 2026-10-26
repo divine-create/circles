@@ -127,7 +127,7 @@ export default async function CircleOverviewPage({
           </h3>
           <p className="mt-1 text-xs text-stone-600">
             The Circle owner has currently disabled the Discussions module for this Circle.
-            Existing discussion history is safely preserved in PostgreSQL.
+            Existing discussion history is safely preserved.
           </p>
         </section>
       )}

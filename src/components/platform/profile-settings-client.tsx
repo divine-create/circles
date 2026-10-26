@@ -88,7 +88,7 @@ export function ProfileSettingsClient({ initialUser }: { initialUser: UserProfil
           className="flex items-center gap-2 rounded-xl border border-zinc-200 bg-zinc-100 p-3.5 text-xs font-semibold text-zinc-900"
         >
           <CheckCircle2 className="h-4 w-4 text-zinc-900" />
-          <span>Profile changes saved to PostgreSQL.</span>
+          <span>Profile changes saved successfully.</span>
         </div>
       )}
 

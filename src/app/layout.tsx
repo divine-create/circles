@@ -29,10 +29,10 @@ export default function RootLayout({
               <span className="text-stone-300">·</span>
               <span className="text-stone-500">Configurable environments for real communities</span>
             </div>
-            <div className="flex items-center gap-4 text-[11px] font-mono text-stone-400">
-              <span className="rounded-md bg-stone-100 px-2 py-0.5 border border-stone-200/60">PostgreSQL RLS</span>
-              <span className="rounded-md bg-stone-100 px-2 py-0.5 border border-stone-200/60">Modular Monolith</span>
-              <span className="rounded-md bg-stone-100 px-2 py-0.5 border border-stone-200/60">Strict TypeScript</span>
+            <div className="flex items-center gap-3 text-xs text-stone-500">
+              <span>Privacy & Security</span>
+              <span>·</span>
+              <span>All Systems Operational</span>
             </div>
           </div>
         </footer>

@@ -41,7 +41,7 @@ export default async function HomePage() {
               </span>
               <span>Circles 2.0 · Modular Community Engine</span>
               <span className="text-white/30">|</span>
-              <span className="text-stone-300 font-mono text-[11px]">RLS Hardened</span>
+              <span className="text-stone-300 font-mono text-[11px]">Enterprise Ready</span>
             </div>
 
             <h1 className="text-4xl font-extrabold tracking-tight sm:text-6xl lg:text-7xl leading-[1.08] bg-gradient-to-b from-white via-stone-100 to-stone-400 bg-clip-text text-transparent">
@@ -307,7 +307,7 @@ export default async function HomePage() {
               Configured for Every Community Type
             </h2>
             <p className="mt-2 text-sm text-stone-600">
-              Each template bootstraps a specialized PostgreSQL configuration with pre-selected
+              Each template bootstraps a specialized community configuration with pre-selected
               modules, spaces, and role permissions.
             </p>
           </div>

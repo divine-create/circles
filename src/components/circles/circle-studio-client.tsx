@@ -142,7 +142,7 @@ export function CircleStudioClient({
         visibility: updated.visibility,
         membershipPolicy: updated.membership_policy,
       });
-      showConfirmedSave('Circle settings saved to PostgreSQL.');
+      showConfirmedSave('Circle settings saved successfully.');
       router.refresh();
     } catch {
       setError('Network error while saving settings.');
@@ -650,7 +650,7 @@ export function CircleStudioClient({
             </h3>
             <p className="mt-1 text-xs text-stone-600">
               Enable or disable capabilities for this Circle. Dependencies are enforced on the
-              server, and disabling a capability never deletes its existing PostgreSQL records.
+              server, and disabling a capability never deletes its existing historical data.
             </p>
           </div>
 
