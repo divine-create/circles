@@ -22,7 +22,6 @@ import {
   X,
   Eye,
   Copy,
-  Sparkles,
   HelpCircle,
   Layers,
 } from 'lucide-react';
@@ -80,14 +79,6 @@ export function CoursePlayer({
 
   // Lesson Content Blocks Builder Modal
   const [showBlockBuilder, setShowBlockBuilder] = useState(false);
-
-  // Pre-Publish Course Validation Modal
-  const [showValidationModal, setShowValidationModal] = useState(false);
-  const [validationIssues, setValidationIssues] = useState<
-    { severity: 'error' | 'warning'; message: string; entity: string }[]
-  >([]);
-  const [isValidating, setIsValidating] = useState(false);
-  const [isPublishing, setIsPublishing] = useState(false);
 
   // Comments state
   const [comments, setComments] = useState<LessonCommentItem[]>([]);
@@ -482,56 +473,6 @@ export function CoursePlayer({
     }
   }
 
-  async function handleValidateCourse() {
-    setIsValidating(true);
-    try {
-      const res = await fetch(`/api/circles/${circleId}/courses`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'validate_course',
-          courseId: course.id,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Validation request failed.');
-
-      setValidationIssues(data.validation?.issues || []);
-      setShowValidationModal(true);
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed to validate course.', 'error');
-    } finally {
-      setIsValidating(false);
-    }
-  }
-
-  async function handlePublishCourse() {
-    setIsPublishing(true);
-    try {
-      const res = await fetch(`/api/circles/${circleId}/courses`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'publish_version',
-          courseId: course.id,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to publish course version.');
-
-      setCourse((prev) => ({
-        ...prev,
-        published_version: data.course.published_version,
-      }));
-      setShowValidationModal(false);
-      showToast(`Course published as Version ${data.course.published_version}!`, 'success');
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed to publish course.', 'error');
-    } finally {
-      setIsPublishing(false);
-    }
-  }
-
   function handleLessonSaved(updatedLesson: CourseLessonItem) {
     setCourse((prev) => ({
       ...prev,
@@ -727,26 +668,14 @@ export function CoursePlayer({
               </Button>
 
               {!previewAsStudent && (
-                <>
-                  <Button
-                    onClick={handleValidateCourse}
-                    disabled={isValidating}
-                    variant="outline"
-                    className="rounded-xl text-xs flex items-center gap-1 text-stone-700"
-                  >
-                    <Sparkles className="h-3.5 w-3.5 text-stone-500" />
-                    {isValidating ? 'Validating...' : 'Pre-check'}
-                  </Button>
-
-                  <Button
-                    onClick={() => setShowAddModule(true)}
-                    variant="outline"
-                    className="rounded-xl text-xs"
-                  >
-                    <Plus className="h-3.5 w-3.5 mr-1" />
-                    Module
-                  </Button>
-                </>
+                <Button
+                  onClick={() => setShowAddModule(true)}
+                  variant="outline"
+                  className="rounded-xl text-xs"
+                >
+                  <Plus className="h-3.5 w-3.5 mr-1" />
+                  Module
+                </Button>
               )}
             </div>
           )}
@@ -1487,84 +1416,6 @@ export function CoursePlayer({
         />
       )}
 
-      {/* Pre-Publish Course Validation Modal */}
-      {showValidationModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-lg rounded-2xl border border-stone-200 bg-white p-6 shadow-xl">
-            <div className="flex items-center justify-between border-b border-stone-100 pb-3">
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-stone-700" />
-                <h3 className="text-base font-bold text-stone-900">Course Pre-Publish Validation</h3>
-              </div>
-              <button
-                onClick={() => setShowValidationModal(false)}
-                className="text-stone-400 hover:text-stone-700"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="mt-4 space-y-3">
-              {validationIssues.length === 0 ? (
-                <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-xs text-emerald-950 flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-                  <span>All validation checks passed! This course is ready to be published or updated.</span>
-                </div>
-              ) : (
-                <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {validationIssues.map((issue, idx) => (
-                    <div
-                      key={idx}
-                      className={`flex items-start gap-2.5 rounded-xl border p-3 text-xs ${
-                        issue.severity === 'error'
-                          ? 'border-red-200 bg-red-50 text-red-950'
-                          : 'border-amber-200 bg-amber-50 text-amber-950'
-                      }`}
-                    >
-                      <AlertCircle
-                        className={`h-4 w-4 shrink-0 mt-0.5 ${
-                          issue.severity === 'error' ? 'text-red-600' : 'text-amber-600'
-                        }`}
-                      />
-                      <div>
-                        <span className="font-bold uppercase text-[10px]">[{issue.entity}]</span>
-                        <p className="mt-0.5">{issue.message}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="mt-5 flex items-center justify-between border-t border-stone-100 pt-3">
-              <span className="text-xs text-stone-500">
-                Current Version: <strong>v{course.published_version || 1}</strong>
-              </span>
-
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowValidationModal(false)}
-                  className="rounded-lg text-xs"
-                >
-                  Close
-                </Button>
-                <Button
-                  onClick={handlePublishCourse}
-                  disabled={
-                    isPublishing ||
-                    validationIssues.some((issue) => issue.severity === 'error')
-                  }
-                  className="rounded-lg bg-black text-white text-xs px-4"
-                >
-                  {isPublishing ? 'Publishing...' : 'Publish Version'}
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Add Assignment Prompt Modal */}
       {showAddAssignment && (

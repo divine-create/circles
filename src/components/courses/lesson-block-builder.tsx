@@ -258,9 +258,6 @@ export function LessonBlockBuilder({
               <span className="text-xs text-stone-400">/</span>
               <h2 className="text-sm font-bold text-stone-900">{lesson.title}</h2>
             </div>
-            <p className="mt-0.5 text-xs text-stone-500">
-              Combine video, rich markdown, interactive sandboxes, quizzes, and private instructor notes.
-            </p>
           </div>
 
           <button
