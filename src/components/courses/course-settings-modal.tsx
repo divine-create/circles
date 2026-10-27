@@ -4,13 +4,12 @@ import React, { useState, useEffect } from 'react';
 import {
   X,
   Save,
-  Image,
+  Image as ImageIcon,
   Clock,
   Lock,
   Shield,
   Layers,
   AlertCircle,
-  CheckCircle2,
 } from 'lucide-react';
 import { CourseItem } from '@/types/domain';
 import { Button } from '@/components/ui/button';
@@ -239,7 +238,7 @@ export function CourseSettingsModal({
           {/* Thumbnail Image URL */}
           <div>
             <label className="text-xs font-bold text-stone-800 flex items-center gap-1.5">
-              <Image className="h-3.5 w-3.5 text-stone-500" />
+              <ImageIcon className="h-3.5 w-3.5 text-stone-500" />
               <span>Cover Image / Thumbnail URL</span>
             </label>
             <input

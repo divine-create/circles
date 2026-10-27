@@ -11,7 +11,6 @@ import {
   ChevronRight,
   Plus,
   Clock,
-  ExternalLink,
   MessageSquare,
   Send,
   Calendar,
