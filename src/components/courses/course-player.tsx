@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import {
   CheckCircle2,
@@ -23,6 +23,10 @@ import {
   Copy,
   HelpCircle,
   Layers,
+  FolderDown,
+  FileText,
+  FileCode,
+  Check,
 } from 'lucide-react';
 import {
   CourseItem,
@@ -70,8 +74,91 @@ export function CoursePlayer({
   const prevLesson = activeIndex > 0 ? allLessons[activeIndex - 1] : null;
   const nextLesson = activeIndex < allLessons.length - 1 ? allLessons[activeIndex + 1] : null;
 
-  // Active sub-tab under player: blocks/notes, assignment, discussion
-  const [activeTab, setActiveTab] = useState<'notes' | 'assignment' | 'discussion'>('notes');
+  // Active sub-tab under player: resources, personal notes, assignment, discussion
+  const [activeTab, setActiveTab] = useState<'resources' | 'notes' | 'assignment' | 'discussion'>('resources');
+
+  // Aggregated downloadable resources across modern content blocks and legacy attachment columns
+  const lessonResources = useMemo(() => {
+    const list: Array<{ title: string; fileUrl: string; fileSize?: string; mimeType?: string }> = [];
+
+    if (activeLesson?.content_blocks) {
+      for (const block of activeLesson.content_blocks) {
+        if (block.type === 'file_asset' && block.fileUrl) {
+          list.push({
+            title: block.title || 'Lesson Resource',
+            fileUrl: block.fileUrl,
+            fileSize: block.fileSize,
+            mimeType: block.mimeType,
+          });
+        }
+      }
+    }
+
+    if (activeLesson?.attachment_url) {
+      const alreadyIncluded = list.some((r) => r.fileUrl === activeLesson.attachment_url);
+      if (!alreadyIncluded) {
+        list.push({
+          title: activeLesson.attachment_name || 'Downloadable Lesson Resource',
+          fileUrl: activeLesson.attachment_url,
+        });
+      }
+    }
+
+    return list;
+  }, [activeLesson]);
+
+  // Student Personal Notebook per lesson
+  const [studentNote, setStudentNote] = useState('');
+  const [isNoteSaved, setIsNoteSaved] = useState(false);
+  const [copiedNote, setCopiedNote] = useState(false);
+
+  useEffect(() => {
+    if (!activeLesson?.id) return;
+    try {
+      const saved = typeof window !== 'undefined' ? localStorage.getItem(`circles_notes_${activeLesson.id}`) : null;
+      setStudentNote(saved || '');
+      setIsNoteSaved(false);
+    } catch {
+      // Ignore localStorage read issues
+    }
+  }, [activeLesson?.id]);
+
+  const handleSaveStudentNote = (val: string) => {
+    setStudentNote(val);
+    if (!activeLesson?.id) return;
+    try {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(`circles_notes_${activeLesson.id}`, val);
+        setIsNoteSaved(true);
+        setTimeout(() => setIsNoteSaved(false), 2000);
+      }
+    } catch {
+      // Ignore localStorage write issues
+    }
+  };
+
+  const handleCopyNotes = () => {
+    if (!studentNote.trim()) return;
+    navigator.clipboard.writeText(studentNote);
+    setCopiedNote(true);
+    setTimeout(() => setCopiedNote(false), 2000);
+  };
+
+  const handleDownloadNotes = () => {
+    if (!studentNote.trim() || !activeLesson) return;
+    const blob = new Blob([studentNote], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${activeLesson.slug || 'lesson'}-notes.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  function getFileExtension(filename: string): string {
+    const ext = filename.split('.').pop()?.toUpperCase() || 'FILE';
+    return ext.length <= 4 ? ext : 'FILE';
+  }
 
   // Interactive Quiz Runner modal
   const [activeQuizId, setActiveQuizId] = useState<string | null>(null);
@@ -740,7 +827,7 @@ export function CoursePlayer({
                             <button
                               onClick={() => {
                                 setActiveLessonId(lesson.id);
-                                setActiveTab('notes');
+                                setActiveTab('resources');
                               }}
                               className="flex items-center gap-2.5 text-left flex-1 truncate mr-2"
                             >
@@ -1061,22 +1148,43 @@ export function CoursePlayer({
                 />
               </div>
 
-              {/* Interactivity Sub-Tabs: Notes | Homework | Q&A Discussion */}
-              <div className="flex items-center gap-4 border-b border-stone-100 pt-2">
+              {/* Interactivity Sub-Tabs: Resources | My Notes | Homework | Q&A Discussion */}
+              <div className="flex items-center gap-2 sm:gap-4 border-b border-stone-100 pt-2 overflow-x-auto">
+                <button
+                  onClick={() => setActiveTab('resources')}
+                  className={`pb-3 text-xs font-semibold border-b-2 transition-colors flex items-center gap-1.5 whitespace-nowrap ${
+                    activeTab === 'resources'
+                      ? 'border-black text-stone-900'
+                      : 'border-transparent text-stone-500 hover:text-stone-800'
+                  }`}
+                >
+                  <FolderDown className="h-3.5 w-3.5" />
+                  <span>Resources</span>
+                  {lessonResources.length > 0 && (
+                    <span className="rounded-full bg-emerald-100 text-emerald-800 px-1.5 py-0.2 text-[10px] font-mono font-bold">
+                      {lessonResources.length}
+                    </span>
+                  )}
+                </button>
+
                 <button
                   onClick={() => setActiveTab('notes')}
-                  className={`pb-3 text-xs font-semibold border-b-2 transition-colors ${
+                  className={`pb-3 text-xs font-semibold border-b-2 transition-colors flex items-center gap-1.5 whitespace-nowrap ${
                     activeTab === 'notes'
                       ? 'border-black text-stone-900'
                       : 'border-transparent text-stone-500 hover:text-stone-800'
                   }`}
                 >
-                  Notes & Resources
+                  <FileText className="h-3.5 w-3.5" />
+                  <span>My Notes</span>
+                  {studentNote.trim() && (
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
+                  )}
                 </button>
 
                 <button
                   onClick={() => setActiveTab('assignment')}
-                  className={`pb-3 text-xs font-semibold border-b-2 transition-colors flex items-center gap-1.5 ${
+                  className={`pb-3 text-xs font-semibold border-b-2 transition-colors flex items-center gap-1.5 whitespace-nowrap ${
                     activeTab === 'assignment'
                       ? 'border-black text-stone-900'
                       : 'border-transparent text-stone-500 hover:text-stone-800'
@@ -1092,7 +1200,7 @@ export function CoursePlayer({
 
                 <button
                   onClick={() => setActiveTab('discussion')}
-                  className={`pb-3 text-xs font-semibold border-b-2 transition-colors flex items-center gap-1.5 ${
+                  className={`pb-3 text-xs font-semibold border-b-2 transition-colors flex items-center gap-1.5 whitespace-nowrap ${
                     activeTab === 'discussion'
                       ? 'border-black text-stone-900'
                       : 'border-transparent text-stone-500 hover:text-stone-800'
@@ -1103,42 +1211,117 @@ export function CoursePlayer({
                 </button>
               </div>
 
-              {/* Tab 1: Notes & Downloadable Assets */}
-              {activeTab === 'notes' && (
-                <div className="space-y-6">
-                  {activeLesson.content_body && (
-                    <div className="prose prose-stone max-w-none text-xs sm:text-sm text-stone-700 leading-relaxed whitespace-pre-wrap font-normal">
-                      {activeLesson.content_body}
-                    </div>
-                  )}
+              {/* Tab 1: Resources & Downloadable Assets */}
+              {activeTab === 'resources' && (
+                <div className="space-y-4">
+                  {lessonResources.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {lessonResources.map((res, rIdx) => {
+                        const ext = getFileExtension(res.title || res.fileUrl);
+                        return (
+                          <div
+                            key={rIdx}
+                            className="flex items-center justify-between gap-3 rounded-2xl border border-stone-200/90 bg-white p-4 shadow-xs transition-all hover:border-stone-300"
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-stone-100 text-stone-700 border border-stone-200">
+                                {ext === 'PY' || ext === 'TS' || ext === 'JS' ? (
+                                  <FileCode className="h-4 w-4" />
+                                ) : (
+                                  <FileText className="h-4 w-4" />
+                                )}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-xs font-bold text-stone-900 truncate">
+                                  {res.title}
+                                </p>
+                                <p className="text-[11px] text-stone-500 truncate">
+                                  <span className="font-mono uppercase font-semibold text-stone-600">
+                                    {ext}
+                                  </span>
+                                  {res.fileSize && ` · ${res.fileSize}`}
+                                </p>
+                              </div>
+                            </div>
 
-                  {activeLesson.attachment_url && (
-                    <div className="flex items-center justify-between rounded-xl border border-stone-200 bg-stone-50/70 p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="rounded-lg bg-stone-200/80 p-2 text-stone-700">
-                          <Download className="h-4 w-4" />
-                        </div>
-                        <div>
-                          <p className="text-xs font-bold text-stone-900">
-                            {activeLesson.attachment_name || 'Downloadable Lesson Resource'}
-                          </p>
-                          <p className="text-[11px] text-stone-500 font-mono truncate max-w-xs sm:max-w-md">
-                            {activeLesson.attachment_url}
-                          </p>
-                        </div>
+                            <a
+                              href={res.fileUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              download
+                              className="inline-flex shrink-0 items-center gap-1 rounded-xl bg-stone-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-black transition-colors shadow-xs"
+                            >
+                              <span>Download</span>
+                              <Download className="h-3 w-3" />
+                            </a>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-stone-200 bg-stone-50/50 p-8 text-center">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-stone-100 text-stone-400 mb-2">
+                        <FolderDown className="h-5 w-5" />
                       </div>
-
-                      <a
-                        href={activeLesson.attachment_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1 rounded-lg bg-white border border-stone-200 px-3 py-1.5 text-xs font-medium text-stone-800 hover:bg-stone-100 transition-colors shadow-xs"
-                      >
-                        Download
-                        <ExternalLink className="h-3 w-3" />
-                      </a>
+                      <p className="text-xs font-semibold text-stone-800">
+                        No downloadable resources attached
+                      </p>
+                      <p className="mt-1 text-[11px] text-stone-500 max-w-sm">
+                        This lesson does not have external worksheets or attachments. Everything you need is covered in the interactive lesson player above.
+                      </p>
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Tab 2: Personal Student Notes */}
+              {activeTab === 'notes' && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-xs font-bold text-stone-900">Personal Lesson Notes</h4>
+                      <p className="text-[11px] text-stone-500">
+                        Private study notes saved directly to your browser for this lesson.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {isNoteSaved && (
+                        <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-700 animate-fade-in">
+                          <Check className="h-3 w-3" />
+                          Saved
+                        </span>
+                      )}
+                      {studentNote.trim() && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={handleCopyNotes}
+                            className="inline-flex items-center gap-1 rounded-lg border border-stone-200 bg-white px-2.5 py-1 text-[11px] font-medium text-stone-700 hover:bg-stone-50 transition-colors shadow-xs"
+                          >
+                            <Copy className="h-3 w-3" />
+                            {copiedNote ? 'Copied' : 'Copy'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleDownloadNotes}
+                            className="inline-flex items-center gap-1 rounded-lg border border-stone-200 bg-white px-2.5 py-1 text-[11px] font-medium text-stone-700 hover:bg-stone-50 transition-colors shadow-xs"
+                          >
+                            <Download className="h-3 w-3" />
+                            Export .txt
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  <textarea
+                    rows={6}
+                    value={studentNote}
+                    onChange={(e) => handleSaveStudentNote(e.target.value)}
+                    placeholder="Jot down key takeaways, personal questions, code snippets, or reminders for this lesson..."
+                    className="w-full rounded-2xl border border-stone-200 bg-white p-4 text-xs text-stone-900 leading-relaxed placeholder:text-stone-400 focus:border-stone-900 focus:outline-hidden resize-y shadow-xs font-sans"
+                  />
                 </div>
               )}
 
@@ -1340,7 +1523,7 @@ export function CoursePlayer({
                   <Button
                     onClick={() => {
                       setActiveLessonId(prevLesson.id);
-                      setActiveTab('notes');
+                      setActiveTab('resources');
                     }}
                     variant="outline"
                     className="inline-flex items-center gap-1.5 rounded-xl text-xs text-stone-700"
@@ -1356,7 +1539,7 @@ export function CoursePlayer({
                   <Button
                     onClick={() => {
                       setActiveLessonId(nextLesson.id);
-                      setActiveTab('notes');
+                      setActiveTab('resources');
                     }}
                     className="inline-flex items-center gap-1.5 rounded-xl bg-black text-white text-xs hover:bg-stone-800"
                   >

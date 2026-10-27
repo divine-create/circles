@@ -971,29 +971,96 @@ export function LessonBlockBuilder({
                               )}
 
                               {block.type === 'file_asset' && (
-                                <div className="grid grid-cols-2 gap-3">
-                                  <div>
-                                    <label className="text-[11px] font-semibold text-stone-700">File Name</label>
-                                    <input
-                                      type="text"
-                                      placeholder="e.g. Architecture-Diagram.pdf"
-                                      value={block.title}
-                                      onChange={(e) => {
-                                        const val = e.target.value;
-                                        setBlocks((prev) =>
-                                          prev.map((b, i) =>
-                                            i === idx && b.type === 'file_asset' ? { ...b, title: val } : b
-                                          )
-                                        );
-                                      }}
-                                      className="mt-1 w-full rounded-xl border border-stone-200 bg-stone-50/50 px-3 py-1.5 text-xs text-stone-900 focus:border-stone-900 focus:outline-hidden"
-                                    />
+                                <div className="space-y-3 rounded-xl border border-blue-100 bg-blue-50/20 p-4">
+                                  <div className="flex items-center justify-between">
+                                    <label className="text-[11px] font-semibold text-stone-700">
+                                      Quick Resource Presets
+                                    </label>
+                                    <span className="text-[10px] text-stone-400">Sets tag & suggested extension</span>
                                   </div>
+
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {[
+                                      { label: 'PDF Guide', ext: '.pdf', size: '1.8 MB' },
+                                      { label: 'Slide Deck', ext: '.pdf', size: '12.4 MB' },
+                                      { label: 'Source Code / ZIP', ext: '.zip', size: '512 KB' },
+                                      { label: 'Cheatsheet', ext: '.pdf', size: '420 KB' },
+                                      { label: 'GitHub Repo', ext: '', size: 'Repository' },
+                                      { label: 'Cloud Doc', ext: '', size: 'Google Docs' },
+                                    ].map((preset, pIdx) => (
+                                      <button
+                                        key={pIdx}
+                                        type="button"
+                                        onClick={() => {
+                                          setBlocks((prev) =>
+                                            prev.map((b, i) =>
+                                              i === idx && b.type === 'file_asset'
+                                                ? {
+                                                    ...b,
+                                                    title: b.title.includes('.')
+                                                      ? b.title
+                                                      : `${b.title || preset.label}${preset.ext}`,
+                                                    fileSize: preset.size,
+                                                  }
+                                                : b
+                                            )
+                                          );
+                                        }}
+                                        className="rounded-lg border border-blue-200 bg-white px-2 py-1 text-[10px] font-medium text-blue-900 hover:bg-blue-50 hover:border-blue-300 transition-colors shadow-2xs"
+                                      >
+                                        + {preset.label}
+                                      </button>
+                                    ))}
+                                  </div>
+
+                                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                                    <div className="sm:col-span-2">
+                                      <label className="text-[11px] font-semibold text-stone-700">
+                                        Resource Title / File Name <span className="text-red-500">*</span>
+                                      </label>
+                                      <input
+                                        type="text"
+                                        placeholder="e.g. Architecture-Diagram.pdf or Starter-Repo"
+                                        value={block.title}
+                                        onChange={(e) => {
+                                          const val = e.target.value;
+                                          setBlocks((prev) =>
+                                            prev.map((b, i) =>
+                                              i === idx && b.type === 'file_asset' ? { ...b, title: val } : b
+                                            )
+                                          );
+                                        }}
+                                        className="mt-1 w-full rounded-xl border border-stone-200 bg-white px-3 py-1.5 text-xs text-stone-900 focus:border-stone-900 focus:outline-hidden"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="text-[11px] font-semibold text-stone-700">
+                                        Size or Tag (optional)
+                                      </label>
+                                      <input
+                                        type="text"
+                                        placeholder="e.g. 2.4 MB, 18 Slides, Repo"
+                                        value={block.fileSize ?? ''}
+                                        onChange={(e) => {
+                                          const val = e.target.value;
+                                          setBlocks((prev) =>
+                                            prev.map((b, i) =>
+                                              i === idx && b.type === 'file_asset' ? { ...b, fileSize: val } : b
+                                            )
+                                          );
+                                        }}
+                                        className="mt-1 w-full rounded-xl border border-stone-200 bg-white px-3 py-1.5 text-xs text-stone-900 focus:border-stone-900 focus:outline-hidden"
+                                      />
+                                    </div>
+                                  </div>
+
                                   <div>
-                                    <label className="text-[11px] font-semibold text-stone-700">Download URL</label>
+                                    <label className="text-[11px] font-semibold text-stone-700">
+                                      Download or Cloud URL <span className="text-red-500">*</span>
+                                    </label>
                                     <input
                                       type="text"
-                                      placeholder="https://..."
+                                      placeholder="https://... (direct download link, Dropbox, Google Drive, GitHub, etc.)"
                                       value={block.fileUrl}
                                       onChange={(e) => {
                                         const val = e.target.value;
@@ -1003,7 +1070,7 @@ export function LessonBlockBuilder({
                                           )
                                         );
                                       }}
-                                      className="mt-1 w-full rounded-xl border border-stone-200 bg-stone-50/50 px-3 py-1.5 text-xs text-stone-900 focus:border-stone-900 focus:outline-hidden"
+                                      className="mt-1 w-full rounded-xl border border-stone-200 bg-white px-3 py-1.5 text-xs text-stone-900 focus:border-stone-900 focus:outline-hidden"
                                     />
                                   </div>
                                 </div>
