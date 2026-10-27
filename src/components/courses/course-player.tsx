@@ -103,17 +103,10 @@ export function CoursePlayer({
   const [dripDays, setDripDays] = useState('7');
   const [dripDate, setDripDate] = useState('');
 
-  const [showAddLesson, setShowAddLesson] = useState(false);
-  const [targetModuleId, setTargetModuleId] = useState<string>('');
-  const [lessonTitle, setLessonTitle] = useState('');
-  const [lessonSlug, setLessonSlug] = useState('');
-  const [isLessonSlugManual, setIsLessonSlugManual] = useState(false);
-  const [lessonVideo, setLessonVideo] = useState('');
-  const [lessonDuration, setLessonDuration] = useState('15');
-  const [lessonContent, setLessonContent] = useState('');
-  const [lessonAttachmentUrl, setLessonAttachmentUrl] = useState('');
-  const [lessonAttachmentName, setLessonAttachmentName] = useState('');
-  const [isLiveSession, setIsLiveSession] = useState(false);
+  // Inline quick-add lesson state
+  const [inlineAddingModuleId, setInlineAddingModuleId] = useState<string | null>(null);
+  const [inlineLessonTitle, setInlineLessonTitle] = useState('');
+  const [isCreatingLesson, setIsCreatingLesson] = useState(false);
 
   const [savingProgress, setSavingProgress] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -370,23 +363,17 @@ export function CoursePlayer({
     }
   }
 
-  async function handleAddLesson(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleQuickCreateLesson(moduleId: string) {
+    if (!inlineLessonTitle.trim()) return;
+    setIsCreatingLesson(true);
     setError(null);
-    setModalError(null);
 
-    const rawSlug = lessonSlug.trim() || lessonTitle.trim();
-    const cleanSlug = rawSlug
-      .toLowerCase()
-      .replace(/[^a-z0-9-]+/g, '-')
-      .replace(/^-+|-+$/g, '');
-
-    if (!cleanSlug || !/^[a-z0-9-]+$/.test(cleanSlug)) {
-      const msg = 'Slug must consist of lowercase letters, numbers, and dashes (e.g. dev-setup).';
-      setModalError(msg);
-      showToast(msg, 'error');
-      return;
-    }
+    const title = inlineLessonTitle.trim();
+    const cleanSlug =
+      title
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-+|-+$)/g, '') || `lesson-${Date.now()}`;
 
     try {
       const res = await fetch(`/api/circles/${circleId}/courses`, {
@@ -395,54 +382,36 @@ export function CoursePlayer({
         body: JSON.stringify({
           action: 'create_lesson',
           courseId: course.id,
-          moduleId: targetModuleId,
-          title: lessonTitle.trim(),
+          moduleId,
+          title,
           slug: cleanSlug,
-          videoUrl: lessonVideo.trim() || null,
-          durationMinutes: parseInt(lessonDuration, 10) || 0,
-          contentBody: lessonContent,
-          attachmentUrl: lessonAttachmentUrl.trim() || null,
-          attachmentName: lessonAttachmentName.trim() || null,
-          isLiveSession,
           sortOrder: allLessons.length + 1,
         }),
       });
       const data = await res.json();
       if (!res.ok) {
-        const msg = data.error || 'Failed to add lesson.';
-        setModalError(msg);
-        showToast(msg, 'error');
-        return;
+        throw new Error(data.error || 'Failed to create lesson.');
       }
 
       setCourse((prev) => ({
         ...prev,
         modules: prev.modules?.map((m) =>
-          m.id === targetModuleId
+          m.id === moduleId
             ? { ...m, lessons: [...m.lessons, { ...data.lesson, is_completed: false }] }
             : m
         ),
       }));
 
-      if (!activeLessonId) {
-        setActiveLessonId(data.lesson.id);
-      }
-
-      setLessonTitle('');
-      setLessonSlug('');
-      setIsLessonSlugManual(false);
-      setLessonVideo('');
-      setLessonContent('');
-      setLessonAttachmentUrl('');
-      setLessonAttachmentName('');
-      setIsLiveSession(false);
-      setModalError(null);
-      setShowAddLesson(false);
-      showToast(`Lesson "${data.lesson.title}" created successfully!`, 'success');
+      setActiveLessonId(data.lesson.id);
+      setInlineAddingModuleId(null);
+      setInlineLessonTitle('');
+      setShowBlockBuilder(true);
+      showToast(`Lesson "${data.lesson.title}" created! Opening Lesson Builder...`, 'success');
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unable to create lesson.';
-      setModalError(msg);
       showToast(msg, 'error');
+    } finally {
+      setIsCreatingLesson(false);
     }
   }
 
@@ -719,13 +688,12 @@ export function CoursePlayer({
                       {effectiveIsStaff && (
                         <button
                           onClick={() => {
-                            setTargetModuleId(module.id);
-                            setLessonTitle('');
-                            setLessonSlug('');
-                            setIsLessonSlugManual(false);
-                            setShowAddLesson(true);
+                            setInlineAddingModuleId(
+                              inlineAddingModuleId === module.id ? null : module.id
+                            );
+                            setInlineLessonTitle('');
                           }}
-                          className="text-[11px] font-medium text-stone-500 hover:text-black flex items-center gap-0.5 shrink-0"
+                          className="text-[11px] font-medium text-stone-500 hover:text-black flex items-center gap-0.5 shrink-0 transition-colors"
                         >
                           <Plus className="h-3 w-3" /> Lesson
                         </button>
@@ -851,6 +819,50 @@ export function CoursePlayer({
                           </div>
                         );
                       })}
+
+                      {/* Minimal Inline Lesson Outliner Input */}
+                      {effectiveIsStaff && inlineAddingModuleId === module.id && (
+                        <form
+                          onSubmit={(e) => {
+                            e.preventDefault();
+                            handleQuickCreateLesson(module.id);
+                          }}
+                          className="flex items-center gap-1.5 rounded-xl border border-stone-300 bg-white p-1.5 shadow-xs animate-in fade-in duration-150"
+                        >
+                          <input
+                            type="text"
+                            autoFocus
+                            required
+                            placeholder="Lesson title... (press Enter)"
+                            value={inlineLessonTitle}
+                            onChange={(e) => setInlineLessonTitle(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Escape') {
+                                setInlineAddingModuleId(null);
+                                setInlineLessonTitle('');
+                              }
+                            }}
+                            className="flex-1 bg-transparent px-2 py-1 text-xs text-stone-900 focus:outline-hidden"
+                          />
+                          <Button
+                            type="submit"
+                            disabled={isCreatingLesson || !inlineLessonTitle.trim()}
+                            className="h-7 rounded-lg bg-black px-2.5 text-[11px] font-semibold text-white hover:bg-stone-800"
+                          >
+                            {isCreatingLesson ? 'Adding...' : 'Add'}
+                          </Button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setInlineAddingModuleId(null);
+                              setInlineLessonTitle('');
+                            }}
+                            className="rounded-lg p-1 text-stone-400 hover:text-stone-700 transition-colors"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </form>
+                      )}
                     </div>
                   </div>
                 );
@@ -1590,181 +1602,7 @@ export function CoursePlayer({
         </div>
       )}
 
-      {/* Add Lesson Modal */}
-      {showAddLesson && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-lg rounded-2xl border border-stone-200 bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto">
-            <h3 className="text-base font-bold text-stone-900">Add Lesson</h3>
-            <p className="mt-1 text-xs text-stone-500">
-              Add video link, study notes, live session toggle, and downloadable assets.
-            </p>
 
-            {modalError && (
-              <div className="mt-3 flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-800">
-                <AlertCircle className="h-4 w-4 shrink-0 text-red-600 mt-0.5" />
-                <div className="flex-1">
-                  <p className="font-semibold">Unable to Save Lesson</p>
-                  <p className="mt-0.5 text-red-700">{modalError}</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setModalError(null)}
-                  className="text-stone-400 hover:text-stone-700"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            )}
-
-            <form onSubmit={handleAddLesson} className="mt-4 space-y-3.5">
-              <div>
-                <label className="block text-xs font-semibold text-stone-700">Lesson Title</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Setting up the Development Environment"
-                  value={lessonTitle}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setLessonTitle(val);
-                    if (!isLessonSlugManual) {
-                      const autoSlug = val
-                        .toLowerCase()
-                        .replace(/[^a-z0-9]+/g, '-')
-                        .replace(/^-+/g, '');
-                      setLessonSlug(autoSlug);
-                    }
-                    setModalError(null);
-                  }}
-                  className="mt-1 w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs text-stone-900 focus:border-stone-900 focus:outline-hidden"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <div className="flex items-center justify-between">
-                    <label className="block text-xs font-semibold text-stone-700">URL Slug</label>
-                    <span className="text-[10px] text-stone-500 font-mono">lowercase & dashes</span>
-                  </div>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. dev-setup"
-                    value={lessonSlug}
-                    onChange={(e) => {
-                      const sanitized = e.target.value
-                        .toLowerCase()
-                        .replace(/[^a-z0-9-]/g, '-')
-                        .replace(/-+/g, '-');
-                      setLessonSlug(sanitized);
-                      setIsLessonSlugManual(Boolean(sanitized.trim()));
-                      setModalError(null);
-                    }}
-                    className="mt-1 w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs text-stone-900 font-mono focus:border-stone-900 focus:outline-hidden"
-                  />
-                  <p className="mt-1 text-[11px] text-stone-500">
-                    Lowercase letters, numbers, and dashes only
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-stone-700">
-                    Est. Duration (mins)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={lessonDuration}
-                    onChange={(e) => setLessonDuration(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs text-stone-900 focus:border-stone-900 focus:outline-hidden"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-stone-700">
-                  Video URL (YouTube, Vimeo, Loom, or Zoom/Meet Link)
-                </label>
-                <input
-                  type="url"
-                  placeholder="https://www.youtube.com/watch?v=..."
-                  value={lessonVideo}
-                  onChange={(e) => setLessonVideo(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs text-stone-900 focus:border-stone-900 focus:outline-hidden"
-                />
-              </div>
-
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="isLiveSessionCheck"
-                  checked={isLiveSession}
-                  onChange={(e) => setIsLiveSession(e.target.checked)}
-                  className="rounded border-stone-300"
-                />
-                <label htmlFor="isLiveSessionCheck" className="text-xs text-stone-700 font-medium">
-                  This lesson is a scheduled Live Interactive Workshop / Office Hours session
-                </label>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-stone-700">
-                  Lesson Notes & Instructions
-                </label>
-                <textarea
-                  rows={4}
-                  placeholder="Write Markdown lesson notes, summary, code snippets..."
-                  value={lessonContent}
-                  onChange={(e) => setLessonContent(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs text-stone-900 focus:border-stone-900 focus:outline-hidden"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-stone-700">
-                    Attachment Name
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Starter Code.zip"
-                    value={lessonAttachmentName}
-                    onChange={(e) => setLessonAttachmentName(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs text-stone-900 focus:border-stone-900 focus:outline-hidden"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-stone-700">
-                    Attachment Download URL
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="https://..."
-                    value={lessonAttachmentUrl}
-                    onChange={(e) => setLessonAttachmentUrl(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs text-stone-900 focus:border-stone-900 focus:outline-hidden"
-                  />
-                </div>
-              </div>
-
-              <div className="mt-5 flex items-center justify-end gap-2 border-t border-stone-100 pt-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowAddLesson(false)}
-                  className="rounded-lg text-xs"
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" className="rounded-lg bg-black text-white text-xs px-4">
-                  Save Lesson
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
