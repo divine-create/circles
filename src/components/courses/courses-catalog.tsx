@@ -47,6 +47,7 @@ export function CoursesCatalog({
   // Form states
   const [title, setTitle] = useState('');
   const [slug, setSlug] = useState('');
+  const [isSlugManual, setIsSlugManual] = useState(false);
   const [description, setDescription] = useState('');
   const [difficulty, setDifficulty] = useState<
     'beginner' | 'intermediate' | 'advanced' | 'all_levels'
@@ -92,12 +93,12 @@ export function CoursesCatalog({
 
   function handleTitleChange(val: string) {
     setTitle(val);
-    if (!slug || slug === title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')) {
+    if (!isSlugManual) {
       setSlug(
         val
           .toLowerCase()
           .replace(/[^a-z0-9]+/g, '-')
-          .replace(/(^-|-$)/g, '')
+          .replace(/^-+/g, '')
       );
     }
   }
@@ -126,6 +127,7 @@ export function CoursesCatalog({
       setCourses((prev) => [data.course, ...prev]);
       setTitle('');
       setSlug('');
+      setIsSlugManual(false);
       setDescription('');
       setAccessRule('open');
       setMinLevelRequired(2);
@@ -460,6 +462,7 @@ export function CoursesCatalog({
                       .replace(/[^a-z0-9-]/g, '-')
                       .replace(/-+/g, '-');
                     setSlug(sanitized);
+                    setIsSlugManual(Boolean(sanitized.trim()));
                     setError(null);
                   }}
                   className="mt-1 w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs text-stone-900 font-mono focus:border-stone-900 focus:outline-hidden"

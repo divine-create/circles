@@ -107,6 +107,7 @@ export function CoursePlayer({
   const [targetModuleId, setTargetModuleId] = useState<string>('');
   const [lessonTitle, setLessonTitle] = useState('');
   const [lessonSlug, setLessonSlug] = useState('');
+  const [isLessonSlugManual, setIsLessonSlugManual] = useState(false);
   const [lessonVideo, setLessonVideo] = useState('');
   const [lessonDuration, setLessonDuration] = useState('15');
   const [lessonContent, setLessonContent] = useState('');
@@ -429,6 +430,7 @@ export function CoursePlayer({
 
       setLessonTitle('');
       setLessonSlug('');
+      setIsLessonSlugManual(false);
       setLessonVideo('');
       setLessonContent('');
       setLessonAttachmentUrl('');
@@ -718,6 +720,9 @@ export function CoursePlayer({
                         <button
                           onClick={() => {
                             setTargetModuleId(module.id);
+                            setLessonTitle('');
+                            setLessonSlug('');
+                            setIsLessonSlugManual(false);
                             setShowAddLesson(true);
                           }}
                           className="text-[11px] font-medium text-stone-500 hover:text-black flex items-center gap-0.5 shrink-0"
@@ -1622,11 +1627,11 @@ export function CoursePlayer({
                   onChange={(e) => {
                     const val = e.target.value;
                     setLessonTitle(val);
-                    const autoSlug = val
-                      .toLowerCase()
-                      .replace(/[^a-z0-9]+/g, '-')
-                      .replace(/^-+|-+$/g, '');
-                    if (!lessonSlug || lessonSlug === autoSlug || lessonSlug.startsWith(autoSlug.slice(0, -1))) {
+                    if (!isLessonSlugManual) {
+                      const autoSlug = val
+                        .toLowerCase()
+                        .replace(/[^a-z0-9]+/g, '-')
+                        .replace(/^-+/g, '');
                       setLessonSlug(autoSlug);
                     }
                     setModalError(null);
@@ -1652,6 +1657,7 @@ export function CoursePlayer({
                         .replace(/[^a-z0-9-]/g, '-')
                         .replace(/-+/g, '-');
                       setLessonSlug(sanitized);
+                      setIsLessonSlugManual(Boolean(sanitized.trim()));
                       setModalError(null);
                     }}
                     className="mt-1 w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs text-stone-900 font-mono focus:border-stone-900 focus:outline-hidden"

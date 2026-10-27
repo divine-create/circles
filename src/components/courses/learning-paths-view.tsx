@@ -41,6 +41,7 @@ export function LearningPathsView({
   const [showCreatePath, setShowCreatePath] = useState(false);
   const [title, setTitle] = useState('');
   const [slug, setSlug] = useState('');
+  const [isSlugManual, setIsSlugManual] = useState(false);
   const [description, setDescription] = useState('');
   const [certificateTitle, setCertificateTitle] = useState('');
   const [isCreating, setIsCreating] = useState(false);
@@ -131,6 +132,7 @@ export function LearningPathsView({
       setSelectedPathId(data.path.id);
       setTitle('');
       setSlug('');
+      setIsSlugManual(false);
       setDescription('');
       setCertificateTitle('');
       setShowCreatePath(false);
@@ -217,7 +219,12 @@ export function LearningPathsView({
 
         {(isStaff || isMember) && (
           <Button
-            onClick={() => setShowCreatePath(true)}
+            onClick={() => {
+              setTitle('');
+              setSlug('');
+              setIsSlugManual(false);
+              setShowCreatePath(true);
+            }}
             className="inline-flex items-center gap-1.5 rounded-lg bg-black px-3.5 py-1.5 text-xs font-medium text-white hover:bg-stone-800 transition-colors shadow-xs"
           >
             <Plus className="h-3.5 w-3.5" />
@@ -246,7 +253,12 @@ export function LearningPathsView({
           </p>
           {(isStaff || isMember) && (
             <Button
-              onClick={() => setShowCreatePath(true)}
+              onClick={() => {
+                setTitle('');
+                setSlug('');
+                setIsSlugManual(false);
+                setShowCreatePath(true);
+              }}
               className="mt-4 inline-flex items-center gap-1.5 bg-black text-white text-xs px-3 py-1.5 rounded-lg"
             >
               <Plus className="h-3.5 w-3.5" />
@@ -505,13 +517,14 @@ export function LearningPathsView({
                   placeholder="e.g. Full-Stack Engineering Bootcamp"
                   value={title}
                   onChange={(e) => {
-                    setTitle(e.target.value);
-                    if (!slug) {
+                    const val = e.target.value;
+                    setTitle(val);
+                    if (!isSlugManual) {
                       setSlug(
-                        e.target.value
+                        val
                           .toLowerCase()
                           .replace(/[^a-z0-9]+/g, '-')
-                          .replace(/(^-|-$)/g, '')
+                          .replace(/^-+/g, '')
                       );
                     }
                   }}
@@ -526,7 +539,14 @@ export function LearningPathsView({
                   required
                   placeholder="e.g. fullstack-bootcamp"
                   value={slug}
-                  onChange={(e) => setSlug(e.target.value)}
+                  onChange={(e) => {
+                    const sanitized = e.target.value
+                      .toLowerCase()
+                      .replace(/[^a-z0-9-]/g, '-')
+                      .replace(/-+/g, '-');
+                    setSlug(sanitized);
+                    setIsSlugManual(Boolean(sanitized.trim()));
+                  }}
                   className="mt-1 w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs text-stone-900 font-mono focus:border-stone-900 focus:outline-hidden"
                 />
               </div>
