@@ -6,6 +6,7 @@ import {
   AlertCircle,
   Archive,
   CheckCircle2,
+  CreditCard,
   History,
   LayoutGrid,
   Mail,
@@ -15,6 +16,7 @@ import {
   UserCheck,
   Users,
 } from 'lucide-react';
+import { StudioFinancesTab } from './studio-finances-tab';
 import {
   AuditLogItem,
   Circle,
@@ -50,7 +52,7 @@ export function CircleStudioClient({
 }: CircleStudioClientProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<
-    'general' | 'capabilities' | 'spaces' | 'members' | 'audit'
+    'general' | 'capabilities' | 'spaces' | 'members' | 'audit' | 'finances'
   >('general');
 
   // General Settings State (with explicit unsaved changes tracking)
@@ -468,6 +470,7 @@ export function CircleStudioClient({
             label: `Members & Requests${pendingJoinCount > 0 ? ` (${pendingJoinCount})` : ''}`,
             icon: Users,
           },
+          { id: 'finances', label: 'Finances & Dues', icon: CreditCard },
           { id: 'audit', label: 'Audit Log', icon: History },
         ].map((tab) => {
           const Icon = tab.icon;
@@ -1095,6 +1098,11 @@ export function CircleStudioClient({
             </div>
           </div>
         </div>
+      )}
+
+      {/* TAB: FINANCES & DUES */}
+      {activeTab === 'finances' && (
+        <StudioFinancesTab circle={initialCircle} spaces={spaces} members={members} />
       )}
 
       {/* TAB 5: AUDIT LOGS */}
