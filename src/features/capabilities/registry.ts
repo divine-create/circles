@@ -405,13 +405,18 @@ export const CAPABILITY_REGISTRY: Record<string, CapabilityDefinition> = {
   payments_finances: {
     key: 'payments_finances',
     name: 'Payments & Finances',
-    description: 'Membership dues and treasury reporting (requires payment architecture review).',
-    version: '0.1.0',
+    description: 'Membership dues, paid access tiers, facility fees, and community financial management.',
+    version: '1.0.0',
     category: 'organization_finance',
     default_enabled: false,
-    release_stage: 'planned',
+    release_stage: 'stable',
     dependencies: ['member_directory'],
-    default_settings: {},
+    default_settings: {
+      currency: 'USD',
+      grace_period_days: 14,
+      public_treasury_ledger: true,
+      allow_offline_payments: true,
+    },
     required_permissions: ['finance.manage'],
     navigation_config: {
       label: 'Finances',

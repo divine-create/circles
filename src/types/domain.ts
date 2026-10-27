@@ -996,3 +996,160 @@ export interface StudentCourseProgress {
   next_lesson_id: string | null;
 }
 
+// ============================================================================
+// Hyper-Configurable Financial & Pricing Engine Types
+// ============================================================================
+
+export type BillingType =
+  | 'one_time'
+  | 'recurring'
+  | 'installments'
+  | 'sliding_scale'
+  | 'metered_pack';
+
+export type IntervalUnit = 'day' | 'week' | 'month' | 'quarter' | 'year';
+
+export type EntitlementTargetType =
+  | 'circle_membership'
+  | 'space_access'
+  | 'course_access'
+  | 'role_grant'
+  | 'resource_quota'
+  | 'badge_grant';
+
+export type InvoiceStatus =
+  | 'draft'
+  | 'open'
+  | 'paid'
+  | 'void'
+  | 'uncollectible'
+  | 'refunded';
+
+export type PaymentMethod =
+  | 'stripe'
+  | 'bank_transfer'
+  | 'cash'
+  | 'manual_credit'
+  | 'external_erp'
+  | 'free_grant';
+
+export type EntitlementStatus =
+  | 'active'
+  | 'grace_period'
+  | 'expired'
+  | 'revoked';
+
+export type TreasuryEntryType = 'revenue' | 'expense' | 'transfer';
+
+export type TreasuryCategory =
+  | 'dues'
+  | 'maintenance'
+  | 'amenities'
+  | 'courses'
+  | 'events'
+  | 'utilities'
+  | 'reserve_fund'
+  | 'refunds'
+  | 'other';
+
+export interface PricingPlanItem {
+  id: string;
+  circle_id: string;
+  slug: string;
+  name: string;
+  description: string;
+  billing_type: BillingType;
+  amount_cents: number;
+  currency: string;
+  interval_unit: IntervalUnit | null;
+  interval_count: number | null;
+  installment_count: number | null;
+  min_amount_cents: number | null;
+  suggested_amounts_cents: number[];
+  is_active: boolean;
+  is_public: boolean;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+  entitlements?: PricingPlanEntitlementItem[];
+}
+
+export interface PricingPlanEntitlementItem {
+  id: string;
+  plan_id: string;
+  circle_id: string;
+  target_type: EntitlementTargetType;
+  target_id: string | null;
+  quota_quantity: number | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface InvoiceItem {
+  id: string;
+  circle_id: string;
+  user_id: string;
+  plan_id: string | null;
+  invoice_number: string;
+  title: string;
+  description: string;
+  status: InvoiceStatus;
+  total_cents: number;
+  currency: string;
+  payment_method: PaymentMethod;
+  payment_reference: string | null;
+  due_date: string | null;
+  paid_at: string | null;
+  notes: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+  user_display_name?: string;
+  user_username?: string;
+  plan_name?: string;
+}
+
+export interface MemberEntitlementItem {
+  id: string;
+  circle_id: string;
+  user_id: string;
+  plan_id: string | null;
+  invoice_id: string | null;
+  target_type: EntitlementTargetType;
+  target_id: string | null;
+  status: EntitlementStatus;
+  granted_at: string;
+  expires_at: string | null;
+  grace_period_ends_at: string | null;
+  remaining_quota: number | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CommunityTreasuryLedgerItem {
+  id: string;
+  circle_id: string;
+  entry_type: TreasuryEntryType;
+  category: TreasuryCategory;
+  amount_cents: number;
+  currency: string;
+  description: string;
+  is_public_to_members: boolean;
+  invoice_id: string | null;
+  recorded_by: string;
+  entry_date: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  recorded_by_name?: string;
+}
+
+export interface TreasurySummary {
+  currency: string;
+  total_revenue_cents: number;
+  total_expense_cents: number;
+  net_balance_cents: number;
+  category_breakdown: Record<TreasuryCategory, number>;
+}
+
+

@@ -17,7 +17,9 @@ export type CirclePermission =
   | 'discussions.comment'
   | 'discussions.react'
   | 'discussions.moderate'
-  | 'moderation.review_reports';
+  | 'moderation.review_reports'
+  | 'finance.manage'
+  | 'finance.read';
 
 export interface ActorContext {
   userId: string | null;
@@ -52,6 +54,8 @@ const ROLE_PERMISSION_MATRIX: Record<CircleRole, Set<CirclePermission>> = {
     'discussions.react',
     'discussions.moderate',
     'moderation.review_reports',
+    'finance.manage',
+    'finance.read',
   ]),
   admin: new Set([
     'circle.view',
@@ -68,6 +72,8 @@ const ROLE_PERMISSION_MATRIX: Record<CircleRole, Set<CirclePermission>> = {
     'discussions.react',
     'discussions.moderate',
     'moderation.review_reports',
+    'finance.manage',
+    'finance.read',
   ]),
   moderator: new Set([
     'circle.view',
@@ -78,6 +84,7 @@ const ROLE_PERMISSION_MATRIX: Record<CircleRole, Set<CirclePermission>> = {
     'discussions.react',
     'discussions.moderate',
     'moderation.review_reports',
+    'finance.read',
   ]),
   member: new Set([
     'circle.view',
