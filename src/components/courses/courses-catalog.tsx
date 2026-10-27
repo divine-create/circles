@@ -14,10 +14,12 @@ import {
   Shield,
   X,
   Compass,
+  Settings,
 } from 'lucide-react';
 import { CourseItem, LeaderboardEntry, MemberXpSummary } from '@/types/domain';
 import { Button } from '@/components/ui/button';
 import { LearningPathsView } from './learning-paths-view';
+import { CourseSettingsModal } from './course-settings-modal';
 
 export function CoursesCatalog({
   circleId,
@@ -37,6 +39,7 @@ export function CoursesCatalog({
   const [search, setSearch] = useState('');
   const [difficultyFilter, setDifficultyFilter] = useState<string>('all');
   const [showCreate, setShowCreate] = useState(false);
+  const [editingCourse, setEditingCourse] = useState<CourseItem | null>(null);
 
   // Gamification state
   const [xpSummary, setXpSummary] = useState<MemberXpSummary | null>(null);
@@ -351,12 +354,29 @@ export function CoursesCatalog({
                             </span>
                           )}
                         </div>
-                        {course.estimated_duration_hours > 0 && (
-                          <span className="flex items-center gap-1 text-[11px] font-medium text-stone-500">
-                            <Clock className="h-3 w-3 text-stone-400" />
-                            {course.estimated_duration_hours}h
-                          </span>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {course.estimated_duration_hours > 0 && (
+                            <span className="flex items-center gap-1 text-[11px] font-medium text-stone-500">
+                              <Clock className="h-3 w-3 text-stone-400" />
+                              {course.estimated_duration_hours}h
+                            </span>
+                          )}
+                          {isStaff && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setEditingCourse(course);
+                              }}
+                              className="rounded-lg border border-stone-200 bg-white p-1 text-stone-400 hover:text-stone-900 hover:border-stone-400 transition-colors shadow-2xs"
+                              title="Edit Course Settings"
+                              aria-label={`Edit settings for ${course.title}`}
+                            >
+                              <Settings className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
                       </div>
 
                       <h3 className="mt-3 text-base font-bold text-stone-900 group-hover:text-black line-clamp-1">
@@ -666,6 +686,21 @@ export function CoursesCatalog({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Edit Course Settings Modal */}
+      {editingCourse && (
+        <CourseSettingsModal
+          circleId={circleId}
+          course={editingCourse}
+          isOpen={Boolean(editingCourse)}
+          onClose={() => setEditingCourse(null)}
+          onSaved={(updated) => {
+            setCourses((prev) =>
+              prev.map((c) => (c.id === updated.id ? { ...c, ...updated } : c))
+            );
+          }}
+        />
       )}
     </div>
   );

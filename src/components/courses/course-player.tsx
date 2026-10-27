@@ -27,6 +27,7 @@ import {
   FileText,
   FileCode,
   Check,
+  Settings,
 } from 'lucide-react';
 import {
   CourseItem,
@@ -38,6 +39,7 @@ import { Button } from '@/components/ui/button';
 import { ContentBlockRenderer } from './content-block-renderer';
 import { QuizRunner } from './quiz-runner';
 import { LessonBlockBuilder } from './lesson-block-builder';
+import { CourseSettingsModal } from './course-settings-modal';
 
 export function CoursePlayer({
   circleId,
@@ -165,6 +167,9 @@ export function CoursePlayer({
 
   // Lesson Content Blocks Builder Modal
   const [showBlockBuilder, setShowBlockBuilder] = useState(false);
+
+  // Edit Course Settings Modal
+  const [showCourseSettings, setShowCourseSettings] = useState(false);
 
   // Comments state
   const [comments, setComments] = useState<LessonCommentItem[]>([]);
@@ -707,14 +712,26 @@ export function CoursePlayer({
               </Button>
 
               {!previewAsStudent && (
-                <Button
-                  onClick={() => setShowAddModule(true)}
-                  variant="outline"
-                  className="rounded-xl text-xs"
-                >
-                  <Plus className="h-3.5 w-3.5 mr-1" />
-                  Module
-                </Button>
+                <>
+                  <Button
+                    onClick={() => setShowCourseSettings(true)}
+                    variant="outline"
+                    className="rounded-xl text-xs flex items-center gap-1.5 text-stone-700 hover:border-black"
+                    title="Edit course title, slug, thumbnail, access rules, and status"
+                  >
+                    <Settings className="h-3.5 w-3.5 text-stone-500" />
+                    <span>Edit Course</span>
+                  </Button>
+
+                  <Button
+                    onClick={() => setShowAddModule(true)}
+                    variant="outline"
+                    className="rounded-xl text-xs"
+                  >
+                    <Plus className="h-3.5 w-3.5 mr-1" />
+                    Module
+                  </Button>
+                </>
               )}
             </div>
           )}
@@ -1581,6 +1598,27 @@ export function CoursePlayer({
           isOpen={showBlockBuilder}
           onClose={() => setShowBlockBuilder(false)}
           onSaveSuccess={handleLessonSaved}
+        />
+      )}
+
+      {/* Course Settings & Metadata Modal */}
+      {showCourseSettings && (
+        <CourseSettingsModal
+          circleId={circleId}
+          course={course}
+          isOpen={showCourseSettings}
+          onClose={() => setShowCourseSettings(false)}
+          onSaved={(updated) => {
+            setCourse((prev) => ({
+              ...prev,
+              ...updated,
+              modules: updated.modules && updated.modules.length > 0 ? updated.modules : prev.modules,
+            }));
+            setToast({
+              type: 'success',
+              message: 'Course settings updated successfully.',
+            });
+          }}
         />
       )}
 
