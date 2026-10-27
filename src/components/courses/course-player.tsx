@@ -6,7 +6,6 @@ import {
   CheckCircle2,
   Circle,
   Play,
-  FileText,
   Download,
   ChevronLeft,
   ChevronRight,
@@ -482,24 +481,6 @@ export function CoursePlayer({
       })),
     }));
     showToast('Lesson content blocks updated successfully!', 'success');
-  }
-
-  function getEmbedUrl(url: string | null): string | null {
-    if (!url) return null;
-    const ytMatch = url.match(
-      /(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/
-    );
-    if (ytMatch) return `https://www.youtube.com/embed/${ytMatch[1]}`;
-
-    const vimeoMatch = url.match(
-      /vimeo\.com\/(?:channels\/(?:\w+\/)?|groups\/(?:[^\/]*)\/videos\/|album\/(?:\d+)\/video\/|video\/|)(\d+)/
-    );
-    if (vimeoMatch) return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
-
-    const loomMatch = url.match(/loom\.com\/(?:share|embed)\/([a-f0-9]+)/);
-    if (loomMatch) return `https://www.loom.com/embed/${loomMatch[1]}`;
-
-    return url;
   }
 
   const currentSubmission: AssignmentSubmissionItem | null | undefined =
@@ -1019,62 +1000,49 @@ export function CoursePlayer({
                 </div>
               )}
 
-              {/* Flexible Lesson Content Blocks (Phase 1) */}
-              {activeLesson.content_blocks && activeLesson.content_blocks.length > 0 ? (
-                <div className="space-y-6">
-                  <ContentBlockRenderer
-                    blocks={activeLesson.content_blocks}
-                    circleSlug={circleSlug}
-                    onLaunchQuiz={(quizId) => setActiveQuizId(quizId)}
-                  />
-                </div>
-              ) : (
-                /* Legacy fallback renderer when no blocks configured */
-                <div className="space-y-6">
-                  {activeLesson.is_live_session ? (
-                    <div className="flex aspect-video w-full flex-col items-center justify-center rounded-xl border border-stone-200 bg-stone-900 p-8 text-center text-white">
-                      <Calendar className="h-10 w-10 text-stone-400" />
-                      <h4 className="mt-3 text-sm font-semibold tracking-wide">
-                        Live Workshop / Synchronized Cohort Session
-                      </h4>
-                      <p className="mt-1 max-w-sm text-xs text-stone-400">
-                        This lesson is a scheduled live interactive workshop. Join via the meeting link below.
-                      </p>
-                      {activeLesson.video_url && (
-                        <a
-                          href={activeLesson.video_url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-white px-3.5 py-1.5 text-xs font-semibold text-black hover:bg-stone-100"
-                        >
-                          Join Meeting Link
-                          <ExternalLink className="h-3.5 w-3.5" />
-                        </a>
-                      )}
-                    </div>
-                  ) : activeLesson.video_url ? (
-                    <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-black shadow-md">
-                      <iframe
-                        src={getEmbedUrl(activeLesson.video_url) || ''}
-                        title={activeLesson.title}
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                        className="h-full w-full border-0"
-                      />
-                    </div>
-                  ) : (
-                    <div className="flex aspect-video w-full flex-col items-center justify-center rounded-xl border border-stone-200 bg-stone-50 p-8 text-center">
-                      <FileText className="h-10 w-10 text-stone-400" />
-                      <h4 className="mt-3 text-sm font-semibold text-stone-800">
-                        Text-Based Lesson & Study Notes
-                      </h4>
-                      <p className="mt-1 max-w-sm text-xs text-stone-500">
-                        Review the lesson notes, complete assignments, and participate in discussion below.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
+              {/* Unified Flexible Lesson Content Blocks */}
+              <div className="space-y-6">
+                <ContentBlockRenderer
+                  blocks={
+                    activeLesson.content_blocks && activeLesson.content_blocks.length > 0
+                      ? activeLesson.content_blocks
+                      : [
+                          ...(activeLesson.video_url
+                            ? [
+                                {
+                                  id: 'blk-video-auto',
+                                  type: 'video' as const,
+                                  title: activeLesson.title,
+                                  url: activeLesson.video_url,
+                                },
+                              ]
+                            : []),
+                          ...(activeLesson.content_body
+                            ? [
+                                {
+                                  id: 'blk-text-auto',
+                                  type: 'rich_text' as const,
+                                  markdown: activeLesson.content_body,
+                                },
+                              ]
+                            : []),
+                          ...(activeLesson.attachment_url
+                            ? [
+                                {
+                                  id: 'blk-file-auto',
+                                  type: 'file_asset' as const,
+                                  title: activeLesson.attachment_name || 'Downloadable Resource',
+                                  fileUrl: activeLesson.attachment_url,
+                                },
+                              ]
+                            : []),
+                        ]
+                  }
+                  circleSlug={circleSlug}
+                  isStaff={effectiveIsStaff}
+                  onLaunchQuiz={(quizId) => setActiveQuizId(quizId)}
+                />
+              </div>
 
               {/* Interactivity Sub-Tabs: Notes | Homework | Q&A Discussion */}
               <div className="flex items-center gap-4 border-b border-stone-100 pt-2">
