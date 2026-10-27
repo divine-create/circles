@@ -16,6 +16,7 @@ import {
   Radio,
   Lightbulb,
   CheckCircle2,
+  Check,
   Lock,
   Save,
   AlertCircle,
@@ -169,10 +170,11 @@ export function LessonBlockBuilder({
         newBlock = {
           id,
           type: 'quiz_checkpoint',
-          quizId: '',
-          quizTitle: 'Knowledge Checkpoint',
-          passingScore: 80,
-          requiredToPass: true,
+          question: '',
+          options: ['Option 1', 'Option 2', 'Option 3'],
+          correctAnswerIndex: 0,
+          explanation: '',
+          requiredToPass: false,
         };
         break;
       case 'discussion_prompt':
@@ -309,7 +311,7 @@ export function LessonBlockBuilder({
       case 'file_asset':
         return `${block.title}${block.fileSize ? ` · ${block.fileSize}` : ''}`;
       case 'quiz_checkpoint':
-        return `${block.quizTitle || 'Knowledge Check'} · Min ${block.passingScore || 80}%`;
+        return block.question?.trim() || block.quizTitle?.trim() || 'Quick Question Checkpoint';
       case 'discussion_prompt':
         return `"${block.prompt.slice(0, 60)}..."`;
       case 'live_session':
@@ -433,8 +435,8 @@ export function LessonBlockBuilder({
                   <HelpCircle className="h-3.5 w-3.5" />
                 </span>
                 <div>
-                  <p className="text-xs font-bold text-stone-900">Quiz Check</p>
-                  <p className="text-[10px] text-stone-500">Assessed Test</p>
+                  <p className="text-xs font-bold text-stone-900">Quick Quiz</p>
+                  <p className="text-[10px] text-stone-500">Inline Checkpoint</p>
                 </div>
               </button>
 
@@ -1008,47 +1010,194 @@ export function LessonBlockBuilder({
                               )}
 
                               {block.type === 'quiz_checkpoint' && (
-                                <div className="grid grid-cols-3 gap-3">
-                                  <div className="col-span-2">
-                                    <label className="text-[11px] font-semibold text-stone-700">
-                                      Quiz ID / UUID
-                                    </label>
+                                <div className="space-y-4 rounded-xl border border-purple-100 bg-purple-50/20 p-4">
+                                  <div>
+                                    <div className="flex items-center justify-between">
+                                      <label className="text-[11px] font-semibold text-stone-700">
+                                        Question Prompt <span className="text-red-500">*</span>
+                                      </label>
+                                      <span className="text-[10px] text-stone-400">Inline Micro-Quiz</span>
+                                    </div>
                                     <input
                                       type="text"
-                                      placeholder="Paste Quiz UUID"
-                                      value={block.quizId}
+                                      placeholder="e.g. Which React hook is used to manage component state?"
+                                      value={block.question ?? ''}
                                       onChange={(e) => {
                                         const val = e.target.value;
                                         setBlocks((prev) =>
                                           prev.map((b, i) =>
-                                            i === idx && b.type === 'quiz_checkpoint' ? { ...b, quizId: val } : b
-                                          )
-                                        );
-                                      }}
-                                      className="mt-1 w-full rounded-xl border border-stone-200 bg-stone-50/50 px-3 py-1.5 text-xs text-stone-900 focus:border-stone-900 focus:outline-hidden"
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="text-[11px] font-semibold text-stone-700">
-                                      Min Passing %
-                                    </label>
-                                    <input
-                                      type="number"
-                                      min="0"
-                                      max="100"
-                                      value={Number(block.passingScore ?? 80)}
-                                      onChange={(e) => {
-                                        const val = Number(e.target.value);
-                                        setBlocks((prev) =>
-                                          prev.map((b, i) =>
                                             i === idx && b.type === 'quiz_checkpoint'
-                                              ? { ...b, passingScore: val }
+                                              ? { ...b, question: val }
                                               : b
                                           )
                                         );
                                       }}
-                                      className="mt-1 w-full rounded-xl border border-stone-200 bg-stone-50/50 px-3 py-1.5 text-xs text-stone-900 focus:border-stone-900 focus:outline-hidden"
+                                      className="mt-1 w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs text-stone-900 focus:border-stone-900 focus:outline-hidden"
                                     />
+                                  </div>
+
+                                  <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                      <label className="text-[11px] font-semibold text-stone-700">
+                                        Answer Choices (select circle to mark correct answer)
+                                      </label>
+                                      {((block.options ?? []).length < 6) && (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            const curr =
+                                              block.options && block.options.length > 0
+                                                ? block.options
+                                                : ['Option 1', 'Option 2'];
+                                            setBlocks((prev) =>
+                                              prev.map((b, i) =>
+                                                i === idx && b.type === 'quiz_checkpoint'
+                                                  ? { ...b, options: [...curr, `Option ${curr.length + 1}`] }
+                                                  : b
+                                              )
+                                            );
+                                          }}
+                                          className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 transition-colors"
+                                        >
+                                          + Add Choice
+                                        </button>
+                                      )}
+                                    </div>
+
+                                    <div className="space-y-2">
+                                      {(block.options && block.options.length > 0
+                                        ? block.options
+                                        : ['Option 1', 'Option 2', 'Option 3']
+                                      ).map((opt, optIdx) => {
+                                        const isCorrect = (block.correctAnswerIndex ?? 0) === optIdx;
+                                        return (
+                                          <div
+                                            key={optIdx}
+                                            className={`flex items-center gap-2 rounded-xl border p-2 transition-all ${
+                                              isCorrect
+                                                ? 'border-emerald-300 bg-emerald-50/70 ring-1 ring-emerald-200'
+                                                : 'border-stone-200 bg-white'
+                                            }`}
+                                          >
+                                            <button
+                                              type="button"
+                                              title={isCorrect ? 'Correct choice' : 'Click to set as correct answer'}
+                                              onClick={() => {
+                                                setBlocks((prev) =>
+                                                  prev.map((b, i) =>
+                                                    i === idx && b.type === 'quiz_checkpoint'
+                                                      ? { ...b, correctAnswerIndex: optIdx }
+                                                      : b
+                                                  )
+                                                );
+                                              }}
+                                              className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-all ${
+                                                isCorrect
+                                                  ? 'border-emerald-600 bg-emerald-600 text-white'
+                                                  : 'border-stone-300 bg-stone-50 hover:border-stone-400'
+                                              }`}
+                                            >
+                                              {isCorrect && <Check className="h-3 w-3 stroke-[3]" />}
+                                            </button>
+
+                                            <span className="text-[11px] font-bold text-stone-400">
+                                              {String.fromCharCode(65 + optIdx)}.
+                                            </span>
+
+                                            <input
+                                              type="text"
+                                              value={opt}
+                                              placeholder={`Choice ${optIdx + 1}`}
+                                              onChange={(e) => {
+                                                const val = e.target.value;
+                                                const curr = [
+                                                  ...(block.options && block.options.length > 0
+                                                    ? block.options
+                                                    : ['Option 1', 'Option 2', 'Option 3']),
+                                                ];
+                                                curr[optIdx] = val;
+                                                setBlocks((prev) =>
+                                                  prev.map((b, i) =>
+                                                    i === idx && b.type === 'quiz_checkpoint'
+                                                      ? { ...b, options: curr }
+                                                      : b
+                                                  )
+                                                );
+                                              }}
+                                              className="flex-1 bg-transparent text-xs text-stone-900 focus:outline-hidden"
+                                            />
+
+                                            {(block.options ?? []).length > 2 && (
+                                              <button
+                                                type="button"
+                                                title="Remove Choice"
+                                                onClick={() => {
+                                                  const curr = (block.options ?? []).filter((_, oIdx) => oIdx !== optIdx);
+                                                  let nextCorrect = block.correctAnswerIndex ?? 0;
+                                                  if (nextCorrect >= curr.length) {
+                                                    nextCorrect = Math.max(0, curr.length - 1);
+                                                  }
+                                                  setBlocks((prev) =>
+                                                    prev.map((b, i) =>
+                                                      i === idx && b.type === 'quiz_checkpoint'
+                                                        ? { ...b, options: curr, correctAnswerIndex: nextCorrect }
+                                                        : b
+                                                    )
+                                                  );
+                                                }}
+                                                className="p-1 text-stone-400 hover:text-red-500 rounded-md transition-colors"
+                                              >
+                                                <Trash2 className="h-3.5 w-3.5" />
+                                              </button>
+                                            )}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+
+                                  <div>
+                                    <label className="text-[11px] font-semibold text-stone-700">
+                                      Explanation / Feedback (shown to student after answering)
+                                    </label>
+                                    <input
+                                      type="text"
+                                      placeholder="e.g. useState returns a stateful value and a function to update it."
+                                      value={block.explanation ?? ''}
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        setBlocks((prev) =>
+                                          prev.map((b, i) =>
+                                            i === idx && b.type === 'quiz_checkpoint'
+                                              ? { ...b, explanation: val }
+                                              : b
+                                          )
+                                        );
+                                      }}
+                                      className="mt-1 w-full rounded-xl border border-stone-200 bg-white px-3 py-1.5 text-xs text-stone-900 focus:border-stone-900 focus:outline-hidden"
+                                    />
+                                  </div>
+
+                                  <div className="flex items-center gap-2 pt-1 border-t border-purple-100/60">
+                                    <input
+                                      type="checkbox"
+                                      id={`req-${block.id}`}
+                                      checked={block.requiredToPass ?? false}
+                                      onChange={(e) => {
+                                        const checked = e.target.checked;
+                                        setBlocks((prev) =>
+                                          prev.map((b, i) =>
+                                            i === idx && b.type === 'quiz_checkpoint'
+                                              ? { ...b, requiredToPass: checked }
+                                              : b
+                                          )
+                                        );
+                                      }}
+                                      className="h-4 w-4 rounded border-stone-300 text-emerald-700 focus:ring-emerald-600"
+                                    />
+                                    <label htmlFor={`req-${block.id}`} className="text-xs text-stone-700 cursor-pointer select-none">
+                                      Student must answer correctly to satisfy lesson progress
+                                    </label>
                                   </div>
                                 </div>
                               )}

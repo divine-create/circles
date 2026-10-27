@@ -23,6 +23,7 @@ import {
   Info,
   AlertTriangle,
   Lightbulb,
+  X,
 } from 'lucide-react';
 import { LessonContentBlock } from '@/types/domain';
 import { Button } from '@/components/ui/button';
@@ -107,6 +108,9 @@ export function ContentBlockRenderer({
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [revealedSolutions, setRevealedSolutions] = useState<Record<string, boolean>>({});
   const [checkedObjectives, setCheckedObjectives] = useState<Record<string, boolean>>({});
+  const [inlineQuizAnswers, setInlineQuizAnswers] = useState<
+    Record<string, { selectedIndex: number | null; isSubmitted: boolean }>
+  >({});
 
   const handleCopyCode = (id: string, code: string) => {
     navigator.clipboard.writeText(code);
@@ -593,43 +597,190 @@ export function ContentBlockRenderer({
           }
 
           case 'quiz_checkpoint': {
-            return (
-              <div
-                key={block.id || idx}
-                className="group relative overflow-hidden rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50/70 via-white to-stone-50 p-6 shadow-xs transition-all hover:border-emerald-300"
-              >
-                <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-                  <div className="space-y-1.5">
-                    <div className="flex items-center gap-2">
-                      <span className="flex h-5 w-5 items-center justify-center rounded-md bg-emerald-800 text-white shadow-xs">
-                        <HelpCircle className="h-3 w-3" />
-                      </span>
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-950">
-                        Knowledge Assessment Checkpoint
-                      </span>
-                      {block.requiredToPass && (
-                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-900 border border-emerald-200">
-                          Required
+            const hasInlineQuestion = Boolean(block.question || (block.options && block.options.length > 0));
+
+            if (!hasInlineQuestion) {
+              return (
+                <div
+                  key={block.id || idx}
+                  className="group relative overflow-hidden rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50/70 via-white to-stone-50 p-6 shadow-xs transition-all hover:border-emerald-300"
+                >
+                  <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-5 w-5 items-center justify-center rounded-md bg-emerald-800 text-white shadow-xs">
+                          <HelpCircle className="h-3 w-3" />
                         </span>
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-950">
+                          Knowledge Assessment Checkpoint
+                        </span>
+                        {block.requiredToPass && (
+                          <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-900 border border-emerald-200">
+                            Required
+                          </span>
+                        )}
+                      </div>
+                      <h4 className="text-base font-bold text-stone-900">
+                        {block.quizTitle || 'Knowledge Check Quiz'}
+                      </h4>
+                      {block.passingScore && (
+                        <p className="text-xs text-stone-600">
+                          Passing threshold required to certify: <strong>{block.passingScore}%</strong>
+                        </p>
                       )}
                     </div>
-                    <h4 className="text-base font-bold text-stone-900">
-                      {block.quizTitle || 'Knowledge Check Quiz'}
-                    </h4>
-                    {block.passingScore && (
-                      <p className="text-xs text-stone-600">
-                        Passing threshold required to certify: <strong>{block.passingScore}%</strong>
-                      </p>
+
+                    <Button
+                      onClick={() => onLaunchQuiz?.(block.quizId || '')}
+                      className="rounded-xl bg-emerald-800 text-white text-xs font-semibold hover:bg-emerald-900 px-5 shrink-0 shadow-xs"
+                    >
+                      Start Assessment
+                    </Button>
+                  </div>
+                </div>
+              );
+            }
+
+            // Inline Micro-Quiz / Quick Knowledge Check
+            const blockId = block.id || `quiz-${idx}`;
+            const state = inlineQuizAnswers[blockId] || { selectedIndex: null, isSubmitted: false };
+            const isAnswered = state.selectedIndex !== null;
+            const isCorrect = isAnswered && state.selectedIndex === (block.correctAnswerIndex ?? 0);
+            const options =
+              block.options && block.options.length > 0 ? block.options : ['Option 1', 'Option 2'];
+
+            return (
+              <div
+                key={blockId}
+                className="overflow-hidden rounded-2xl border border-purple-200/80 bg-white p-6 shadow-xs space-y-4"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-purple-100 text-purple-800">
+                      <HelpCircle className="h-3.5 w-3.5" />
+                    </span>
+                    <span className="text-xs font-bold uppercase tracking-wider text-purple-900">
+                      Quick Knowledge Check
+                    </span>
+                    {block.requiredToPass && (
+                      <span className="rounded-md bg-stone-100 px-1.5 py-0.5 text-[10px] font-semibold text-stone-600">
+                        Required
+                      </span>
                     )}
                   </div>
-
-                  <Button
-                    onClick={() => onLaunchQuiz?.(block.quizId)}
-                    className="rounded-xl bg-emerald-800 text-white text-xs font-semibold hover:bg-emerald-900 px-5 shrink-0 shadow-xs"
-                  >
-                    Start Assessment
-                  </Button>
+                  {isAnswered && (
+                    <span
+                      className={`inline-flex items-center gap-1 text-xs font-bold ${
+                        isCorrect ? 'text-emerald-700' : 'text-amber-700'
+                      }`}
+                    >
+                      {isCorrect ? (
+                        <>
+                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                          <span>Correct!</span>
+                        </>
+                      ) : (
+                        <>
+                          <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
+                          <span>Try again</span>
+                        </>
+                      )}
+                    </span>
+                  )}
                 </div>
+
+                <p className="text-sm font-semibold text-stone-900">
+                  {block.question || 'Knowledge Check Question'}
+                </p>
+
+                {/* Choices list */}
+                <div className="space-y-2">
+                  {options.map((opt, optIdx) => {
+                    const isSelected = state.selectedIndex === optIdx;
+                    let optionStyle =
+                      'border-stone-200 bg-stone-50/50 hover:bg-stone-100/80 hover:border-stone-300 text-stone-800';
+
+                    if (isAnswered) {
+                      if (isSelected) {
+                        optionStyle = isCorrect
+                          ? 'border-emerald-500 bg-emerald-50 text-emerald-900 ring-1 ring-emerald-400 font-medium'
+                          : 'border-red-400 bg-red-50 text-red-900 ring-1 ring-red-300';
+                      } else if (state.isSubmitted && optIdx === (block.correctAnswerIndex ?? 0)) {
+                        optionStyle = 'border-emerald-400 bg-emerald-50/60 text-emerald-900';
+                      } else {
+                        optionStyle = 'border-stone-100 bg-stone-50/30 text-stone-400 opacity-60';
+                      }
+                    }
+
+                    return (
+                      <button
+                        key={optIdx}
+                        type="button"
+                        onClick={() => {
+                          setInlineQuizAnswers((prev) => ({
+                            ...prev,
+                            [blockId]: {
+                              selectedIndex: optIdx,
+                              isSubmitted: true,
+                            },
+                          }));
+                        }}
+                        className={`w-full flex items-center justify-between rounded-xl border p-3 text-left text-xs transition-all ${optionStyle}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <span
+                            className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
+                              isSelected
+                                ? isCorrect
+                                  ? 'bg-emerald-600 text-white'
+                                  : 'bg-red-600 text-white'
+                                : 'bg-stone-200/70 text-stone-700'
+                            }`}
+                          >
+                            {String.fromCharCode(65 + optIdx)}
+                          </span>
+                          <span>{opt}</span>
+                        </div>
+
+                        {isSelected && isCorrect && (
+                          <Check className="h-4 w-4 text-emerald-600 shrink-0" />
+                        )}
+                        {isSelected && !isCorrect && (
+                          <X className="h-4 w-4 text-red-500 shrink-0" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Explanation / Feedback */}
+                {isAnswered && (
+                  <div
+                    className={`rounded-xl border p-3.5 text-xs transition-all ${
+                      isCorrect
+                        ? 'border-emerald-200 bg-emerald-50/70 text-emerald-950'
+                        : 'border-amber-200 bg-amber-50/70 text-amber-950'
+                    }`}
+                  >
+                    <div className="flex items-start gap-2">
+                      {isCorrect ? (
+                        <Sparkles className="h-4 w-4 shrink-0 text-emerald-700 mt-0.5" />
+                      ) : (
+                        <Info className="h-4 w-4 shrink-0 text-amber-700 mt-0.5" />
+                      )}
+                      <div className="space-y-1">
+                        <p className="font-bold">
+                          {isCorrect ? 'Well done!' : 'Not quite right.'}
+                        </p>
+                        {block.explanation ? (
+                          <p className="text-stone-700">{block.explanation}</p>
+                        ) : !isCorrect ? (
+                          <p className="text-stone-700">Click another option to try again.</p>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             );
           }

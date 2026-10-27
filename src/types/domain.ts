@@ -752,10 +752,14 @@ export type LessonContentBlock =
   | {
       id: string;
       type: 'quiz_checkpoint';
-      quizId: string;
+      quizId?: string;
       quizTitle?: string;
       passingScore?: number;
       requiredToPass?: boolean;
+      question?: string;
+      options?: string[];
+      correctAnswerIndex?: number;
+      explanation?: string;
     };
 
 export interface QuestionBankItem {
