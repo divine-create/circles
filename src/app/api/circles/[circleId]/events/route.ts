@@ -54,16 +54,24 @@ export async function POST(
     if (!user) throw new UnauthorizedError();
 
     const body = await req.json();
-    if (body.action === 'rsvp') {
+    if (
+      body.action === 'rsvp' ||
+      body.rsvpAction ||
+      body.action === 'register' ||
+      body.action === 'cancel'
+    ) {
       if (!body.eventId) throw new ValidationError('eventId is required.');
-      const desiredAction = body.rsvpAction === 'cancel' ? 'cancel' : 'register';
+      const desiredAction =
+        body.rsvpAction === 'cancel' || body.action === 'cancel' ? 'cancel' : 'register';
       const outcome = await rsvpToCircleEvent(
         user.id,
         params.circleId,
         String(body.eventId),
         desiredAction
       );
-      return NextResponse.json(outcome);
+      const events = await listCircleEvents(user.id, params.circleId);
+      const updatedEvent = events.find((e) => e.id === body.eventId) ?? null;
+      return NextResponse.json({ ...outcome, event: updatedEvent });
     }
 
     const event = await createCircleEvent(user.id, {
@@ -96,7 +104,9 @@ export async function PATCH(
         String(body.targetUserId),
         Boolean(body.attended)
       );
-      return NextResponse.json({ rsvp });
+      const events = await listCircleEvents(user.id, params.circleId);
+      const updatedEvent = events.find((e) => e.id === body.eventId) ?? null;
+      return NextResponse.json({ rsvp, event: updatedEvent });
     }
 
     const event = await updateCircleEvent(

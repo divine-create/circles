@@ -4,9 +4,10 @@ import { Calendar, Lock } from 'lucide-react';
 import { getAuthenticatedUser } from '@/lib/auth/session';
 import { getCircleBySlugOrId } from '@/features/circles/service';
 import { listCircleEvents } from '@/features/events/service';
+import { listCircleSpaces } from '@/features/spaces/service';
 import { canReadCircleContent } from '@/lib/authorization/permissions';
 import { EventsBoard } from '@/components/circles/events-board';
-import { CircleEventItem } from '@/types/domain';
+import { CircleEventItem, CircleSpace } from '@/types/domain';
 
 export const dynamic = 'force-dynamic';
 
@@ -55,14 +56,26 @@ export default async function CircleEventsPage({
     );
   }
 
+  let spaces: CircleSpace[] = [];
+  try {
+    spaces = await listCircleSpaces(user?.id ?? null, circle.id);
+  } catch {
+    spaces = [];
+  }
+
   const isMember = circle.current_user_membership_status === 'active';
 
   return (
     <EventsBoard
       circleId={circle.id}
+      circleSlug={circle.slug}
+      circleName={circle.name}
       initialEvents={events}
       canCreateEvent={isMember}
       isMember={isMember}
+      currentUserId={user?.id ?? null}
+      currentUserRole={circle.current_user_role ?? null}
+      spaces={spaces}
     />
   );
 }

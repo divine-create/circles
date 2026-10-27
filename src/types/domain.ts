@@ -269,6 +269,7 @@ export interface CircleEventItem {
   id: string;
   circle_id: string;
   space_id: string | null;
+  space_name?: string | null;
   organizer_id: string;
   title: string;
   description: string;

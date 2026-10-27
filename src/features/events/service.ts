@@ -26,7 +26,14 @@ export const createEventSchema = z.object({
   eventType: z.enum(['event', 'meetup', 'workshop', 'online']).default('event'),
   locationType: z.enum(['in_person', 'online', 'hybrid']).default('in_person'),
   venueText: z.string().trim().max(300).default(''),
-  meetingUrl: z.string().url().nullable().optional(),
+  meetingUrl: z
+    .string()
+    .trim()
+    .url()
+    .nullable()
+    .optional()
+    .or(z.literal(''))
+    .transform((v) => (v === '' ? null : v)),
   startsAt: z.string().datetime(),
   endsAt: z.string().datetime(),
   timezone: z.string().trim().min(1).max(80).default('UTC'),
@@ -35,11 +42,20 @@ export const createEventSchema = z.object({
 });
 
 export const updateEventSchema = z.object({
+  spaceId: z.string().uuid().nullable().optional(),
   title: z.string().trim().min(3).max(160).optional(),
   description: z.string().trim().max(8000).optional(),
+  eventType: z.enum(['event', 'meetup', 'workshop', 'online']).optional(),
   locationType: z.enum(['in_person', 'online', 'hybrid']).optional(),
   venueText: z.string().trim().max(300).optional(),
-  meetingUrl: z.string().url().nullable().optional(),
+  meetingUrl: z
+    .string()
+    .trim()
+    .url()
+    .nullable()
+    .optional()
+    .or(z.literal(''))
+    .transform((v) => (v === '' ? null : v)),
   startsAt: z.string().datetime().optional(),
   endsAt: z.string().datetime().optional(),
   capacity: z.number().int().min(1).max(100000).nullable().optional(),
@@ -208,6 +224,7 @@ export async function listCircleEvents(
 
     const res = await tx.query<
       CircleEventItem & {
+        space_name: string | null;
         organizer_username: string;
         organizer_display_name: string;
         organizer_avatar_url: string | null;
@@ -219,6 +236,7 @@ export async function listCircleEvents(
       }
     >(
       `SELECT e.*,
+         s.name AS space_name,
          COALESCE(p.username, 'member') AS organizer_username,
          COALESCE(p.display_name, 'Organizer') AS organizer_display_name,
          p.avatar_url AS organizer_avatar_url,
@@ -228,6 +246,7 @@ export async function listCircleEvents(
          (SELECT r.status FROM public.event_rsvps r WHERE r.event_id = e.id AND r.user_id = $2 LIMIT 1) AS viewer_rsvp_status,
          (SELECT r.attended FROM public.event_rsvps r WHERE r.event_id = e.id AND r.user_id = $2 LIMIT 1) AS viewer_attended
        FROM public.circle_events e
+       LEFT JOIN public.circle_spaces s ON s.id = e.space_id AND s.circle_id = e.circle_id
        LEFT JOIN public.profiles p ON p.id = e.organizer_id
        WHERE e.circle_id = $1
        ORDER BY e.starts_at ASC;`,
@@ -255,6 +274,7 @@ export async function listCircleEvents(
         id: row.id,
         circle_id: row.circle_id,
         space_id: row.space_id,
+        space_name: row.space_name ?? null,
         organizer_id: row.organizer_id,
         title: row.title,
         description: row.description,
@@ -323,7 +343,7 @@ export async function updateCircleEvent(
       throw new ValidationError('Event end time must be after start time.');
     }
 
-    const updatedRes = await tx.query<CircleEventItem>(
+    await tx.query(
       `UPDATE public.circle_events
        SET title = $1,
            description = $2,
@@ -335,9 +355,10 @@ export async function updateCircleEvent(
            capacity = $8,
            registration_closes_at = $9,
            status = $10,
+           event_type = $11,
+           space_id = $12,
            updated_at = NOW()
-       WHERE id = $11 AND circle_id = $12
-       RETURNING *;`,
+       WHERE id = $13 AND circle_id = $14;`,
       [
         parsed.title ?? existing.title,
         parsed.description ?? existing.description,
@@ -351,10 +372,77 @@ export async function updateCircleEvent(
           ? parsed.registrationClosesAt
           : existing.registration_closes_at,
         parsed.status ?? existing.status,
+        parsed.eventType ?? existing.event_type,
+        parsed.spaceId !== undefined ? parsed.spaceId : existing.space_id,
         eventId,
         circleId,
       ]
     );
+
+    const fullRes = await tx.query<
+      CircleEventItem & {
+        space_name: string | null;
+        organizer_username: string;
+        organizer_display_name: string;
+        organizer_avatar_url: string | null;
+        going_count: number;
+        waitlisted_count: number;
+        attended_count: number;
+        viewer_rsvp_status: 'going' | 'waitlisted' | 'cancelled' | null;
+        viewer_attended: boolean | null;
+      }
+    >(
+      `SELECT e.*,
+         s.name AS space_name,
+         COALESCE(p.username, 'member') AS organizer_username,
+         COALESCE(p.display_name, 'Organizer') AS organizer_display_name,
+         p.avatar_url AS organizer_avatar_url,
+         (SELECT COUNT(*)::int FROM public.event_rsvps r WHERE r.event_id = e.id AND r.status = 'going') AS going_count,
+         (SELECT COUNT(*)::int FROM public.event_rsvps r WHERE r.event_id = e.id AND r.status = 'waitlisted') AS waitlisted_count,
+         (SELECT COUNT(*)::int FROM public.event_rsvps r WHERE r.event_id = e.id AND r.attended = true) AS attended_count,
+         (SELECT r.status FROM public.event_rsvps r WHERE r.event_id = e.id AND r.user_id = $2 LIMIT 1) AS viewer_rsvp_status,
+         (SELECT r.attended FROM public.event_rsvps r WHERE r.event_id = e.id AND r.user_id = $2 LIMIT 1) AS viewer_attended
+       FROM public.circle_events e
+       LEFT JOIN public.circle_spaces s ON s.id = e.space_id AND s.circle_id = e.circle_id
+       LEFT JOIN public.profiles p ON p.id = e.organizer_id
+       WHERE e.id = $1 AND e.circle_id = $3
+       LIMIT 1;`,
+      [eventId, actorUserId, circleId]
+    );
+
+    const updatedRow = fullRes.rows[0];
+    const updatedItem: CircleEventItem = {
+      id: updatedRow.id,
+      circle_id: updatedRow.circle_id,
+      space_id: updatedRow.space_id,
+      space_name: updatedRow.space_name ?? null,
+      organizer_id: updatedRow.organizer_id,
+      title: updatedRow.title,
+      description: updatedRow.description,
+      event_type: updatedRow.event_type,
+      location_type: updatedRow.location_type,
+      venue_text: updatedRow.venue_text,
+      meeting_url: updatedRow.meeting_url,
+      starts_at: updatedRow.starts_at,
+      ends_at: updatedRow.ends_at,
+      timezone: updatedRow.timezone,
+      capacity: updatedRow.capacity,
+      registration_closes_at: updatedRow.registration_closes_at,
+      status: updatedRow.status,
+      created_at: updatedRow.created_at,
+      updated_at: updatedRow.updated_at,
+      organizer: {
+        id: updatedRow.organizer_id,
+        username: updatedRow.organizer_username,
+        display_name: updatedRow.organizer_display_name,
+        avatar_url: updatedRow.organizer_avatar_url,
+      },
+      going_count: Number(updatedRow.going_count ?? 0),
+      waitlisted_count: Number(updatedRow.waitlisted_count ?? 0),
+      attended_count: Number(updatedRow.attended_count ?? 0),
+      viewer_rsvp_status: updatedRow.viewer_rsvp_status ?? null,
+      viewer_attended: Boolean(updatedRow.viewer_attended),
+    };
 
     const attendeesRes = await tx.query<{ user_id: string }>(
       `SELECT user_id FROM public.event_rsvps
@@ -363,7 +451,7 @@ export async function updateCircleEvent(
     );
 
     return {
-      updated: updatedRes.rows[0],
+      updated: updatedItem,
       circleSlug: circle.slug,
       attendeeIds: attendeesRes.rows.map((r) => r.user_id).filter((id) => id !== actorUserId),
     };
