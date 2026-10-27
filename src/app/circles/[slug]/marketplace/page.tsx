@@ -76,10 +76,13 @@ export default async function CircleMarketplacePage({
   return (
     <MarketplaceBoard
       circleId={circle.id}
+      circleSlug={circle.slug}
       initialListings={listings}
       initialInquiries={inquiries}
       initialBookings={bookings}
       isMember={isMember}
+      currentUserId={user?.id ?? null}
+      currentUserRole={circle.current_user_role ?? null}
     />
   );
 }

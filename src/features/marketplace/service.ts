@@ -59,6 +59,7 @@ export const updateListingSchema = z.object({
   pricingUnit: z.enum(['fixed', 'hourly', 'daily', 'monthly', 'free', 'negotiable']).optional(),
   condition: z.enum(['new', 'like_new', 'good', 'fair', 'not_applicable']).nullable().optional(),
   location: z.string().trim().max(200).nullable().optional(),
+  imageUrls: z.array(z.string().trim().min(1).max(1000)).max(8).optional(),
   status: z.enum(['draft', 'published', 'reserved', 'sold', 'archived', 'removed']).optional(),
 });
 
@@ -345,7 +346,7 @@ export async function updateMarketplaceListing(
       throw new ForbiddenError('Only the listing owner or a Circle moderator can modify this listing.');
     }
 
-    const updatedRes = await tx.query<MarketplaceListingItem>(
+    await tx.query(
       `UPDATE public.marketplace_listings
        SET title = $1,
            description = $2,
@@ -355,9 +356,9 @@ export async function updateMarketplaceListing(
            condition = $6,
            location = $7,
            status = $8,
+           image_urls = CASE WHEN $9::text IS NOT NULL THEN $9::jsonb ELSE image_urls END,
            updated_at = NOW()
-       WHERE id = $9 AND circle_id = $10
-       RETURNING *;`,
+       WHERE id = $10 AND circle_id = $11;`,
       [
         parsed.title ?? existing.title,
         parsed.description ?? existing.description,
@@ -367,12 +368,36 @@ export async function updateMarketplaceListing(
         parsed.condition !== undefined ? parsed.condition : existing.condition,
         parsed.location !== undefined ? parsed.location : existing.location,
         parsed.status ?? existing.status,
+        parsed.imageUrls ? JSON.stringify(parsed.imageUrls) : null,
         listingId,
         circleId,
       ]
     );
 
-    return normalizeListingRow(updatedRes.rows[0]);
+    const fullRes = await tx.query<
+      MarketplaceListingItem & {
+        seller_username: string;
+        seller_display_name: string;
+        seller_avatar_url: string | null;
+        viewer_has_saved: boolean;
+      }
+    >(
+      `SELECT l.*,
+         COALESCE(u.username, 'member') AS seller_username,
+         COALESCE(u.display_name, 'Member') AS seller_display_name,
+         u.avatar_url AS seller_avatar_url,
+         EXISTS (
+           SELECT 1 FROM public.marketplace_saved_listings s
+           WHERE s.listing_id = l.id AND s.user_id = $2
+         ) AS viewer_has_saved
+       FROM public.marketplace_listings l
+       LEFT JOIN public.profiles u ON u.id = l.seller_id
+       WHERE l.id = $1 AND l.circle_id = $3
+       LIMIT 1;`,
+      [listingId, actorUserId, circleId]
+    );
+
+    return normalizeListingRow(fullRes.rows[0]);
   });
 }
 

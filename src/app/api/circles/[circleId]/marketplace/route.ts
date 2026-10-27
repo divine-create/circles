@@ -83,7 +83,7 @@ export async function POST(
       return NextResponse.json({ inquiry }, { status: 201 });
     }
 
-    if (body.action === 'booking') {
+    if (body.action === 'booking' || body.action === 'book') {
       if (!body.listingId) throw new ValidationError('listingId is required.');
       const booking = await createServiceOrRentalBooking(
         user.id,
