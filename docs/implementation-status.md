@@ -61,7 +61,7 @@ All capabilities below are backed by dedicated PostgreSQL tables, domain service
 
 ### 2.5 Organization & Finance
 - **Fundraising & Causes (`fundraising_causes`)** — `stable`: Community fundraising drives with transparent pledge tracking (`goal_amount`, `pledged_total`, `pledge_count`). Explicitly modeled as auditable pledge intentions (real payment processing is out of scope). Route: `/circles/[slug]/community?tab=causes`.
-- **Payments & Finances (`payments_finances`)** — `planned`: Real credit card payment processing / gateway settlement is intentionally marked planned until a compliant payment gateway architecture is selected.
+- **Payments & Finances (`payments_finances`)** — `stable`: Hyper-configurable, domain-agnostic pricing engine supporting subscriptions, one-time fees, multi-tier HOA/residential dues, pay-what-you-can donations, installment schedules, and metered packs. Includes universal entitlement grants (`space_access`, `course_access`, `amenity_booking`, `badge`, `role`), multi-currency billing, invoice generation, offline reconciliation workflows, community treasury ledger, Stripe & Mock payment processor adapters, platform payment webhooks, external ERP integration API keys (`cir_live_...`), and outbound event dispatch. Routes: `/circles/[slug]/finances` and Circle Studio `Finances` tab.
 
 ### 2.6 Platform Services
 - **Secure Media & File Uploads** — `stable`: MIME allowlist, binary magic-byte inspection, $\le 10$ MB limit, UUID object paths, SHA-256 checksums, HMAC-signed download URLs, and RLS-protected storage. Endpoints: `/api/uploads` and `/api/uploads/[uploadId]`.

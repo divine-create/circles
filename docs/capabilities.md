@@ -30,7 +30,7 @@ The capability catalog is defined in `src/features/capabilities/registry.ts` and
 | `fundraising_causes` | Fundraising & Causes | Organization & Finance | Disabled | `member_directory` | **Stable** | `/circles/[slug]/community` (Pledges, non-custodial) |
 | `challenges_rewards` | Challenges & Rewards | Community | Disabled | `member_directory` | **Stable** | `/circles/[slug]/community` (Anti-self-award trigger) |
 | `help_desk` | Help Desk & Requests | Community | Disabled | `discussions` | **Stable** | `/circles/[slug]/community` (Strict RLS ticket privacy) |
-| `payments_finances` | Payments & Finances | Organization & Finance | Disabled | `member_directory` | **Pledge/Intent Only** | Out of scope for raw card handling (Pledges supported) |
+| `payments_finances` | Payments & Finances | Organization & Finance | Disabled | `member_directory` | **Stable** | `/circles/[slug]/finances` & Circle Studio ([`StudioFinancesTab`](file:///C:/Users/HomePC/Desktop/circles/src/components/circles/studio-finances-tab.tsx), [`CircleFinancesClient`](file:///C:/Users/HomePC/Desktop/circles/src/components/circles/circle-finances-client.tsx)) |
 
 ---
 

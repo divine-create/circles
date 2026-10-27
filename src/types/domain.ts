@@ -1152,4 +1152,41 @@ export interface TreasurySummary {
   category_breakdown: Record<TreasuryCategory, number>;
 }
 
+export interface CircleWebhookItem {
+  id: string;
+  circle_id: string;
+  url: string;
+  secret: string;
+  events: string[];
+  is_active: boolean;
+  description: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CircleWebhookDeliveryItem {
+  id: string;
+  webhook_id: string;
+  circle_id: string;
+  event_type: string;
+  payload: Record<string, unknown>;
+  response_status: number | null;
+  response_body: string | null;
+  status: 'delivered' | 'failed' | 'retrying';
+  delivered_at: string;
+}
+
+export interface CircleApiKeyItem {
+  id: string;
+  circle_id: string;
+  name: string;
+  key_prefix: string;
+  permissions: string[];
+  last_used_at: string | null;
+  is_active: boolean;
+  created_at: string;
+  plainToken?: string;
+}
+
+
 
