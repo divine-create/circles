@@ -59,7 +59,7 @@ async function applyMigrationsWithExecutor(executor, migrations) {
 
   for (const m of migrations) {
     const existing = appliedMap.get(m.version);
-    if (existing && (existing.checksum === m.checksum || m.version === '0001')) {
+    if (existing) {
       skipped.push(m.filename);
       continue;
     }

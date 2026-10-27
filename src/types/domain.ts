@@ -682,11 +682,227 @@ export interface CourseLessonItem {
   sort_order: number;
   live_event_id?: string | null;
   is_live_session?: boolean;
+  content_blocks?: LessonContentBlock[];
+  draft_content_blocks?: LessonContentBlock[] | null;
+  learning_objectives?: string[];
+  instructor_notes?: string | null;
+  is_optional?: boolean;
+  prerequisite_lesson_id?: string | null;
   created_at: string;
   updated_at: string;
   is_completed?: boolean;
+  is_locked?: boolean;
+  lock_reason?: string | null;
   comments?: LessonCommentItem[];
   assignment?: CourseAssignmentItem | null;
+  quiz?: CourseQuizItem | null;
+}
+
+export type LessonContentBlock =
+  | {
+      id: string;
+      type: 'video';
+      url: string;
+      provider?: 'youtube' | 'vimeo' | 'loom' | 'custom';
+      title?: string;
+      durationSec?: number;
+    }
+  | {
+      id: string;
+      type: 'rich_text';
+      markdown: string;
+    }
+  | {
+      id: string;
+      type: 'code_sandbox';
+      language: string;
+      starterCode: string;
+      solutionCode?: string;
+      instructions?: string;
+    }
+  | {
+      id: string;
+      type: 'file_asset';
+      title: string;
+      fileUrl: string;
+      fileSize?: string;
+      mimeType?: string;
+    }
+  | {
+      id: string;
+      type: 'discussion_prompt';
+      prompt: string;
+      spaceId?: string;
+      spaceSlug?: string;
+    }
+  | {
+      id: string;
+      type: 'live_session';
+      meetingUrl: string;
+      scheduledAt: string;
+      timezone?: string;
+      hostName?: string;
+    }
+  | {
+      id: string;
+      type: 'reflection_checkpoint';
+      prompt: string;
+      objectives?: string[];
+    }
+  | {
+      id: string;
+      type: 'quiz_checkpoint';
+      quizId: string;
+      quizTitle?: string;
+      passingScore?: number;
+      requiredToPass?: boolean;
+    };
+
+export interface QuestionBankItem {
+  id: string;
+  circle_id: string;
+  instructor_id: string;
+  title: string;
+  description: string;
+  category: string;
+  tags: string[];
+  questions_count?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export type QuestionType =
+  | 'multiple_choice'
+  | 'multiple_select'
+  | 'true_false'
+  | 'short_answer'
+  | 'essay'
+  | 'code_challenge'
+  | 'file_submission';
+
+export interface QuestionOption {
+  id: string;
+  text: string;
+}
+
+export interface CourseQuestionItem {
+  id: string;
+  bank_id: string | null;
+  circle_id: string;
+  type: QuestionType;
+  question_text: string;
+  explanation: string;
+  points: number;
+  difficulty: 'beginner' | 'intermediate' | 'advanced';
+  options: QuestionOption[];
+  correct_answers?: string[];
+  rubrics?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CourseQuizItem {
+  id: string;
+  circle_id: string;
+  course_id: string;
+  lesson_id: string | null;
+  title: string;
+  description: string;
+  passing_score: number;
+  time_limit_minutes: number | null;
+  max_attempts: number | null;
+  randomize_questions: boolean;
+  feedback_mode: 'immediate' | 'after_submission' | 'after_deadline';
+  is_required: boolean;
+  created_at: string;
+  updated_at: string;
+  questions?: (CourseQuestionItem & { sort_order: number; points: number })[];
+  user_best_attempt?: CourseQuizAttemptItem | null;
+}
+
+export interface CourseQuizAttemptItem {
+  id: string;
+  quiz_id: string;
+  circle_id: string;
+  user_id: string;
+  status: 'in_progress' | 'submitted' | 'graded';
+  started_at: string;
+  submitted_at: string | null;
+  time_spent_seconds: number;
+  score_percent: number | null;
+  points_earned: number;
+  points_possible: number;
+  is_passed: boolean | null;
+  instructor_feedback: string | null;
+  grader_id?: string | null;
+  graded_at?: string | null;
+  answers?: CourseQuizAnswerItem[];
+}
+
+export interface CourseQuizAnswerItem {
+  id: string;
+  attempt_id: string;
+  question_id: string;
+  answer_data: Record<string, unknown>;
+  is_correct: boolean | null;
+  points_awarded: number;
+  instructor_feedback: string | null;
+}
+
+export interface LearningPathItem {
+  id: string;
+  circle_id: string;
+  title: string;
+  slug: string;
+  description: string;
+  thumbnail_url: string | null;
+  difficulty_level: 'beginner' | 'intermediate' | 'advanced' | 'all_levels' | null;
+  estimated_hours: number;
+  status: 'draft' | 'published' | 'archived';
+  sort_order: number;
+  certificate_title?: string | null;
+  created_at: string;
+  updated_at: string;
+  courses_count?: number;
+  completed_courses_count?: number;
+  courses?: LearningPathCourseItem[];
+  user_enrollment?: LearningPathEnrollmentItem | null;
+}
+
+export interface LearningPathCourseItem {
+  id: string;
+  path_id: string;
+  course_id: string;
+  circle_id: string;
+  sort_order: number;
+  is_required: boolean;
+  course?: CourseItem;
+  is_completed?: boolean;
+  is_locked?: boolean;
+  lock_reason?: string | null;
+}
+
+export interface CoursePrerequisiteItem {
+  id: string;
+  circle_id: string;
+  course_id: string;
+  prerequisite_course_id: string;
+  min_score_percent: number | null;
+  prerequisite_course_title?: string;
+  prerequisite_course_slug?: string;
+  is_satisfied?: boolean;
+}
+
+export interface LearningPathEnrollmentItem {
+  id: string;
+  path_id: string;
+  circle_id: string;
+  user_id: string;
+  status: 'active' | 'completed' | 'dropped';
+  progress_percent: number;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface CourseModuleItem {
@@ -730,6 +946,10 @@ export interface CourseItem {
   completed_lessons_count?: number;
   progress_percentage?: number;
   is_enrolled?: boolean;
+  learning_objectives?: string[];
+  published_version?: number;
+  validation_issues?: string[];
+  prerequisites?: CoursePrerequisiteItem[];
 }
 
 export interface CourseLessonCompletionItem {

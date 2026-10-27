@@ -13,9 +13,11 @@ import {
   Lock,
   Shield,
   X,
+  Compass,
 } from 'lucide-react';
 import { CourseItem, LeaderboardEntry, MemberXpSummary } from '@/types/domain';
 import { Button } from '@/components/ui/button';
+import { LearningPathsView } from './learning-paths-view';
 
 export function CoursesCatalog({
   circleId,
@@ -31,6 +33,7 @@ export function CoursesCatalog({
   isStaff: boolean;
 }) {
   const [courses, setCourses] = useState<CourseItem[]>(initialCourses);
+  const [mainTab, setMainTab] = useState<'courses' | 'paths'>('courses');
   const [search, setSearch] = useState('');
   const [difficultyFilter, setDifficultyFilter] = useState<string>('all');
   const [showCreate, setShowCreate] = useState(false);
@@ -216,157 +219,201 @@ export function CoursesCatalog({
         </div>
       </div>
 
-      {/* Filter & Search Bar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-        <div className="relative w-full sm:w-72">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-stone-400" />
-          <input
-            type="text"
-            placeholder="Search courses..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-xl border border-stone-200/90 bg-white pl-9 pr-3 py-1.5 text-xs text-stone-900 placeholder:text-stone-400 focus:border-stone-900 focus:outline-hidden"
-          />
-        </div>
+      {/* Main LMS Tab Navigation: Courses vs Learning Paths */}
+      <div className="flex items-center gap-6 border-b border-stone-200 pb-1">
+        <button
+          type="button"
+          onClick={() => setMainTab('courses')}
+          className={`flex items-center gap-2 pb-3 text-xs font-bold border-b-2 transition-colors ${
+            mainTab === 'courses'
+              ? 'border-black text-stone-900'
+              : 'border-transparent text-stone-500 hover:text-stone-800'
+          }`}
+        >
+          <GraduationCap className="h-4 w-4" />
+          <span>Individual Courses ({courses.length})</span>
+        </button>
 
-        <div className="flex items-center gap-1.5 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
-          {(['all', 'beginner', 'intermediate', 'advanced'] as const).map((level) => (
-            <button
-              key={level}
-              onClick={() => setDifficultyFilter(level)}
-              className={`rounded-lg px-2.5 py-1 text-xs font-medium capitalize transition-colors ${
-                difficultyFilter === level
-                  ? 'bg-black text-white'
-                  : 'bg-stone-100 text-stone-600 hover:bg-stone-200/70'
-              }`}
-            >
-              {level === 'all' ? 'All Levels' : level}
-            </button>
-          ))}
-        </div>
+        <button
+          type="button"
+          onClick={() => setMainTab('paths')}
+          className={`flex items-center gap-2 pb-3 text-xs font-bold border-b-2 transition-colors ${
+            mainTab === 'paths'
+              ? 'border-black text-stone-900'
+              : 'border-transparent text-stone-500 hover:text-stone-800'
+          }`}
+        >
+          <Compass className="h-4 w-4" />
+          <span>Learning Paths & Programmes</span>
+        </button>
       </div>
 
-      {/* Course Cards Grid */}
-      {filteredCourses.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-stone-200 bg-white p-12 text-center">
-          <GraduationCap className="mx-auto h-9 w-9 text-stone-400" />
-          <h3 className="mt-3 text-sm font-semibold text-stone-900">No courses found</h3>
-          <p className="mt-1 text-xs text-stone-500">
-            {search
-              ? 'Try modifying your search or filter criteria.'
-              : 'Start your academy by publishing your first structured course.'}
-          </p>
-          {(isStaff || isMember) && (
-            <Button
-              onClick={() => setShowCreate(true)}
-              className="mt-4 inline-flex items-center gap-1.5 bg-black text-white text-xs px-3 py-1.5 rounded-lg"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Create First Course
-            </Button>
-          )}
-        </div>
+      {mainTab === 'paths' ? (
+        <LearningPathsView
+          circleId={circleId}
+          circleSlug={circleSlug}
+          isMember={isMember}
+          isStaff={isStaff}
+          availableCourses={courses}
+        />
       ) : (
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
-          {filteredCourses.map((course) => {
-            const hasStarted = (course.completed_lessons_count ?? 0) > 0;
-            const progress = course.progress_percentage ?? 0;
-            const totalLessons = course.total_lessons_count ?? 0;
-            const isLevelLocked =
-              course.access_rule === 'min_level' &&
-              !isStaff &&
-              Boolean(
-                xpSummary &&
-                  xpSummary.current_level < (course.min_level_required || 1)
-              );
+        <>
+          {/* Filter & Search Bar */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="relative w-full sm:w-72">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-stone-400" />
+              <input
+                type="text"
+                placeholder="Search courses..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full rounded-xl border border-stone-200/90 bg-white pl-9 pr-3 py-1.5 text-xs text-stone-900 placeholder:text-stone-400 focus:border-stone-900 focus:outline-hidden"
+              />
+            </div>
 
-            return (
-              <div
-                key={course.id}
-                className="group flex flex-col justify-between rounded-2xl border border-stone-200/80 bg-white p-5 shadow-xs hover:border-stone-400/80 hover:shadow-sm transition-all"
-              >
-                <div>
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="rounded-md bg-stone-100 px-2 py-0.5 text-[10px] font-mono font-semibold uppercase tracking-wider text-stone-700 border border-stone-200/60">
-                        {course.difficulty_level?.replace('_', ' ') || 'All Levels'}
-                      </span>
-                      {course.access_rule === 'min_level' && (
-                        <span className="inline-flex items-center gap-1 rounded-md bg-stone-100 px-2 py-0.5 text-[10px] font-mono font-semibold text-stone-700 border border-stone-200/60">
-                          <Lock className="h-2.5 w-2.5" />
-                          Lvl {course.min_level_required}+
-                        </span>
+            <div className="flex items-center gap-1.5 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
+              {(['all', 'beginner', 'intermediate', 'advanced'] as const).map((level) => (
+                <button
+                  key={level}
+                  onClick={() => setDifficultyFilter(level)}
+                  className={`rounded-lg px-2.5 py-1 text-xs font-medium capitalize transition-colors ${
+                    difficultyFilter === level
+                      ? 'bg-black text-white'
+                      : 'bg-stone-100 text-stone-600 hover:bg-stone-200/70'
+                  }`}
+                >
+                  {level === 'all' ? 'All Levels' : level}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Course Cards Grid */}
+          {filteredCourses.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-stone-200 bg-white p-12 text-center">
+              <GraduationCap className="mx-auto h-9 w-9 text-stone-400" />
+              <h3 className="mt-3 text-sm font-semibold text-stone-900">No courses found</h3>
+              <p className="mt-1 text-xs text-stone-500">
+                {search
+                  ? 'Try modifying your search or filter criteria.'
+                  : 'Start your academy by publishing your first structured course.'}
+              </p>
+              {(isStaff || isMember) && (
+                <Button
+                  onClick={() => setShowCreate(true)}
+                  className="mt-4 inline-flex items-center gap-1.5 bg-black text-white text-xs px-3 py-1.5 rounded-lg"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Create First Course
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
+              {filteredCourses.map((course) => {
+                const hasStarted = (course.completed_lessons_count ?? 0) > 0;
+                const progress = course.progress_percentage ?? 0;
+                const totalLessons = course.total_lessons_count ?? 0;
+                const isLevelLocked =
+                  course.access_rule === 'min_level' &&
+                  !isStaff &&
+                  Boolean(
+                    xpSummary &&
+                      xpSummary.current_level < (course.min_level_required || 1)
+                  );
+
+                return (
+                  <div
+                    key={course.id}
+                    className="group flex flex-col justify-between rounded-2xl border border-stone-200/80 bg-white p-5 shadow-xs hover:border-stone-400/80 hover:shadow-sm transition-all"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="rounded-md bg-stone-100 px-2 py-0.5 text-[10px] font-mono font-semibold uppercase tracking-wider text-stone-700 border border-stone-200/60">
+                            {course.difficulty_level?.replace('_', ' ') || 'All Levels'}
+                          </span>
+                          <span className="rounded-md bg-stone-100 px-2 py-0.5 text-[10px] font-mono text-stone-600 border border-stone-200/60">
+                            v{course.published_version || 1}
+                          </span>
+                          {course.access_rule === 'min_level' && (
+                            <span className="inline-flex items-center gap-1 rounded-md bg-stone-100 px-2 py-0.5 text-[10px] font-mono font-semibold text-stone-700 border border-stone-200/60">
+                              <Lock className="h-2.5 w-2.5" />
+                              Lvl {course.min_level_required}+
+                            </span>
+                          )}
+                          {course.access_rule === 'staff_only' && (
+                            <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[10px] font-mono font-semibold text-amber-800 border border-amber-200">
+                              <Shield className="h-2.5 w-2.5" />
+                              Staff
+                            </span>
+                          )}
+                        </div>
+                        {course.estimated_duration_hours > 0 && (
+                          <span className="flex items-center gap-1 text-[11px] font-medium text-stone-500">
+                            <Clock className="h-3 w-3 text-stone-400" />
+                            {course.estimated_duration_hours}h
+                          </span>
+                        )}
+                      </div>
+
+                      <h3 className="mt-3 text-base font-bold text-stone-900 group-hover:text-black line-clamp-1">
+                        {course.title}
+                      </h3>
+
+                      <p className="mt-1.5 text-xs text-stone-500 line-clamp-2 leading-relaxed">
+                        {course.description || 'No description provided.'}
+                      </p>
+                    </div>
+
+                    <div className="mt-5 border-t border-stone-100 pt-4">
+                      {/* Progress bar if student has progress */}
+                      {hasStarted ? (
+                        <div className="space-y-1.5 mb-3">
+                          <div className="flex items-center justify-between text-[11px] font-medium">
+                            <span className="text-stone-500">
+                              {course.completed_lessons_count} of {totalLessons} lessons completed
+                            </span>
+                            <span className="font-mono text-stone-900 font-bold">{progress}%</span>
+                          </div>
+                          <div className="h-1.5 w-full overflow-hidden rounded-full bg-stone-100">
+                            <div
+                              className="h-full bg-black transition-all duration-300"
+                              style={{ width: `${progress}%` }}
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5 text-[11px] text-stone-500 mb-3">
+                          <BookOpen className="h-3.5 w-3.5 text-stone-400" />
+                          <span>{totalLessons} lessons in curriculum</span>
+                        </div>
                       )}
-                      {course.access_rule === 'staff_only' && (
-                        <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[10px] font-mono font-semibold text-amber-800 border border-amber-200">
-                          <Shield className="h-2.5 w-2.5" />
-                          Staff
-                        </span>
+
+                      {isLevelLocked ? (
+                        <Link
+                          href={`/circles/${circleSlug}/courses/${course.id}`}
+                          className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-xs font-medium text-stone-700 hover:bg-stone-100 transition-colors"
+                        >
+                          <Lock className="h-3.5 w-3.5 text-stone-400" />
+                          <span>Locked (Requires Level {course.min_level_required})</span>
+                        </Link>
+                      ) : (
+                        <Link
+                          href={`/circles/${circleSlug}/courses/${course.id}`}
+                          className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-stone-900 px-3 py-2 text-xs font-medium text-white hover:bg-black transition-colors"
+                        >
+                          <Play className="h-3.5 w-3.5 fill-current" />
+                          {hasStarted ? 'Continue Learning' : 'Start Course'}
+                        </Link>
                       )}
                     </div>
-                    {course.estimated_duration_hours > 0 && (
-                      <span className="flex items-center gap-1 text-[11px] font-medium text-stone-500">
-                        <Clock className="h-3 w-3 text-stone-400" />
-                        {course.estimated_duration_hours}h
-                      </span>
-                    )}
                   </div>
-
-                  <h3 className="mt-3 text-base font-bold text-stone-900 group-hover:text-black line-clamp-1">
-                    {course.title}
-                  </h3>
-
-                  <p className="mt-1.5 text-xs text-stone-500 line-clamp-2 leading-relaxed">
-                    {course.description || 'No description provided.'}
-                  </p>
-                </div>
-
-                <div className="mt-5 border-t border-stone-100 pt-4">
-                  {/* Progress bar if student has progress */}
-                  {hasStarted ? (
-                    <div className="space-y-1.5 mb-3">
-                      <div className="flex items-center justify-between text-[11px] font-medium">
-                        <span className="text-stone-500">
-                          {course.completed_lessons_count} of {totalLessons} lessons completed
-                        </span>
-                        <span className="font-mono text-stone-900 font-bold">{progress}%</span>
-                      </div>
-                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-stone-100">
-                        <div
-                          className="h-full bg-black transition-all duration-300"
-                          style={{ width: `${progress}%` }}
-                        />
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-1.5 text-[11px] text-stone-500 mb-3">
-                      <BookOpen className="h-3.5 w-3.5 text-stone-400" />
-                      <span>{totalLessons} lessons in curriculum</span>
-                    </div>
-                  )}
-
-                  {isLevelLocked ? (
-                    <Link
-                      href={`/circles/${circleSlug}/courses/${course.id}`}
-                      className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-xs font-medium text-stone-700 hover:bg-stone-100 transition-colors"
-                    >
-                      <Lock className="h-3.5 w-3.5 text-stone-400" />
-                      <span>Locked (Requires Level {course.min_level_required})</span>
-                    </Link>
-                  ) : (
-                    <Link
-                      href={`/circles/${circleSlug}/courses/${course.id}`}
-                      className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-stone-900 px-3 py-2 text-xs font-medium text-white hover:bg-black transition-colors"
-                    >
-                      <Play className="h-3.5 w-3.5 fill-current" />
-                      {hasStarted ? 'Continue Learning' : 'Start Course'}
-                    </Link>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+                );
+              })}
+            </div>
+          )}
+        </>
       )}
 
       {/* Create Course Modal */}

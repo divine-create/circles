@@ -155,6 +155,11 @@ describe.skipIf(!envLocalVars)(
           '0006',
           '0007',
           '0008',
+          '0009',
+          '0010',
+          '0011',
+          '0012',
+          '0013',
         ]);
 
         const healthRes = await healthGetRoute();

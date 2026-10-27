@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { z } from 'zod';
-import { withRlsTransaction, withServiceRoleTransaction } from '@/lib/db/postgres';
+import { withRlsTransaction, withServiceRoleTransaction, DbTransaction } from '@/lib/db/postgres';
 import {
   CourseItem,
   CourseModuleItem,
@@ -14,6 +14,17 @@ import {
   LeaderboardEntry,
   CircleRole,
   MembershipStatus,
+  LessonContentBlock,
+  QuestionBankItem,
+  QuestionType,
+  CourseQuestionItem,
+  CourseQuizItem,
+  CourseQuizAttemptItem,
+  CourseQuizAnswerItem,
+  LearningPathItem,
+  LearningPathCourseItem,
+  CoursePrerequisiteItem,
+  LearningPathEnrollmentItem,
 } from '@/types/domain';
 import {
   CapabilityDisabledError,
@@ -352,29 +363,7 @@ export async function getCourseWithCurriculum(
       };
     }
 
-    const lessonsByModule: Record<string, CourseLessonItem[]> = {};
-    for (const lesson of lessonsRes.rows) {
-      if (!lessonsByModule[lesson.module_id]) {
-        lessonsByModule[lesson.module_id] = [];
-      }
-      lessonsByModule[lesson.module_id].push({
-        ...lesson,
-        is_completed: completedLessonIds.has(lesson.id),
-        assignment: assignmentsByLesson[lesson.id] || null,
-      });
-    }
-
-    // Enrollment & Member info
-    const enrollRes = actorUserId
-      ? await tx.query<{ enrolled_at: string }>(
-          `SELECT enrolled_at FROM public.course_enrollments WHERE course_id = $1 AND student_id = $2 LIMIT 1;`,
-          [course.id, actorUserId]
-        )
-      : { rows: [] };
-    const enrolledAt = enrollRes.rows[0]?.enrolled_at
-      ? new Date(enrollRes.rows[0].enrolled_at)
-      : null;
-
+    // Member info & staff role
     const memRes = actorUserId
       ? await tx.query<{ role: CircleRole; status: MembershipStatus }>(
           `SELECT role, status FROM public.circle_memberships WHERE circle_id = $1 AND user_id = $2 LIMIT 1;`,
@@ -388,6 +377,73 @@ export async function getCourseWithCurriculum(
       role === 'admin' ||
       role === 'moderator' ||
       course.instructor_id === actorUserId;
+
+    // Quizzes for lessons in this course
+    const quizzesRes = await tx.query<CourseQuizItem>(
+      `SELECT * FROM public.course_quizzes WHERE circle_id = $1 AND course_id = $2;`,
+      [circleId, course.id]
+    );
+    const quizzesByLesson: Record<string, CourseQuizItem> = {};
+    for (const q of quizzesRes.rows) {
+      if (q.lesson_id) {
+        quizzesByLesson[q.lesson_id] = q;
+      }
+    }
+
+    const lessonsByModule: Record<string, CourseLessonItem[]> = {};
+    for (const lesson of lessonsRes.rows) {
+      if (!lessonsByModule[lesson.module_id]) {
+        lessonsByModule[lesson.module_id] = [];
+      }
+
+      const isCompleted = completedLessonIds.has(lesson.id);
+      const isPrereqLocked = Boolean(
+        lesson.prerequisite_lesson_id && !completedLessonIds.has(lesson.prerequisite_lesson_id)
+      );
+
+      // Synthesize fallback blocks if legacy columns used
+      let blocks = Array.isArray(lesson.content_blocks) ? lesson.content_blocks : [];
+      if (blocks.length === 0) {
+        const synth: LessonContentBlock[] = [];
+        if (lesson.video_url) {
+          synth.push({ id: 'block-v', type: 'video', url: lesson.video_url, provider: 'custom' });
+        }
+        if (lesson.content_body) {
+          synth.push({ id: 'block-t', type: 'rich_text', markdown: lesson.content_body });
+        }
+        if (lesson.attachment_url) {
+          synth.push({
+            id: 'block-f',
+            type: 'file_asset',
+            title: lesson.attachment_name || 'Attachment',
+            fileUrl: lesson.attachment_url,
+          });
+        }
+        blocks = synth;
+      }
+
+      lessonsByModule[lesson.module_id].push({
+        ...lesson,
+        content_blocks: blocks,
+        instructor_notes: isStaff ? lesson.instructor_notes : null,
+        is_completed: isCompleted,
+        is_locked: isPrereqLocked,
+        lock_reason: isPrereqLocked ? 'Requires completion of prerequisite lesson.' : null,
+        assignment: assignmentsByLesson[lesson.id] || null,
+        quiz: quizzesByLesson[lesson.id] || null,
+      });
+    }
+
+    // Enrollment & Member info
+    const enrollRes = actorUserId
+      ? await tx.query<{ enrolled_at: string }>(
+          `SELECT enrolled_at FROM public.course_enrollments WHERE course_id = $1 AND student_id = $2 LIMIT 1;`,
+          [course.id, actorUserId]
+        )
+      : { rows: [] };
+    const enrolledAt = enrollRes.rows[0]?.enrolled_at
+      ? new Date(enrollRes.rows[0].enrolled_at)
+      : null;
 
     let viewerLevel = 1;
     if (actorUserId) {
@@ -1320,3 +1376,920 @@ export async function enrollInCourse(
   });
 }
 
+
+
+// ============================================================================
+// PHASES 1 - 3: ADVANCED CURRICULUM, QUIZZES & LEARNING PATHS
+// ============================================================================
+
+/**
+ * Updates rich content blocks, drafts, learning objectives, and private notes for a lesson.
+ */
+export async function updateLessonBlocks(
+  actorUserId: string,
+  circleId: string,
+  input: {
+    lessonId: string;
+    contentBlocks: LessonContentBlock[];
+    draftContentBlocks?: LessonContentBlock[] | null;
+    learningObjectives?: string[];
+    instructorNotes?: string | null;
+    isOptional?: boolean;
+    prerequisiteLessonId?: string | null;
+    publishNow?: boolean;
+  }
+): Promise<CourseLessonItem> {
+  return withRlsTransaction(actorUserId, async (tx) => {
+    const memRes = await tx.query<{ role: CircleRole }>(
+      `SELECT role FROM public.circle_memberships WHERE circle_id = $1 AND user_id = $2 LIMIT 1;`,
+      [circleId, actorUserId]
+    );
+    const role = memRes.rows[0]?.role;
+    if (role !== 'owner' && role !== 'admin' && role !== 'moderator') {
+      throw new ForbiddenError('Only Circle staff can edit lesson content blocks.');
+    }
+
+    const currentRes = await tx.query<CourseLessonItem>(
+      `SELECT * FROM public.course_lessons WHERE id = $1 AND circle_id = $2 LIMIT 1;`,
+      [input.lessonId, circleId]
+    );
+    if (!currentRes.rows[0]) {
+      throw new NotFoundError('Lesson not found.');
+    }
+
+    const finalBlocks = input.publishNow !== false ? input.contentBlocks : currentRes.rows[0].content_blocks;
+    const finalDraft = input.publishNow !== false ? null : (input.draftContentBlocks ?? input.contentBlocks);
+
+    const res = await tx.query<CourseLessonItem>(
+      `UPDATE public.course_lessons
+       SET
+         content_blocks = COALESCE($3::jsonb, content_blocks),
+         draft_content_blocks = $4::jsonb,
+         learning_objectives = COALESCE($5::jsonb, learning_objectives),
+         instructor_notes = CASE WHEN $6::boolean THEN $7 ELSE instructor_notes END,
+         is_optional = COALESCE($8, is_optional),
+         prerequisite_lesson_id = CASE WHEN $9::boolean THEN $10::uuid ELSE prerequisite_lesson_id END,
+         last_edited_by = $11,
+         updated_at = NOW()
+       WHERE id = $1 AND circle_id = $2
+       RETURNING *;`,
+      [
+        input.lessonId,
+        circleId,
+        JSON.stringify(finalBlocks || []),
+        finalDraft ? JSON.stringify(finalDraft) : null,
+        JSON.stringify(input.learningObjectives || []),
+        input.instructorNotes !== undefined,
+        input.instructorNotes || null,
+        input.isOptional ?? false,
+        input.prerequisiteLessonId !== undefined,
+        input.prerequisiteLessonId || null,
+        actorUserId,
+      ]
+    );
+
+    return res.rows[0];
+  });
+}
+
+/**
+ * Reorders curriculum modules and lessons.
+ */
+export async function reorderCurriculum(
+  actorUserId: string,
+  circleId: string,
+  courseId: string,
+  input: {
+    moduleOrder?: string[];
+    lessonOrder?: { moduleId: string; lessonIds: string[] }[];
+  }
+): Promise<{ success: boolean }> {
+  return withRlsTransaction(actorUserId, async (tx) => {
+    const memRes = await tx.query<{ role: CircleRole }>(
+      `SELECT role FROM public.circle_memberships WHERE circle_id = $1 AND user_id = $2 LIMIT 1;`,
+      [circleId, actorUserId]
+    );
+    const role = memRes.rows[0]?.role;
+    if (role !== 'owner' && role !== 'admin' && role !== 'moderator') {
+      throw new ForbiddenError('Only Circle staff can reorder curriculum.');
+    }
+
+    if (input.moduleOrder && input.moduleOrder.length > 0) {
+      for (let i = 0; i < input.moduleOrder.length; i++) {
+        await tx.query(
+          `UPDATE public.course_modules SET sort_order = $1 WHERE id = $2 AND circle_id = $3 AND course_id = $4;`,
+          [i + 1, input.moduleOrder[i], circleId, courseId]
+        );
+      }
+    }
+
+    if (input.lessonOrder && input.lessonOrder.length > 0) {
+      for (const group of input.lessonOrder) {
+        for (let j = 0; j < group.lessonIds.length; j++) {
+          await tx.query(
+            `UPDATE public.course_lessons
+             SET sort_order = $1, module_id = $2
+             WHERE id = $3 AND circle_id = $4 AND course_id = $5;`,
+            [j + 1, group.moduleId, group.lessonIds[j], circleId, courseId]
+          );
+        }
+      }
+    }
+
+    return { success: true };
+  });
+}
+
+/**
+ * Duplicates an existing lesson into the same or target module.
+ */
+export async function duplicateLesson(
+  actorUserId: string,
+  circleId: string,
+  lessonId: string,
+  targetModuleId?: string
+): Promise<CourseLessonItem> {
+  return withRlsTransaction(actorUserId, async (tx) => {
+    const memRes = await tx.query<{ role: CircleRole }>(
+      `SELECT role FROM public.circle_memberships WHERE circle_id = $1 AND user_id = $2 LIMIT 1;`,
+      [circleId, actorUserId]
+    );
+    const role = memRes.rows[0]?.role;
+    if (role !== 'owner' && role !== 'admin' && role !== 'moderator') {
+      throw new ForbiddenError('Only Circle staff can duplicate lessons.');
+    }
+
+    const sourceRes = await tx.query<CourseLessonItem>(
+      `SELECT * FROM public.course_lessons WHERE id = $1 AND circle_id = $2 LIMIT 1;`,
+      [lessonId, circleId]
+    );
+    const source = sourceRes.rows[0];
+    if (!source) throw new NotFoundError('Source lesson not found.');
+
+    const newId = crypto.randomUUID();
+    const destModuleId = targetModuleId || source.module_id;
+    const newTitle = `${source.title} (Copy)`;
+    const newSlug = `${source.slug}-copy-${Date.now().toString().slice(-4)}`;
+
+    const res = await tx.query<CourseLessonItem>(
+      `INSERT INTO public.course_lessons (
+         id, module_id, course_id, circle_id, title, slug, description,
+         content_body, video_url, duration_minutes, attachment_url, attachment_name,
+         is_free_preview, status, sort_order, content_blocks, learning_objectives,
+         instructor_notes, is_optional, last_edited_by
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+       RETURNING *;`,
+      [
+        newId,
+        destModuleId,
+        source.course_id,
+        circleId,
+        newTitle,
+        newSlug,
+        source.description,
+        source.content_body,
+        source.video_url,
+        source.duration_minutes,
+        source.attachment_url,
+        source.attachment_name,
+        source.is_free_preview,
+        'draft',
+        source.sort_order + 1,
+        JSON.stringify(source.content_blocks || []),
+        JSON.stringify(source.learning_objectives || []),
+        source.instructor_notes,
+        source.is_optional ?? false,
+        actorUserId,
+      ]
+    );
+
+    return res.rows[0];
+  });
+}
+
+/**
+ * Validates a course for publishing integrity (checks empty modules, broken lessons, durations).
+ */
+export async function validateCourseForPublishing(
+  actorUserId: string,
+  circleId: string,
+  courseId: string
+): Promise<{ isValid: boolean; issues: string[] }> {
+  return withRlsTransaction(actorUserId, async (tx) => {
+    const issues: string[] = [];
+
+    const modulesRes = await tx.query<{ id: string; title: string }>(
+      `SELECT id, title FROM public.course_modules WHERE circle_id = $1 AND course_id = $2;`,
+      [circleId, courseId]
+    );
+
+    if (modulesRes.rows.length === 0) {
+      issues.push('Course must have at least one curriculum module before publishing.');
+    }
+
+    const lessonsRes = await tx.query<{ id: string; title: string; content_blocks: LessonContentBlock[] | null; duration_minutes: number }>(
+      `SELECT id, title, content_blocks, duration_minutes
+       FROM public.course_lessons
+       WHERE circle_id = $1 AND course_id = $2 AND status <> 'archived';`,
+      [circleId, courseId]
+    );
+
+    if (lessonsRes.rows.length === 0) {
+      issues.push('Course must have at least one active lesson before publishing.');
+    }
+
+    for (const l of lessonsRes.rows) {
+      const blocks = Array.isArray(l.content_blocks) ? l.content_blocks : [];
+      if (blocks.length === 0) {
+        issues.push(`Lesson "${l.title}" has no content blocks.`);
+      }
+    }
+
+    await tx.query(
+      `UPDATE public.courses SET validation_issues = $1::jsonb WHERE id = $2 AND circle_id = $3;`,
+      [JSON.stringify(issues), courseId, circleId]
+    );
+
+    return {
+      isValid: issues.length === 0,
+      issues,
+    };
+  });
+}
+
+/**
+ * Publishes a course draft version to active students.
+ */
+export async function publishCourseVersion(
+  actorUserId: string,
+  circleId: string,
+  courseId: string
+): Promise<CourseItem> {
+  return withRlsTransaction(actorUserId, async (tx) => {
+    const memRes = await tx.query<{ role: CircleRole }>(
+      `SELECT role FROM public.circle_memberships WHERE circle_id = $1 AND user_id = $2 LIMIT 1;`,
+      [circleId, actorUserId]
+    );
+    const role = memRes.rows[0]?.role;
+    if (role !== 'owner' && role !== 'admin') {
+      throw new ForbiddenError('Only Circle owners or admins can publish courses.');
+    }
+
+    // Publish all draft lesson content blocks
+    await tx.query(
+      `UPDATE public.course_lessons
+       SET content_blocks = COALESCE(draft_content_blocks, content_blocks),
+           draft_content_blocks = NULL,
+           status = 'published',
+           published_at = NOW(),
+           updated_at = NOW()
+       WHERE course_id = $1 AND circle_id = $2 AND status <> 'archived';`,
+      [courseId, circleId]
+    );
+
+    const res = await tx.query<CourseItem>(
+      `UPDATE public.courses
+       SET status = 'published',
+           published_version = published_version + 1,
+           updated_at = NOW()
+       WHERE id = $1 AND circle_id = $2
+       RETURNING *;`,
+      [courseId, circleId]
+    );
+
+    return res.rows[0];
+  });
+}
+
+// ----------------------------------------------------------------------------
+// PHASE 2: QUESTION BANKS & QUIZZES
+// ----------------------------------------------------------------------------
+
+export async function listQuestionBanks(
+  actorUserId: string,
+  circleId: string
+): Promise<QuestionBankItem[]> {
+  return withRlsTransaction(actorUserId, async (tx) => {
+    const res = await tx.query<QuestionBankItem>(
+      `SELECT qb.*,
+              (SELECT COUNT(*)::int FROM public.course_questions q WHERE q.bank_id = qb.id) AS questions_count
+       FROM public.course_question_banks qb
+       WHERE qb.circle_id = $1
+       ORDER BY qb.created_at DESC;`,
+      [circleId]
+    );
+    return res.rows;
+  });
+}
+
+export async function createQuestionBank(
+  actorUserId: string,
+  circleId: string,
+  input: { title: string; description?: string; category?: string; tags?: string[] }
+): Promise<QuestionBankItem> {
+  return withRlsTransaction(actorUserId, async (tx) => {
+    const id = crypto.randomUUID();
+    const res = await tx.query<QuestionBankItem>(
+      `INSERT INTO public.course_question_banks (
+         id, circle_id, instructor_id, title, description, category, tags
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
+       RETURNING *;`,
+      [
+        id,
+        circleId,
+        actorUserId,
+        input.title.trim(),
+        input.description?.trim() || '',
+        input.category || 'general',
+        JSON.stringify(input.tags || []),
+      ]
+    );
+    return res.rows[0];
+  });
+}
+
+export async function listBankQuestions(
+  actorUserId: string,
+  circleId: string,
+  bankId?: string
+): Promise<CourseQuestionItem[]> {
+  return withRlsTransaction(actorUserId, async (tx) => {
+    const whereBank = bankId ? 'AND q.bank_id = $2' : '';
+    const params = bankId ? [circleId, bankId] : [circleId];
+
+    const res = await tx.query<CourseQuestionItem>(
+      `SELECT q.* FROM public.course_questions q
+       WHERE q.circle_id = $1 ${whereBank}
+       ORDER BY q.created_at DESC;`,
+      params
+    );
+    return res.rows;
+  });
+}
+
+export async function createBankQuestion(
+  actorUserId: string,
+  circleId: string,
+  input: {
+    bankId?: string | null;
+    type: QuestionType;
+    questionText: string;
+    explanation?: string;
+    points?: number;
+    difficulty?: 'beginner' | 'intermediate' | 'advanced';
+    options?: { id: string; text: string }[];
+    correctAnswers?: string[];
+    rubrics?: string | null;
+  }
+): Promise<CourseQuestionItem> {
+  return withRlsTransaction(actorUserId, async (tx) => {
+    const id = crypto.randomUUID();
+    const res = await tx.query<CourseQuestionItem>(
+      `INSERT INTO public.course_questions (
+         id, bank_id, circle_id, type, question_text, explanation, points,
+         difficulty, options, correct_answers, rubrics
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11)
+       RETURNING *;`,
+      [
+        id,
+        input.bankId || null,
+        circleId,
+        input.type,
+        input.questionText.trim(),
+        input.explanation?.trim() || '',
+        input.points || 1,
+        input.difficulty || 'intermediate',
+        JSON.stringify(input.options || []),
+        JSON.stringify(input.correctAnswers || []),
+        input.rubrics || null,
+      ]
+    );
+    return res.rows[0];
+  });
+}
+
+export async function createCourseQuiz(
+  actorUserId: string,
+  circleId: string,
+  input: {
+    courseId: string;
+    lessonId?: string | null;
+    title: string;
+    description?: string;
+    passingScore?: number;
+    timeLimitMinutes?: number | null;
+    maxAttempts?: number | null;
+    randomizeQuestions?: boolean;
+    feedbackMode?: 'immediate' | 'after_submission' | 'after_deadline';
+    isRequired?: boolean;
+    questionIds: string[];
+  }
+): Promise<CourseQuizItem> {
+  return withRlsTransaction(actorUserId, async (tx) => {
+    const quizId = crypto.randomUUID();
+    const res = await tx.query<CourseQuizItem>(
+      `INSERT INTO public.course_quizzes (
+         id, circle_id, course_id, lesson_id, title, description,
+         passing_score, time_limit_minutes, max_attempts, randomize_questions,
+         feedback_mode, is_required
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+       RETURNING *;`,
+      [
+        quizId,
+        circleId,
+        input.courseId,
+        input.lessonId || null,
+        input.title.trim(),
+        input.description?.trim() || '',
+        input.passingScore ?? 70,
+        input.timeLimitMinutes || null,
+        input.maxAttempts ?? 3,
+        input.randomizeQuestions ?? false,
+        input.feedbackMode ?? 'immediate',
+        input.isRequired !== false,
+      ]
+    );
+
+    for (let i = 0; i < input.questionIds.length; i++) {
+      await tx.query(
+        `INSERT INTO public.course_quiz_questions (id, quiz_id, question_id, sort_order, points)
+         VALUES ($1, $2, $3, $4, (SELECT points FROM public.course_questions WHERE id = $3 LIMIT 1))
+         ON CONFLICT (quiz_id, question_id) DO NOTHING;`,
+        [crypto.randomUUID(), quizId, input.questionIds[i], i + 1]
+      );
+    }
+
+    return res.rows[0];
+  });
+}
+
+export async function getQuizWithQuestions(
+  actorUserId: string | null,
+  circleId: string,
+  quizId: string
+): Promise<CourseQuizItem & { questions: CourseQuestionItem[] }> {
+  return withRlsTransaction(actorUserId, async (tx) => {
+    const quizRes = await tx.query<CourseQuizItem>(
+      `SELECT * FROM public.course_quizzes WHERE id = $1 AND circle_id = $2 LIMIT 1;`,
+      [quizId, circleId]
+    );
+    const quiz = quizRes.rows[0];
+    if (!quiz) throw new NotFoundError('Quiz not found.');
+
+    const memRes = actorUserId
+      ? await tx.query<{ role: CircleRole }>(
+          `SELECT role FROM public.circle_memberships WHERE circle_id = $1 AND user_id = $2 LIMIT 1;`,
+          [circleId, actorUserId]
+        )
+      : { rows: [] };
+    const isStaff = memRes.rows[0]?.role === 'owner' || memRes.rows[0]?.role === 'admin' || memRes.rows[0]?.role === 'moderator';
+
+    // Fetch quiz questions
+    const qRes = await tx.query<CourseQuestionItem & { sort_order: number }>(
+      `SELECT q.*, qq.sort_order, qq.points
+       FROM public.course_quiz_questions qq
+       JOIN public.course_questions q ON q.id = qq.question_id
+       WHERE qq.quiz_id = $1
+       ORDER BY qq.sort_order ASC;`,
+      [quizId]
+    );
+
+    // Redact answer keys for student actors
+    const sanitizedQuestions = qRes.rows.map((row) => ({
+      ...row,
+      correct_answers: isStaff ? row.correct_answers : undefined,
+    }));
+
+    // Find best attempt for user
+    let bestAttempt: CourseQuizAttemptItem | null = null;
+    if (actorUserId) {
+      const attRes = await tx.query<CourseQuizAttemptItem>(
+        `SELECT * FROM public.course_quiz_attempts
+         WHERE quiz_id = $1 AND user_id = $2 AND status IN ('submitted', 'graded')
+         ORDER BY score_percent DESC NULLS LAST LIMIT 1;`,
+        [quizId, actorUserId]
+      );
+      bestAttempt = attRes.rows[0] || null;
+    }
+
+    return {
+      ...quiz,
+      questions: sanitizedQuestions,
+      user_best_attempt: bestAttempt,
+    };
+  });
+}
+
+export async function startQuizAttempt(
+  actorUserId: string,
+  circleId: string,
+  quizId: string
+): Promise<CourseQuizAttemptItem> {
+  return withRlsTransaction(actorUserId, async (tx) => {
+    const quizRes = await tx.query<CourseQuizItem>(
+      `SELECT * FROM public.course_quizzes WHERE id = $1 AND circle_id = $2 LIMIT 1;`,
+      [quizId, circleId]
+    );
+    const quiz = quizRes.rows[0];
+    if (!quiz) throw new NotFoundError('Quiz not found.');
+
+    // Check existing attempts
+    const countRes = await tx.query<{ count: string }>(
+      `SELECT COUNT(*)::text AS count FROM public.course_quiz_attempts WHERE quiz_id = $1 AND user_id = $2;`,
+      [quizId, actorUserId]
+    );
+    const attemptCount = parseInt(countRes.rows[0]?.count || '0', 10);
+    if (quiz.max_attempts && attemptCount >= quiz.max_attempts) {
+      throw new ForbiddenError(`Maximum attempt limit (${quiz.max_attempts}) reached for this quiz.`);
+    }
+
+    const attemptId = crypto.randomUUID();
+    const res = await tx.query<CourseQuizAttemptItem>(
+      `INSERT INTO public.course_quiz_attempts (
+         id, quiz_id, circle_id, user_id, status, started_at
+       ) VALUES ($1, $2, $3, $4, 'in_progress', NOW())
+       RETURNING *;`,
+      [attemptId, quizId, circleId, actorUserId]
+    );
+
+    return res.rows[0];
+  });
+}
+
+export async function submitQuizAnswer(
+  actorUserId: string,
+  circleId: string,
+  input: {
+    attemptId: string;
+    questionId: string;
+    answerData: Record<string, unknown>;
+  }
+): Promise<CourseQuizAnswerItem> {
+  return withRlsTransaction(actorUserId, async (tx) => {
+    const attemptRes = await tx.query<CourseQuizAttemptItem>(
+      `SELECT * FROM public.course_quiz_attempts WHERE id = $1 AND user_id = $2 LIMIT 1;`,
+      [input.attemptId, actorUserId]
+    );
+    if (!attemptRes.rows[0] || attemptRes.rows[0].status !== 'in_progress') {
+      throw new ForbiddenError('Attempt is no longer in progress.');
+    }
+
+    const answerId = crypto.randomUUID();
+    const res = await tx.query<CourseQuizAnswerItem>(
+      `INSERT INTO public.course_quiz_answers (id, attempt_id, question_id, answer_data, updated_at)
+       VALUES ($1, $2, $3, $4::jsonb, NOW())
+       ON CONFLICT (attempt_id, question_id)
+       DO UPDATE SET answer_data = EXCLUDED.answer_data, updated_at = NOW()
+       RETURNING *;`,
+      [answerId, input.attemptId, input.questionId, JSON.stringify(input.answerData)]
+    );
+
+    return res.rows[0];
+  });
+}
+
+export async function finalizeQuizAttempt(
+  actorUserId: string,
+  circleId: string,
+  attemptId: string
+): Promise<CourseQuizAttemptItem> {
+  return withRlsTransaction(actorUserId, async (tx) => {
+    const attemptRes = await tx.query<CourseQuizAttemptItem & { quiz_id: string }>(
+      `SELECT * FROM public.course_quiz_attempts WHERE id = $1 AND user_id = $2 LIMIT 1;`,
+      [attemptId, actorUserId]
+    );
+    const attempt = attemptRes.rows[0];
+    if (!attempt) throw new NotFoundError('Attempt not found.');
+
+    const quizRes = await tx.query<CourseQuizItem>(
+      `SELECT * FROM public.course_quizzes WHERE id = $1 LIMIT 1;`,
+      [attempt.quiz_id]
+    );
+    const quiz = quizRes.rows[0];
+
+    // Evaluate answers
+    const questionsRes = await tx.query<CourseQuestionItem & { points: number }>(
+      `SELECT q.*, qq.points FROM public.course_quiz_questions qq
+       JOIN public.course_questions q ON q.id = qq.question_id
+       WHERE qq.quiz_id = $1;`,
+      [attempt.quiz_id]
+    );
+
+    const answersRes = await tx.query<CourseQuizAnswerItem>(
+      `SELECT * FROM public.course_quiz_answers WHERE attempt_id = $1;`,
+      [attemptId]
+    );
+    const answerMap = new Map(answersRes.rows.map((a) => [a.question_id, a]));
+
+    let pointsEarned = 0;
+    let pointsPossible = 0;
+    let hasManualGrading = false;
+
+    for (const q of questionsRes.rows) {
+      pointsPossible += q.points;
+      const ans = answerMap.get(q.id);
+
+      if (q.type === 'multiple_choice' || q.type === 'true_false') {
+        const chosen = ans?.answer_data?.selectedOptionId;
+        const correct = Array.isArray(q.correct_answers) ? q.correct_answers[0] : null;
+        const isCorrect = Boolean(chosen && correct && chosen === correct);
+        const pts = isCorrect ? q.points : 0;
+        pointsEarned += pts;
+
+        if (ans) {
+          await tx.query(
+            `UPDATE public.course_quiz_answers SET is_correct = $1, points_awarded = $2 WHERE id = $3;`,
+            [isCorrect, pts, ans.id]
+          );
+        }
+      } else if (q.type === 'multiple_select') {
+        const chosen = Array.isArray(ans?.answer_data?.selectedOptionIds) ? ans?.answer_data?.selectedOptionIds : [];
+        const correct = Array.isArray(q.correct_answers) ? q.correct_answers : [];
+        const isMatch = chosen.length === correct.length && chosen.every((c: string) => correct.includes(c));
+        const pts = isMatch ? q.points : 0;
+        pointsEarned += pts;
+
+        if (ans) {
+          await tx.query(
+            `UPDATE public.course_quiz_answers SET is_correct = $1, points_awarded = $2 WHERE id = $3;`,
+            [isMatch, pts, ans.id]
+          );
+        }
+      } else {
+        hasManualGrading = true;
+      }
+    }
+
+    const scorePercent = pointsPossible > 0 ? Math.round((pointsEarned / pointsPossible) * 100) : 100;
+    const isPassed = scorePercent >= quiz.passing_score;
+    const nextStatus = hasManualGrading ? 'submitted' : 'graded';
+
+    const res = await tx.query<CourseQuizAttemptItem>(
+      `UPDATE public.course_quiz_attempts
+       SET status = $1,
+           submitted_at = NOW(),
+           score_percent = $2,
+           points_earned = $3,
+           points_possible = $4,
+           is_passed = $5
+       WHERE id = $6
+       RETURNING *;`,
+      [nextStatus, scorePercent, pointsEarned, pointsPossible, isPassed, attemptId]
+    );
+
+    return res.rows[0];
+  });
+}
+
+// ----------------------------------------------------------------------------
+// PHASE 3: LEARNING PATHS & PREREQUISITES
+// ----------------------------------------------------------------------------
+
+export async function listLearningPaths(
+  actorUserId: string | null,
+  circleId: string
+): Promise<LearningPathItem[]> {
+  return withRlsTransaction(actorUserId, async (tx) => {
+    const res = await tx.query<LearningPathItem>(
+      `SELECT lp.*,
+              (SELECT COUNT(*)::int FROM public.learning_path_courses lpc WHERE lpc.path_id = lp.id) AS courses_count
+       FROM public.learning_paths lp
+       WHERE lp.circle_id = $1 AND lp.status = 'published'
+       ORDER BY lp.sort_order ASC, lp.created_at DESC;`,
+      [circleId]
+    );
+    return res.rows;
+  });
+}
+
+export async function getLearningPathWithCourses(
+  actorUserId: string | null,
+  circleId: string,
+  pathIdOrSlug: string
+): Promise<LearningPathItem & { courses: LearningPathCourseItem[] }> {
+  return withRlsTransaction(actorUserId, async (tx) => {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(pathIdOrSlug);
+    const pathRes = await tx.query<LearningPathItem>(
+      `SELECT * FROM public.learning_paths
+       WHERE circle_id = $1 AND ${isUuid ? 'id = $2' : 'slug = $2'}
+       LIMIT 1;`,
+      [circleId, pathIdOrSlug]
+    );
+    const path = pathRes.rows[0];
+    if (!path) throw new NotFoundError('Learning path not found.');
+
+    // Fetch courses in path
+    const coursesRes = await tx.query<LearningPathCourseItem & { course_title: string; course_slug: string }>(
+      `SELECT lpc.*, c.title AS course_title, c.slug AS course_slug
+       FROM public.learning_path_courses lpc
+       JOIN public.courses c ON c.id = lpc.course_id
+       WHERE lpc.path_id = $1
+       ORDER BY lpc.sort_order ASC;`,
+      [path.id]
+    );
+
+    // Check user enrollment
+    let enrollment: LearningPathEnrollmentItem | null = null;
+    if (actorUserId) {
+      const enrRes = await tx.query<LearningPathEnrollmentItem>(
+        `SELECT * FROM public.learning_path_enrollments WHERE path_id = $1 AND user_id = $2 LIMIT 1;`,
+        [path.id, actorUserId]
+      );
+      enrollment = enrRes.rows[0] || null;
+    }
+
+    const coursesWithPrereqs = await Promise.all(
+      coursesRes.rows.map(async (row) => {
+        const prereqEval = await evaluatePrerequisitesWithTx(tx, actorUserId, circleId, row.course_id);
+        return {
+          ...row,
+          is_locked: prereqEval.isLocked,
+          lock_reason: prereqEval.lockReason || null,
+          course: {
+            id: row.course_id,
+            title: row.course_title,
+            slug: row.course_slug,
+          } as unknown as CourseItem,
+        };
+      })
+    );
+
+    return {
+      ...path,
+      user_enrollment: enrollment,
+      courses: coursesWithPrereqs,
+    };
+  });
+}
+
+export async function createLearningPath(
+  actorUserId: string,
+  circleId: string,
+  input: {
+    title: string;
+    slug: string;
+    description?: string;
+    thumbnailUrl?: string | null;
+    difficultyLevel?: 'beginner' | 'intermediate' | 'advanced' | 'all_levels';
+    estimatedHours?: number;
+    certificateTitle?: string | null;
+  }
+): Promise<LearningPathItem> {
+  return withRlsTransaction(actorUserId, async (tx) => {
+    const id = crypto.randomUUID();
+    const res = await tx.query<LearningPathItem>(
+      `INSERT INTO public.learning_paths (
+         id, circle_id, title, slug, description, thumbnail_url,
+         difficulty_level, estimated_hours, status
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'published')
+       RETURNING *;`,
+      [
+        id,
+        circleId,
+        input.title.trim(),
+        input.slug.trim().toLowerCase(),
+        input.description?.trim() || '',
+        input.thumbnailUrl || null,
+        input.difficultyLevel || 'all_levels',
+        input.estimatedHours || 0,
+      ]
+    );
+    return res.rows[0];
+  });
+}
+
+export async function addCourseToLearningPath(
+  actorUserId: string,
+  circleId: string,
+  input: {
+    pathId?: string;
+    learningPathId?: string;
+    courseId: string;
+    sortOrder?: number;
+    stepOrder?: number;
+    isRequired?: boolean;
+  }
+): Promise<LearningPathCourseItem> {
+  const targetPathId = input.pathId || input.learningPathId;
+  if (!targetPathId) throw new ValidationError('pathId is required.');
+
+  return withRlsTransaction(actorUserId, async (tx) => {
+    const id = crypto.randomUUID();
+    const res = await tx.query<LearningPathCourseItem>(
+      `INSERT INTO public.learning_path_courses (
+         id, path_id, course_id, circle_id, sort_order, is_required
+       ) VALUES ($1, $2, $3, $4, $5, $6)
+       ON CONFLICT (path_id, course_id)
+       DO UPDATE SET sort_order = EXCLUDED.sort_order, is_required = EXCLUDED.is_required
+       RETURNING *;`,
+      [
+        id,
+        targetPathId,
+        input.courseId,
+        circleId,
+        input.sortOrder ?? input.stepOrder ?? 1,
+        input.isRequired !== false,
+      ]
+    );
+    return res.rows[0];
+  });
+}
+
+export async function addCoursePrerequisite(
+  actorUserId: string,
+  circleId: string,
+  input: {
+    courseId: string;
+    prerequisiteCourseId: string;
+    minScorePercent?: number | null;
+    minPassingScore?: number | null;
+  }
+): Promise<CoursePrerequisiteItem> {
+  return withRlsTransaction(actorUserId, async (tx) => {
+    const id = crypto.randomUUID();
+    const res = await tx.query<CoursePrerequisiteItem>(
+      `INSERT INTO public.course_prerequisites (
+         id, circle_id, course_id, prerequisite_course_id, min_score_percent
+       ) VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (course_id, prerequisite_course_id)
+       DO UPDATE SET min_score_percent = EXCLUDED.min_score_percent
+       RETURNING *;`,
+      [
+        id,
+        circleId,
+        input.courseId,
+        input.prerequisiteCourseId,
+        input.minScorePercent ?? input.minPassingScore ?? 70,
+      ]
+    );
+    return res.rows[0];
+  });
+}
+
+async function evaluatePrerequisitesWithTx(
+  tx: DbTransaction,
+  actorUserId: string | null,
+  circleId: string,
+  courseId: string
+): Promise<{ isLocked: boolean; lockReason?: string; unsatisfiedPrerequisites: CoursePrerequisiteItem[] }> {
+  const prereqRes = await tx.query<CoursePrerequisiteItem & { prereq_title: string }>(
+    `SELECT cp.*, c.title AS prereq_title
+     FROM public.course_prerequisites cp
+     JOIN public.courses c ON c.id = cp.prerequisite_course_id
+     WHERE cp.circle_id = $1 AND cp.course_id = $2;`,
+    [circleId, courseId]
+  );
+
+  if (prereqRes.rows.length === 0) {
+    return { isLocked: false, unsatisfiedPrerequisites: [] };
+  }
+
+  if (!actorUserId) {
+    return {
+      isLocked: true,
+      lockReason: `Requires completion of ${prereqRes.rows[0].prereq_title}. Sign in to check your progress.`,
+      unsatisfiedPrerequisites: prereqRes.rows,
+    };
+  }
+
+  // Check student completion for each prerequisite
+  const unsatisfied: CoursePrerequisiteItem[] = [];
+  for (const prereq of prereqRes.rows) {
+    const countRes = await tx.query<{ total: string; completed: string }>(
+      `SELECT
+         (SELECT COUNT(*)::text FROM public.course_lessons WHERE course_id = $1 AND status = 'published') AS total,
+         (SELECT COUNT(*)::text FROM public.course_lesson_completions WHERE course_id = $1 AND user_id = $2) AS completed;`,
+      [prereq.prerequisite_course_id, actorUserId]
+    );
+    const total = parseInt(countRes.rows[0]?.total || '0', 10);
+    const completed = parseInt(countRes.rows[0]?.completed || '0', 10);
+
+    if (total === 0 || completed < total) {
+      unsatisfied.push({
+        ...prereq,
+        prerequisite_course_title: prereq.prereq_title,
+        is_satisfied: false,
+      });
+    }
+  }
+
+  if (unsatisfied.length > 0) {
+    return {
+      isLocked: true,
+      lockReason: `Locked until prerequisite course "${unsatisfied[0].prerequisite_course_title}" is completed.`,
+      unsatisfiedPrerequisites: unsatisfied,
+    };
+  }
+
+  return { isLocked: false, unsatisfiedPrerequisites: [] };
+}
+
+export async function evaluateCoursePrerequisites(
+  actorUserId: string | null,
+  circleId: string,
+  courseId: string
+): Promise<{ isLocked: boolean; lockReason?: string; unsatisfiedPrerequisites: CoursePrerequisiteItem[] }> {
+  return withRlsTransaction(actorUserId, async (tx) => {
+    return evaluatePrerequisitesWithTx(tx, actorUserId, circleId, courseId);
+  });
+}

@@ -20,6 +20,11 @@ import {
   Lock,
   AlertCircle,
   X,
+  Eye,
+  Copy,
+  Sparkles,
+  HelpCircle,
+  Layers,
 } from 'lucide-react';
 import {
   CourseItem,
@@ -28,6 +33,9 @@ import {
   AssignmentSubmissionItem,
 } from '@/types/domain';
 import { Button } from '@/components/ui/button';
+import { ContentBlockRenderer } from './content-block-renderer';
+import { QuizRunner } from './quiz-runner';
+import { LessonBlockBuilder } from './lesson-block-builder';
 
 export function CoursePlayer({
   circleId,
@@ -43,6 +51,10 @@ export function CoursePlayer({
   isStaff: boolean;
 }) {
   const [course, setCourse] = useState<CourseItem>(initialCourse);
+
+  // Student Preview Mode state for instructors
+  const [previewAsStudent, setPreviewAsStudent] = useState(false);
+  const effectiveIsStaff = isStaff && !previewAsStudent;
 
   // Flatten lessons
   const allLessons: CourseLessonItem[] = [];
@@ -60,8 +72,22 @@ export function CoursePlayer({
   const prevLesson = activeIndex > 0 ? allLessons[activeIndex - 1] : null;
   const nextLesson = activeIndex < allLessons.length - 1 ? allLessons[activeIndex + 1] : null;
 
-  // Active sub-tab under player: notes, assignment, discussion
+  // Active sub-tab under player: blocks/notes, assignment, discussion
   const [activeTab, setActiveTab] = useState<'notes' | 'assignment' | 'discussion'>('notes');
+
+  // Interactive Quiz Runner modal
+  const [activeQuizId, setActiveQuizId] = useState<string | null>(null);
+
+  // Lesson Content Blocks Builder Modal
+  const [showBlockBuilder, setShowBlockBuilder] = useState(false);
+
+  // Pre-Publish Course Validation Modal
+  const [showValidationModal, setShowValidationModal] = useState(false);
+  const [validationIssues, setValidationIssues] = useState<
+    { severity: 'error' | 'warning'; message: string; entity: string }[]
+  >([]);
+  const [isValidating, setIsValidating] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
 
   // Comments state
   const [comments, setComments] = useState<LessonCommentItem[]>([]);
@@ -230,7 +256,6 @@ export function CoursePlayer({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to submit homework.');
 
-      // Update local assignment submission state
       setCourse((prev) => ({
         ...prev,
         modules: prev.modules?.map((m) => ({
@@ -249,6 +274,7 @@ export function CoursePlayer({
       }));
       setSubmissionBody('');
       setSubmissionAttachment('');
+      showToast('Homework submitted successfully!', 'success');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to submit homework.');
     } finally {
@@ -428,6 +454,95 @@ export function CoursePlayer({
     }
   }
 
+  async function handleDuplicateLesson(lessonId: string, moduleId: string) {
+    try {
+      const res = await fetch(`/api/circles/${circleId}/courses`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'duplicate_lesson',
+          lessonId,
+          targetModuleId: moduleId,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to duplicate lesson.');
+
+      setCourse((prev) => ({
+        ...prev,
+        modules: prev.modules?.map((m) =>
+          m.id === moduleId
+            ? { ...m, lessons: [...m.lessons, { ...data.lesson, is_completed: false }] }
+            : m
+        ),
+      }));
+      showToast('Lesson duplicated successfully!', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Unable to duplicate lesson.', 'error');
+    }
+  }
+
+  async function handleValidateCourse() {
+    setIsValidating(true);
+    try {
+      const res = await fetch(`/api/circles/${circleId}/courses`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'validate_course',
+          courseId: course.id,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Validation request failed.');
+
+      setValidationIssues(data.validation?.issues || []);
+      setShowValidationModal(true);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to validate course.', 'error');
+    } finally {
+      setIsValidating(false);
+    }
+  }
+
+  async function handlePublishCourse() {
+    setIsPublishing(true);
+    try {
+      const res = await fetch(`/api/circles/${circleId}/courses`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'publish_version',
+          courseId: course.id,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to publish course version.');
+
+      setCourse((prev) => ({
+        ...prev,
+        published_version: data.course.published_version,
+      }));
+      setShowValidationModal(false);
+      showToast(`Course published as Version ${data.course.published_version}!`, 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to publish course.', 'error');
+    } finally {
+      setIsPublishing(false);
+    }
+  }
+
+  function handleLessonSaved(updatedLesson: CourseLessonItem) {
+    setCourse((prev) => ({
+      ...prev,
+      modules: prev.modules?.map((m) => ({
+        ...m,
+        lessons: m.lessons.map((l) => (l.id === updatedLesson.id ? updatedLesson : l)),
+      })),
+    }));
+    showToast('Lesson content blocks updated successfully!', 'success');
+  }
+
   function getEmbedUrl(url: string | null): string | null {
     if (!url) return null;
     const ytMatch = url.match(
@@ -452,9 +567,10 @@ export function CoursePlayer({
   const activeModule = course.modules?.find((m) =>
     m.lessons.some((l) => l.id === activeLesson?.id)
   );
-  const isActiveModuleLocked = Boolean(activeModule?.is_locked) && !isStaff;
+  const isActiveModuleLocked = Boolean(activeModule?.is_locked) && !effectiveIsStaff;
+  const isLessonPrereqLocked = Boolean(activeLesson?.is_locked) && !effectiveIsStaff;
 
-  if (course.viewer_can_access === false && !isStaff) {
+  if (course.viewer_can_access === false && !effectiveIsStaff) {
     return (
       <div className="space-y-6">
         <div className="rounded-2xl border border-stone-200/80 bg-white p-5 shadow-xs">
@@ -537,6 +653,24 @@ export function CoursePlayer({
         </div>
       )}
 
+      {/* Student Preview Mode Banner for Instructors */}
+      {previewAsStudent && (
+        <div className="flex items-center justify-between rounded-2xl border border-amber-300 bg-amber-50 px-4 py-2.5 text-xs text-amber-900 shadow-2xs">
+          <div className="flex items-center gap-2">
+            <Eye className="h-4 w-4 text-amber-700" />
+            <span>
+              <strong>Student Preview Mode Active:</strong> You are experiencing this curriculum exactly as an enrolled student. Admin controls and draft features are hidden.
+            </span>
+          </div>
+          <button
+            onClick={() => setPreviewAsStudent(false)}
+            className="font-bold underline hover:text-amber-950 ml-2"
+          >
+            Exit Preview
+          </button>
+        </div>
+      )}
+
       {/* Top Breadcrumb & Progress Banner */}
       <div className="flex flex-col justify-between gap-4 rounded-2xl border border-stone-200/80 bg-white p-5 shadow-xs sm:flex-row sm:items-center">
         <div>
@@ -550,6 +684,11 @@ export function CoursePlayer({
             </Link>
             <span>/</span>
             <span className="text-stone-900 font-bold truncate max-w-xs">{course.title}</span>
+            {isStaff && (
+              <span className="rounded bg-stone-100 px-1.5 py-0.5 text-[10px] font-mono text-stone-600">
+                v{course.published_version || 1}
+              </span>
+            )}
           </div>
 
           <h2 className="mt-1 text-lg font-bold text-stone-900 tracking-tight">
@@ -558,13 +697,13 @@ export function CoursePlayer({
         </div>
 
         {/* Progress Bar & Actions */}
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-3">
           <div className="text-right">
             <div className="flex items-center justify-end gap-2 text-xs font-medium">
-              <span className="text-stone-500">Course Progress</span>
+              <span className="text-stone-500">Progress</span>
               <span className="font-mono font-bold text-stone-900">{progressPercent}%</span>
             </div>
-            <div className="mt-1 h-2 w-36 overflow-hidden rounded-full bg-stone-100 border border-stone-200/60">
+            <div className="mt-1 h-2 w-32 overflow-hidden rounded-full bg-stone-100 border border-stone-200/60">
               <div
                 className="h-full bg-black transition-all duration-300"
                 style={{ width: `${progressPercent}%` }}
@@ -572,15 +711,44 @@ export function CoursePlayer({
             </div>
           </div>
 
-          {(isStaff || isMember) && (
-            <Button
-              onClick={() => setShowAddModule(true)}
-              variant="outline"
-              className="rounded-lg text-xs"
-            >
-              <Plus className="h-3.5 w-3.5 mr-1" />
-              Add Module
-            </Button>
+          {/* Instructor Controls */}
+          {isStaff && (
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setPreviewAsStudent(!previewAsStudent)}
+                className={`rounded-xl text-xs flex items-center gap-1 ${
+                  previewAsStudent ? 'bg-amber-100 text-amber-900 border-amber-300' : ''
+                }`}
+                title="Preview course as a learner"
+              >
+                <Eye className="h-3.5 w-3.5" />
+                {previewAsStudent ? 'Exit Preview' : 'Student View'}
+              </Button>
+
+              {!previewAsStudent && (
+                <>
+                  <Button
+                    onClick={handleValidateCourse}
+                    disabled={isValidating}
+                    variant="outline"
+                    className="rounded-xl text-xs flex items-center gap-1 text-stone-700"
+                  >
+                    <Sparkles className="h-3.5 w-3.5 text-stone-500" />
+                    {isValidating ? 'Validating...' : 'Pre-check'}
+                  </Button>
+
+                  <Button
+                    onClick={() => setShowAddModule(true)}
+                    variant="outline"
+                    className="rounded-xl text-xs"
+                  >
+                    <Plus className="h-3.5 w-3.5 mr-1" />
+                    Module
+                  </Button>
+                </>
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -607,7 +775,7 @@ export function CoursePlayer({
           {!course.modules || course.modules.length === 0 ? (
             <div className="rounded-xl border border-dashed border-stone-200 p-6 text-center text-xs text-stone-500">
               No modules in this course yet.
-              {(isStaff || isMember) && (
+              {effectiveIsStaff && (
                 <button
                   onClick={() => setShowAddModule(true)}
                   className="mt-2 block w-full text-center text-black font-semibold hover:underline"
@@ -619,7 +787,7 @@ export function CoursePlayer({
           ) : (
             <div className="space-y-4">
               {course.modules.map((module, mIdx) => {
-                const isModuleLocked = Boolean(module.is_locked) && !isStaff;
+                const isModuleLocked = Boolean(module.is_locked) && !effectiveIsStaff;
                 return (
                   <div key={module.id} className="space-y-2">
                     <div className="flex items-center justify-between">
@@ -636,7 +804,7 @@ export function CoursePlayer({
                           </span>
                         )}
                       </div>
-                      {(isStaff || isMember) && (
+                      {effectiveIsStaff && (
                         <button
                           onClick={() => {
                             setTargetModuleId(module.id);
@@ -652,12 +820,21 @@ export function CoursePlayer({
                     <div className="space-y-1">
                       {module.lessons.map((lesson) => {
                         const isActive = lesson.id === activeLesson?.id;
+                        const isLessonLocked = Boolean(lesson.is_locked) && !effectiveIsStaff;
 
-                        if (isModuleLocked) {
+                        if (isModuleLocked || isLessonLocked) {
                           return (
                             <div
                               key={lesson.id}
-                              className="flex items-center justify-between rounded-xl px-3 py-2 text-xs bg-stone-50 text-stone-400 border border-stone-100 select-none cursor-not-allowed"
+                              onClick={() => {
+                                // Allow clicking to inspect the "Why is this locked?" reason
+                                setActiveLessonId(lesson.id);
+                              }}
+                              className={`flex items-center justify-between rounded-xl px-3 py-2 text-xs border select-none cursor-pointer transition-all ${
+                                isActive
+                                  ? 'bg-amber-50/70 border-amber-300 text-amber-900 font-medium'
+                                  : 'bg-stone-50 text-stone-400 border-stone-100 hover:bg-stone-100/60'
+                              }`}
                             >
                               <div className="flex items-center gap-2.5 truncate mr-2">
                                 <Lock className="h-3 w-3 shrink-0 text-stone-400" />
@@ -690,9 +867,35 @@ export function CoursePlayer({
                                 }`}
                               />
                               <span className="truncate">{lesson.title}</span>
+                              {lesson.is_optional && (
+                                <span
+                                  className={`rounded px-1 py-0.2 text-[9px] font-mono uppercase ${
+                                    isActive
+                                      ? 'bg-stone-800 text-stone-300'
+                                      : 'bg-stone-200 text-stone-600'
+                                  }`}
+                                >
+                                  Opt
+                                </span>
+                              )}
                             </button>
 
                             <div className="flex items-center gap-2 shrink-0">
+                              {effectiveIsStaff && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDuplicateLesson(lesson.id, module.id);
+                                  }}
+                                  title="Duplicate lesson"
+                                  className={`rounded p-1 opacity-0 group-hover:opacity-100 transition-opacity ${
+                                    isActive ? 'text-stone-300 hover:text-white' : 'text-stone-400 hover:text-stone-900'
+                                  }`}
+                                >
+                                  <Copy className="h-3 w-3" />
+                                </button>
+                              )}
+
                               {lesson.duration_minutes > 0 && (
                                 <span
                                   className={`text-[10px] font-mono ${
@@ -703,7 +906,7 @@ export function CoursePlayer({
                                 </span>
                               )}
 
-                              {isMember && (
+                              {isMember && !previewAsStudent && (
                                 <button
                                   onClick={() =>
                                     handleToggleComplete(lesson.id, Boolean(lesson.is_completed))
@@ -755,68 +958,87 @@ export function CoursePlayer({
                   : 'This module is scheduled to release on a future drip schedule date.'}
               </p>
             </div>
-          ) : activeLesson ? (
-            <div className="rounded-2xl border border-stone-200/80 bg-white p-6 shadow-xs space-y-6">
-              {/* Video Player or Live Session Banner */}
-              {activeLesson.is_live_session ? (
-                <div className="flex aspect-video w-full flex-col items-center justify-center rounded-xl border border-stone-200 bg-stone-900 p-8 text-center text-white">
-                  <Calendar className="h-10 w-10 text-stone-400" />
-                  <h4 className="mt-3 text-sm font-semibold tracking-wide">
-                    Live Workshop / Synchronized Cohort Session
-                  </h4>
-                  <p className="mt-1 max-w-sm text-xs text-stone-400">
-                    This lesson is a scheduled live interactive workshop. Join via the meeting link below or watch the recording archive once concluded.
-                  </p>
-                  {activeLesson.video_url && (
-                    <a
-                      href={activeLesson.video_url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-white px-3.5 py-1.5 text-xs font-semibold text-black hover:bg-stone-100"
-                    >
-                      Join Meeting Link
-                      <ExternalLink className="h-3.5 w-3.5" />
-                    </a>
-                  )}
-                </div>
-              ) : activeLesson.video_url ? (
-                <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-black shadow-md">
-                  <iframe
-                    src={getEmbedUrl(activeLesson.video_url) || ''}
-                    title={activeLesson.title}
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                    className="h-full w-full border-0"
-                  />
-                </div>
-              ) : (
-                <div className="flex aspect-video w-full flex-col items-center justify-center rounded-xl border border-stone-200 bg-stone-50 p-8 text-center">
-                  <FileText className="h-10 w-10 text-stone-400" />
-                  <h4 className="mt-3 text-sm font-semibold text-stone-800">
-                    Text-Based Lesson & Study Notes
-                  </h4>
-                  <p className="mt-1 max-w-sm text-xs text-stone-500">
-                    Review the lesson notes, complete assignments, and participate in discussion below.
-                  </p>
+          ) : isLessonPrereqLocked ? (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-10 text-center shadow-xs space-y-4">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-100 text-amber-800 border border-amber-200">
+                <Lock className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-stone-900">Lesson Prerequisite Locked</h3>
+                <p className="mt-1.5 text-xs text-amber-900 font-medium max-w-md mx-auto">
+                  {activeLesson.lock_reason || 'You must complete earlier curriculum lessons or assessments before unlocking this lesson.'}
+                </p>
+              </div>
+
+              {prevLesson && (
+                <div className="pt-2">
+                  <Button
+                    onClick={() => setActiveLessonId(prevLesson.id)}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-black px-4 py-2 text-xs font-semibold text-white"
+                  >
+                    Go to Previous Lesson
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </Button>
                 </div>
               )}
-
-              {/* Lesson Title & Top Actions */}
+            </div>
+          ) : activeLesson ? (
+            <div className="rounded-2xl border border-stone-200/80 bg-white p-6 shadow-xs space-y-6">
+              {/* Top Lesson Title & Action Bar */}
               <div className="flex flex-col justify-between gap-4 border-b border-stone-100 pb-5 sm:flex-row sm:items-center">
                 <div>
-                  <h1 className="text-xl font-bold tracking-tight text-stone-900">
-                    {activeLesson.title}
-                  </h1>
-                  {activeLesson.duration_minutes > 0 && (
-                    <p className="mt-1 flex items-center gap-1.5 text-xs text-stone-500">
-                      <Clock className="h-3.5 w-3.5 text-stone-400" />
-                      {activeLesson.duration_minutes} minutes
-                    </p>
-                  )}
+                  <div className="flex items-center gap-2">
+                    <h1 className="text-xl font-bold tracking-tight text-stone-900">
+                      {activeLesson.title}
+                    </h1>
+                    {activeLesson.is_optional && (
+                      <span className="rounded bg-stone-100 px-2 py-0.5 text-[10px] font-mono text-stone-600">
+                        Optional
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="mt-1 flex items-center gap-3 text-xs text-stone-500">
+                    {activeLesson.duration_minutes > 0 && (
+                      <span className="flex items-center gap-1">
+                        <Clock className="h-3.5 w-3.5 text-stone-400" />
+                        {activeLesson.duration_minutes} minutes
+                      </span>
+                    )}
+                    {activeLesson.quiz?.id && (
+                      <span className="flex items-center gap-1 text-emerald-700 font-medium">
+                        <HelpCircle className="h-3.5 w-3.5 text-emerald-600" />
+                        Graded Quiz Included
+                      </span>
+                    )}
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  {(isStaff || isMember) && !activeLesson.assignment && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Instructor Edit Blocks Button */}
+                  {effectiveIsStaff && (
+                    <Button
+                      onClick={() => setShowBlockBuilder(true)}
+                      variant="outline"
+                      className="rounded-xl text-xs flex items-center gap-1.5 text-stone-800 hover:border-black"
+                    >
+                      <Layers className="h-3.5 w-3.5 text-stone-500" />
+                      Edit Content Blocks
+                    </Button>
+                  )}
+
+                  {/* Launch Quiz Button if lesson has associated quiz */}
+                  {activeLesson.quiz?.id && (
+                    <Button
+                      onClick={() => setActiveQuizId(activeLesson.quiz?.id || null)}
+                      className="rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs flex items-center gap-1.5"
+                    >
+                      <HelpCircle className="h-3.5 w-3.5" />
+                      Take Lesson Quiz
+                    </Button>
+                  )}
+
+                  {effectiveIsStaff && !activeLesson.assignment && (
                     <Button
                       onClick={() => setShowAddAssignment(true)}
                       variant="outline"
@@ -827,7 +1049,7 @@ export function CoursePlayer({
                     </Button>
                   )}
 
-                  {isMember && (
+                  {isMember && !previewAsStudent && (
                     <Button
                       onClick={() =>
                         handleToggleComplete(activeLesson.id, Boolean(activeLesson.is_completed))
@@ -850,8 +1072,83 @@ export function CoursePlayer({
                 </div>
               </div>
 
+              {/* Instructor Private Notes Callout (Staff only, hidden from student preview) */}
+              {effectiveIsStaff && activeLesson.instructor_notes && (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
+                      <Lock className="h-3.5 w-3.5 text-amber-700" />
+                      Instructor Private Note
+                    </span>
+                    <span className="rounded bg-amber-200/60 px-1.5 py-0.5 text-[9px] font-mono font-bold text-amber-900">
+                      Private (Students cannot see this)
+                    </span>
+                  </div>
+                  <p className="text-xs text-amber-900 whitespace-pre-wrap leading-relaxed">
+                    {activeLesson.instructor_notes}
+                  </p>
+                </div>
+              )}
+
+              {/* Flexible Lesson Content Blocks (Phase 1) */}
+              {activeLesson.content_blocks && activeLesson.content_blocks.length > 0 ? (
+                <div className="space-y-6">
+                  <ContentBlockRenderer
+                    blocks={activeLesson.content_blocks}
+                    circleSlug={circleSlug}
+                    onLaunchQuiz={(quizId) => setActiveQuizId(quizId)}
+                  />
+                </div>
+              ) : (
+                /* Legacy fallback renderer when no blocks configured */
+                <div className="space-y-6">
+                  {activeLesson.is_live_session ? (
+                    <div className="flex aspect-video w-full flex-col items-center justify-center rounded-xl border border-stone-200 bg-stone-900 p-8 text-center text-white">
+                      <Calendar className="h-10 w-10 text-stone-400" />
+                      <h4 className="mt-3 text-sm font-semibold tracking-wide">
+                        Live Workshop / Synchronized Cohort Session
+                      </h4>
+                      <p className="mt-1 max-w-sm text-xs text-stone-400">
+                        This lesson is a scheduled live interactive workshop. Join via the meeting link below.
+                      </p>
+                      {activeLesson.video_url && (
+                        <a
+                          href={activeLesson.video_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-white px-3.5 py-1.5 text-xs font-semibold text-black hover:bg-stone-100"
+                        >
+                          Join Meeting Link
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </a>
+                      )}
+                    </div>
+                  ) : activeLesson.video_url ? (
+                    <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-black shadow-md">
+                      <iframe
+                        src={getEmbedUrl(activeLesson.video_url) || ''}
+                        title={activeLesson.title}
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                        className="h-full w-full border-0"
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex aspect-video w-full flex-col items-center justify-center rounded-xl border border-stone-200 bg-stone-50 p-8 text-center">
+                      <FileText className="h-10 w-10 text-stone-400" />
+                      <h4 className="mt-3 text-sm font-semibold text-stone-800">
+                        Text-Based Lesson & Study Notes
+                      </h4>
+                      <p className="mt-1 max-w-sm text-xs text-stone-500">
+                        Review the lesson notes, complete assignments, and participate in discussion below.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Interactivity Sub-Tabs: Notes | Homework | Q&A Discussion */}
-              <div className="flex items-center gap-4 border-b border-stone-100">
+              <div className="flex items-center gap-4 border-b border-stone-100 pt-2">
                 <button
                   onClick={() => setActiveTab('notes')}
                   className={`pb-3 text-xs font-semibold border-b-2 transition-colors ${
@@ -936,7 +1233,6 @@ export function CoursePlayer({
                 <div className="space-y-6">
                   {activeLesson.assignment ? (
                     <div className="space-y-5">
-                      {/* Assignment Prompt Box */}
                       <div className="rounded-xl border border-stone-200 bg-stone-50/70 p-5 space-y-2">
                         <div className="flex items-center justify-between">
                           <h3 className="text-sm font-bold text-stone-900">
@@ -954,7 +1250,6 @@ export function CoursePlayer({
                         </p>
                       </div>
 
-                      {/* Current Student Submission Status */}
                       {currentSubmission ? (
                         <div className="rounded-xl border border-stone-200 bg-white p-5 space-y-3">
                           <div className="flex items-center justify-between">
@@ -1055,7 +1350,7 @@ export function CoursePlayer({
                   ) : (
                     <div className="rounded-xl border border-dashed border-stone-200 p-8 text-center text-xs text-stone-500">
                       No assignment prompt has been assigned for this lesson.
-                      {(isStaff || isMember) && (
+                      {effectiveIsStaff && (
                         <button
                           onClick={() => setShowAddAssignment(true)}
                           className="mt-2 block w-full text-center text-black font-semibold hover:underline"
@@ -1071,7 +1366,6 @@ export function CoursePlayer({
               {/* Tab 3: Contextual Lesson Q&A Discussion */}
               {activeTab === 'discussion' && (
                 <div className="space-y-6">
-                  {/* Comments Timeline */}
                   {comments.length === 0 ? (
                     <div className="rounded-xl border border-dashed border-stone-200 p-8 text-center text-xs text-stone-500">
                       No questions or comments yet. Be the first to start the discussion!
@@ -1099,8 +1393,7 @@ export function CoursePlayer({
                     </div>
                   )}
 
-                  {/* Comment Composer */}
-                  {isMember ? (
+                  {isMember && !previewAsStudent ? (
                     <form onSubmit={handlePostComment} className="flex gap-2">
                       <input
                         type="text"
@@ -1166,6 +1459,112 @@ export function CoursePlayer({
           )}
         </div>
       </div>
+
+      {/* Quiz Runner Modal */}
+      {activeQuizId && (
+        <QuizRunner
+          circleId={circleId}
+          quizId={activeQuizId}
+          onClose={() => setActiveQuizId(null)}
+          onCompleted={(attempt) => {
+            showToast(
+              `Quiz submitted! Score: ${attempt.score_percent}% (${attempt.is_passed ? 'PASSED' : 'NEEDS RETAKE'})`,
+              attempt.is_passed ? 'success' : 'error'
+            );
+          }}
+        />
+      )}
+
+      {/* Lesson Content Block Builder Drawer/Modal */}
+      {showBlockBuilder && activeLesson && (
+        <LessonBlockBuilder
+          circleId={circleId}
+          courseId={course.id}
+          lesson={activeLesson}
+          isOpen={showBlockBuilder}
+          onClose={() => setShowBlockBuilder(false)}
+          onSaveSuccess={handleLessonSaved}
+        />
+      )}
+
+      {/* Pre-Publish Course Validation Modal */}
+      {showValidationModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-lg rounded-2xl border border-stone-200 bg-white p-6 shadow-xl">
+            <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-stone-700" />
+                <h3 className="text-base font-bold text-stone-900">Course Pre-Publish Validation</h3>
+              </div>
+              <button
+                onClick={() => setShowValidationModal(false)}
+                className="text-stone-400 hover:text-stone-700"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              {validationIssues.length === 0 ? (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-xs text-emerald-950 flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                  <span>All validation checks passed! This course is ready to be published or updated.</span>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {validationIssues.map((issue, idx) => (
+                    <div
+                      key={idx}
+                      className={`flex items-start gap-2.5 rounded-xl border p-3 text-xs ${
+                        issue.severity === 'error'
+                          ? 'border-red-200 bg-red-50 text-red-950'
+                          : 'border-amber-200 bg-amber-50 text-amber-950'
+                      }`}
+                    >
+                      <AlertCircle
+                        className={`h-4 w-4 shrink-0 mt-0.5 ${
+                          issue.severity === 'error' ? 'text-red-600' : 'text-amber-600'
+                        }`}
+                      />
+                      <div>
+                        <span className="font-bold uppercase text-[10px]">[{issue.entity}]</span>
+                        <p className="mt-0.5">{issue.message}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="mt-5 flex items-center justify-between border-t border-stone-100 pt-3">
+              <span className="text-xs text-stone-500">
+                Current Version: <strong>v{course.published_version || 1}</strong>
+              </span>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowValidationModal(false)}
+                  className="rounded-lg text-xs"
+                >
+                  Close
+                </Button>
+                <Button
+                  onClick={handlePublishCourse}
+                  disabled={
+                    isPublishing ||
+                    validationIssues.some((issue) => issue.severity === 'error')
+                  }
+                  className="rounded-lg bg-black text-white text-xs px-4"
+                >
+                  {isPublishing ? 'Publishing...' : 'Publish Version'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add Assignment Prompt Modal */}
       {showAddAssignment && (
