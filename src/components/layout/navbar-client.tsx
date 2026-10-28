@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -28,6 +28,23 @@ export function NavbarClient({ user, unreadCount }: NavbarClientProps) {
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+
+  // Close mobile drawer on route changes
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
+  // Lock scroll when mobile menu is active
+  useEffect(() => {
+    if (mobileOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [mobileOpen]);
 
   async function handleSignOut() {
     setSigningOut(true);
@@ -184,88 +201,127 @@ export function NavbarClient({ user, unreadCount }: NavbarClientProps) {
       </div>
 
       {mobileOpen && (
-        <div className="border-t border-stone-200 bg-white/95 backdrop-blur-xl px-4 pb-4 pt-2 md:hidden">
-          <button
-            type="button"
-            onClick={() => {
-              setMobileOpen(false);
-              window.dispatchEvent(new CustomEvent('open-command-palette'));
-            }}
-            className="flex w-full items-center gap-2.5 rounded-lg border border-stone-200/80 bg-stone-50/80 px-3 py-2 text-sm text-stone-600 mb-2"
-          >
-            <Search className="h-4 w-4 text-stone-400" />
-            <span>Search or jump to...</span>
-            <kbd className="ml-auto inline-flex items-center rounded border border-stone-200 bg-white px-1.5 py-0.5 text-[10px] font-mono text-stone-400">
-              ⌘K
-            </kbd>
-          </button>
-          <div className="flex flex-col space-y-1">
-            {navLinks.map((item) => {
-              const Icon = item.icon;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setMobileOpen(false)}
-                  className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100"
-                >
-                  <Icon className="h-4 w-4 text-zinc-900" />
-                  {item.label}
-                </Link>
-              );
-            })}
-            {user ? (
-              <>
-                <Link
-                  href="/notifications"
-                  onClick={() => setMobileOpen(false)}
-                  className="flex items-center justify-between rounded-lg px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100"
-                >
-                  <span className="flex items-center gap-2.5">
-                    <Bell className="h-4 w-4 text-zinc-900" />
-                    Notifications
-                  </span>
-                  {unreadCount > 0 && (
-                    <span className="rounded-full bg-black px-2 py-0.5 text-xs font-semibold text-white">
-                      {unreadCount}
-                    </span>
-                  )}
-                </Link>
-                <Link
-                  href="/settings"
-                  onClick={() => setMobileOpen(false)}
-                  className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100"
-                >
-                  <Settings className="h-4 w-4 text-zinc-900" />
-                  Settings ({user.display_name})
-                </Link>
-                <button
-                  type="button"
-                  onClick={handleSignOut}
-                  className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm font-medium text-red-600 hover:bg-red-50"
-                >
-                  <LogOut className="h-4 w-4" />
-                  Sign out
-                </button>
-              </>
-            ) : (
-              <div className="flex flex-col gap-2 pt-2">
-                <Link
-                  href="/login"
-                  onClick={() => setMobileOpen(false)}
-                  className="w-full rounded-lg border border-stone-200 py-2 text-center text-sm font-medium text-stone-800"
-                >
-                  Sign in
-                </Link>
-                <Link
-                  href="/register"
-                  onClick={() => setMobileOpen(false)}
-                  className="w-full rounded-lg bg-black py-2 text-center text-sm font-semibold text-white"
-                >
-                  Create account
-                </Link>
-              </div>
-            )}
+        <div className="fixed inset-0 top-16 z-50 md:hidden">
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 top-16 bg-stone-950/40 backdrop-blur-xs animate-in fade-in duration-200"
+            onClick={() => setMobileOpen(false)}
+            aria-hidden="true"
+          />
+
+          {/* Drawer content */}
+          <div className="relative z-10 max-h-[calc(100vh-4rem)] overflow-y-auto border-b border-stone-200 bg-white/95 backdrop-blur-xl px-5 py-5 shadow-2xl animate-in slide-in-from-top-4 duration-200">
+            {/* Quick search button */}
+            <button
+              type="button"
+              onClick={() => {
+                setMobileOpen(false);
+                window.dispatchEvent(new CustomEvent('open-command-palette'));
+              }}
+              className="flex w-full items-center gap-2.5 rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-2.5 text-xs text-stone-600 mb-4 shadow-2xs hover:bg-stone-100"
+            >
+              <Search className="h-4 w-4 text-stone-400" />
+              <span>Search or jump to...</span>
+              <kbd className="ml-auto inline-flex items-center rounded border border-stone-200 bg-white px-1.5 py-0.5 text-[10px] font-mono text-stone-400">
+                ⌘K
+              </kbd>
+            </button>
+
+            {/* Navigation links */}
+            <div className="flex flex-col space-y-1">
+              {navLinks.map((item) => {
+                const Icon = item.icon;
+                const active =
+                  pathname === item.href ||
+                  (item.href !== '/circles' && pathname.startsWith(item.href));
+
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setMobileOpen(false)}
+                    className={`flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-colors ${
+                      active
+                        ? 'bg-stone-900 text-white font-semibold'
+                        : 'text-stone-700 hover:bg-stone-100 hover:text-stone-900'
+                    }`}
+                  >
+                    <Icon className={`h-4 w-4 ${active ? 'text-white' : 'text-stone-500'}`} />
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
+
+              {user ? (
+                <>
+                  <div className="my-2 border-t border-stone-100 pt-2 space-y-1">
+                    <Link
+                      href="/notifications"
+                      onClick={() => setMobileOpen(false)}
+                      className={`flex items-center justify-between rounded-xl px-3.5 py-2.5 text-sm font-medium transition-colors ${
+                        pathname === '/notifications'
+                          ? 'bg-stone-900 text-white font-semibold'
+                          : 'text-stone-700 hover:bg-stone-100'
+                      }`}
+                    >
+                      <span className="flex items-center gap-3">
+                        <Bell className={`h-4 w-4 ${pathname === '/notifications' ? 'text-white' : 'text-stone-500'}`} />
+                        <span>Notifications</span>
+                      </span>
+                      {unreadCount > 0 && (
+                        <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-xs font-bold text-white">
+                          {unreadCount}
+                        </span>
+                      )}
+                    </Link>
+
+                    <Link
+                      href="/settings"
+                      onClick={() => setMobileOpen(false)}
+                      className={`flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-colors ${
+                        pathname === '/settings'
+                          ? 'bg-stone-900 text-white font-semibold'
+                          : 'text-stone-700 hover:bg-stone-100'
+                      }`}
+                    >
+                      <Settings className={`h-4 w-4 ${pathname === '/settings' ? 'text-white' : 'text-stone-500'}`} />
+                      <span className="truncate">Settings ({user.display_name})</span>
+                    </Link>
+                  </div>
+
+                  <div className="pt-2 border-t border-stone-100">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMobileOpen(false);
+                        handleSignOut();
+                      }}
+                      className="flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-left text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      <span>Sign out</span>
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="flex flex-col gap-2 pt-3 border-t border-stone-100">
+                  <Link
+                    href="/login"
+                    onClick={() => setMobileOpen(false)}
+                    className="w-full rounded-xl border border-stone-200 py-2.5 text-center text-sm font-medium text-stone-800 hover:bg-stone-50"
+                  >
+                    Sign in
+                  </Link>
+                  <Link
+                    href="/register"
+                    onClick={() => setMobileOpen(false)}
+                    className="w-full rounded-xl bg-black py-2.5 text-center text-sm font-semibold text-white shadow-xs hover:bg-stone-800"
+                  >
+                    Create account
+                  </Link>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

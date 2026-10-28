@@ -1,12 +1,11 @@
 import React from 'react';
-import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { Globe, Lock, MapPin, Shield, Sliders, Sparkles, Users } from 'lucide-react';
+import { Globe, Lock, MapPin, Shield, Users } from 'lucide-react';
 import { getAuthenticatedUser } from '@/lib/auth/session';
 import { getCircleBySlugOrId } from '@/features/circles/service';
 import { getCircleNavigation } from '@/features/capabilities/service';
 import { CircleMembershipActions } from '@/components/circles/circle-membership-actions';
-import { DynamicIcon } from '@/components/ui/icon-map';
+import { CircleCollapsibleLayout } from '@/components/circles/circle-collapsible-layout';
 
 export const dynamic = 'force-dynamic';
 
@@ -108,78 +107,14 @@ export default async function CircleLayout({
         </div>
       </div>
 
-      {/* Main Content + Capability Navigation Sidebar */}
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
-          {/* Left Navigation Column */}
-          <aside className="lg:col-span-3 space-y-5">
-            <nav
-              aria-label="Circle Navigation"
-              className="rounded-2xl border border-stone-200/80 bg-white p-2.5 shadow-xs space-y-1"
-            >
-              <p className="px-3 py-1.5 text-[10px] font-mono font-bold uppercase tracking-wider text-stone-400">
-                Navigation
-              </p>
-              {navigation.navigationItems.map((item) => (
-                <Link
-                  key={item.id}
-                  href={item.href}
-                  className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs sm:text-sm font-medium text-stone-700 hover:bg-stone-50 hover:text-stone-900 transition-colors"
-                >
-                  <DynamicIcon name={item.icon} className="h-4 w-4 text-zinc-900" />
-                  <span>{item.label}</span>
-                </Link>
-              ))}
-
-              {isStaff && (
-                <div className="pt-2 border-t border-stone-100">
-                  <Link
-                    href={`/circles/${circle.slug}/studio`}
-                    className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold text-zinc-950 bg-zinc-100 hover:bg-zinc-200 transition-colors"
-                  >
-                    <Sliders className="h-4 w-4 text-zinc-900" />
-                    <span>Circle Studio</span>
-                    <Sparkles className="h-3 w-3 ml-auto text-zinc-900" />
-                  </Link>
-                </div>
-              )}
-            </nav>
-
-            {/* Spaces Sub-navigation (Only shown if 'spaces' capability is enabled) */}
-            {navigation.enabledCapabilityKeys.includes('spaces') &&
-              navigation.visibleSpaces.length > 0 && (
-                <div className="rounded-2xl border border-stone-200/80 bg-white p-2.5 shadow-xs space-y-1">
-                  <div className="flex items-center justify-between px-3 py-1.5">
-                    <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-stone-400">
-                      Spaces
-                    </p>
-                    <Link
-                      href={`/circles/${circle.slug}/spaces`}
-                      className="text-[10px] font-mono font-semibold text-stone-900 hover:underline uppercase"
-                    >
-                      All ({navigation.visibleSpaces.length})
-                    </Link>
-                  </div>
-                  {navigation.visibleSpaces.map((sp) => (
-                    <Link
-                      key={sp.id}
-                      href={`/circles/${circle.slug}/discussions?spaceId=${sp.id}`}
-                      className="flex items-center justify-between rounded-xl px-3 py-1.5 text-xs font-medium text-stone-600 hover:bg-stone-50 hover:text-stone-900 transition-colors"
-                    >
-                      <span className="flex items-center gap-2 truncate">
-                        <DynamicIcon name={sp.icon} className="h-3.5 w-3.5 text-stone-900 shrink-0" />
-                        <span className="truncate">{sp.name}</span>
-                      </span>
-                    </Link>
-                  ))}
-                </div>
-              )}
-          </aside>
-
-          {/* Right Primary Content Column */}
-          <div className="lg:col-span-9">{children}</div>
-        </div>
-      </div>
+      {/* Collapsible Main Content & Capability Navigation */}
+      <CircleCollapsibleLayout
+        circle={circle}
+        navigation={navigation}
+        isStaff={isStaff}
+      >
+        {children}
+      </CircleCollapsibleLayout>
     </div>
   );
 }
