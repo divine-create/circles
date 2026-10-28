@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { Navbar } from '@/components/layout/navbar';
+import { CommandPalette } from '@/components/layout/command-palette';
 
 export const metadata: Metadata = {
   title: 'Circles — Modular Community Platform',
@@ -17,6 +18,7 @@ export default function RootLayout({
     <html lang="en">
       <body className="min-h-screen flex flex-col bg-[#FAFAFA] text-zinc-950 antialiased font-sans">
         <Navbar />
+        <CommandPalette />
         <main className="flex-1">{children}</main>
         <footer className="border-t border-black/[0.06] bg-white/80 backdrop-blur-md py-8">
           <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 sm:flex-row sm:px-6 lg:px-8">

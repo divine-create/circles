@@ -27,6 +27,15 @@ const COMMERCE_CAPABILITY_KEYS = [
   'housing_property',
 ];
 
+export const availabilityScheduleSchema = z.object({
+  days: z.array(z.number().int().min(0).max(6)).default([1, 2, 3, 4, 5]),
+  startTime: z.string().regex(/^\d{2}:\d{2}$/).default('09:00'),
+  endTime: z.string().regex(/^\d{2}:\d{2}$/).default('17:00'),
+  slotDurationMinutes: z.number().int().min(15).max(480).default(60),
+  bufferMinutes: z.number().int().min(0).max(120).default(0),
+  timezone: z.string().optional(),
+});
+
 export const createListingSchema = z.object({
   circleId: z.string().uuid(),
   listingType: z.enum(['product', 'service', 'rental', 'housing', 'directory']).default('product'),
@@ -48,6 +57,8 @@ export const createListingSchema = z.object({
   serviceDurationMinutes: z.number().int().min(15).max(1440).nullable().optional(),
   availableFrom: z.string().datetime().nullable().optional(),
   availableUntil: z.string().datetime().nullable().optional(),
+  availabilitySchedule: availabilityScheduleSchema.optional().nullable(),
+  isInstantBookable: z.boolean().default(false),
   status: z.enum(['draft', 'published']).default('published'),
 });
 
@@ -60,6 +71,8 @@ export const updateListingSchema = z.object({
   condition: z.enum(['new', 'like_new', 'good', 'fair', 'not_applicable']).nullable().optional(),
   location: z.string().trim().max(200).nullable().optional(),
   imageUrls: z.array(z.string().trim().min(1).max(1000)).max(8).optional(),
+  availabilitySchedule: availabilityScheduleSchema.optional().nullable(),
+  isInstantBookable: z.boolean().optional(),
   status: z.enum(['draft', 'published', 'reserved', 'sold', 'archived', 'removed']).optional(),
 });
 
@@ -156,6 +169,8 @@ function normalizeListingRow(
     service_duration_minutes: row.service_duration_minutes ?? null,
     available_from: row.available_from ?? null,
     available_until: row.available_until ?? null,
+    availability_schedule: row.availability_schedule ?? null,
+    is_instant_bookable: Boolean(row.is_instant_bookable),
     status: row.status,
     created_at: row.created_at,
     updated_at: row.updated_at,
@@ -189,12 +204,12 @@ export async function createMarketplaceListing(
          id, circle_id, seller_id, listing_type, category, title, description,
          price_amount, price_currency, pricing_unit, condition, location,
          contact_preference, image_urls, service_duration_minutes,
-         available_from, available_until, status
+         available_from, available_until, availability_schedule, is_instant_bookable, status
        ) VALUES (
          $1, $2, $3, $4, $5, $6, $7,
          $8, $9, $10, $11, $12,
          $13, $14::jsonb, $15,
-         $16, $17, $18
+         $16, $17, $18::jsonb, $19::boolean, $20
        ) RETURNING *;`,
       [
         listingId,
@@ -214,6 +229,16 @@ export async function createMarketplaceListing(
         parsed.serviceDurationMinutes ?? null,
         parsed.availableFrom ?? null,
         parsed.availableUntil ?? null,
+        parsed.availabilitySchedule
+          ? JSON.stringify(parsed.availabilitySchedule)
+          : JSON.stringify({
+              days: [1, 2, 3, 4, 5],
+              startTime: '09:00',
+              endTime: '17:00',
+              slotDurationMinutes: parsed.serviceDurationMinutes ?? 60,
+              bufferMinutes: 0,
+            }),
+        Boolean(parsed.isInstantBookable),
         parsed.status,
       ]
     );
@@ -357,8 +382,10 @@ export async function updateMarketplaceListing(
            location = $7,
            status = $8,
            image_urls = CASE WHEN $9::text IS NOT NULL THEN $9::jsonb ELSE image_urls END,
+           availability_schedule = CASE WHEN $10::text IS NOT NULL THEN $10::jsonb ELSE availability_schedule END,
+           is_instant_bookable = CASE WHEN $11::boolean IS NOT NULL THEN $11::boolean ELSE is_instant_bookable END,
            updated_at = NOW()
-       WHERE id = $10 AND circle_id = $11;`,
+       WHERE id = $12 AND circle_id = $13;`,
       [
         parsed.title ?? existing.title,
         parsed.description ?? existing.description,
@@ -369,6 +396,12 @@ export async function updateMarketplaceListing(
         parsed.location !== undefined ? parsed.location : existing.location,
         parsed.status ?? existing.status,
         parsed.imageUrls ? JSON.stringify(parsed.imageUrls) : null,
+        parsed.availabilitySchedule !== undefined
+          ? parsed.availabilitySchedule
+            ? JSON.stringify(parsed.availabilitySchedule)
+            : null
+          : null,
+        parsed.isInstantBookable !== undefined ? parsed.isInstantBookable : null,
         listingId,
         circleId,
       ]
@@ -656,14 +689,18 @@ export async function createServiceOrRentalBooking(
       );
     }
 
+    const bookingId = crypto.randomUUID();
+    const calendarUid = `booking-${bookingId}@circles.dev`;
+    const initialStatus = listing.is_instant_bookable ? 'approved' : 'pending';
+
     const bookingRes = await tx.query<ServiceBookingItem>(
       `INSERT INTO public.service_bookings (
          id, circle_id, listing_id, requester_id, provider_id,
-         booking_type, starts_at, ends_at, notes, status
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending')
+         booking_type, starts_at, ends_at, notes, status, calendar_uid
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        RETURNING *;`,
       [
-        crypto.randomUUID(),
+        bookingId,
         circleId,
         listingId,
         actorUserId,
@@ -672,6 +709,8 @@ export async function createServiceOrRentalBooking(
         parsed.startsAt,
         parsed.endsAt,
         parsed.notes,
+        initialStatus,
+        calendarUid,
       ]
     );
 
@@ -679,6 +718,7 @@ export async function createServiceOrRentalBooking(
       booking: bookingRes.rows[0],
       listingTitle: listing.title,
       circleSlug: circle.slug,
+      isInstant: Boolean(listing.is_instant_bookable),
     };
   });
 
@@ -687,10 +727,28 @@ export async function createServiceOrRentalBooking(
     actorId: actorUserId,
     circleId,
     eventType: 'booking_status',
-    title: `New ${parsed.bookingType === 'rental' ? 'Rental' : 'Service Booking'} Request: ${outcome.listingTitle}`,
-    body: `A member requested ${outcome.listingTitle} from ${new Date(parsed.startsAt).toISOString().slice(0, 16)}.`,
+    title: outcome.isInstant
+      ? `Instant Booking Confirmed: ${outcome.listingTitle}`
+      : `New ${parsed.bookingType === 'rental' ? 'Rental' : 'Service Booking'} Request: ${outcome.listingTitle}`,
+    body: outcome.isInstant
+      ? `A member booked ${outcome.listingTitle} from ${new Date(parsed.startsAt).toISOString().slice(0, 16)}.`
+      : `A member requested ${outcome.listingTitle} from ${new Date(parsed.startsAt).toISOString().slice(0, 16)}.`,
     linkUrl: `/circles/${outcome.circleSlug}/marketplace`,
   });
+
+  if (outcome.isInstant) {
+    await createNotification({
+      recipientId: actorUserId,
+      actorId: outcome.booking.provider_id,
+      circleId,
+      eventType: 'booking_status',
+      title: `Booking Confirmed: ${outcome.listingTitle}`,
+      body: `Your booking for ${outcome.listingTitle} starting ${new Date(parsed.startsAt).toISOString().slice(0, 16)} was instantly confirmed!`,
+      linkUrl: `/circles/${outcome.circleSlug}/marketplace`,
+    });
+  }
+
+  return outcome.booking;
 
   return outcome.booking;
 }
@@ -822,6 +880,7 @@ export async function listCircleBookings(
       status: r.status,
       provider_note: r.provider_note,
       returned_at: r.returned_at,
+      calendar_uid: (r as unknown as { calendar_uid?: string | null }).calendar_uid ?? null,
       created_at: r.created_at,
       updated_at: r.updated_at,
       requester: {
@@ -837,3 +896,5 @@ export async function listCircleBookings(
     }));
   });
 }
+
+export { generateAvailableSlots, generateBookingIcs } from '@/features/marketplace/calendar-utils';

@@ -222,6 +222,7 @@ export interface NotificationItem {
     | 'support_ticket'
     | 'challenge_reward'
     | 'governance_update'
+    | 'direct_message'
     | 'system';
   title: string;
   body: string;
@@ -339,6 +340,15 @@ export interface CirclePollItem {
   options: PollOptionItem[];
 }
 
+export interface AvailabilitySchedule {
+  days: number[]; // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+  startTime: string; // "09:00"
+  endTime: string; // "17:00"
+  slotDurationMinutes: number; // e.g. 30, 45, 60
+  bufferMinutes: number; // e.g. 0, 15
+  timezone?: string;
+}
+
 export interface MarketplaceListingItem {
   id: string;
   circle_id: string;
@@ -357,6 +367,8 @@ export interface MarketplaceListingItem {
   service_duration_minutes: number | null;
   available_from: string | null;
   available_until: string | null;
+  availability_schedule?: AvailabilitySchedule | null;
+  is_instant_bookable?: boolean;
   status: 'draft' | 'published' | 'reserved' | 'sold' | 'archived' | 'removed';
   created_at: string;
   updated_at: string;
@@ -394,6 +406,7 @@ export interface ServiceBookingItem {
   status: 'pending' | 'approved' | 'rejected' | 'cancelled' | 'completed' | 'returned';
   provider_note: string | null;
   returned_at: string | null;
+  calendar_uid?: string | null;
   created_at: string;
   updated_at: string;
   requester?: Pick<UserProfile, 'id' | 'username' | 'display_name'>;
@@ -1191,6 +1204,68 @@ export interface CircleApiKeyItem {
   is_active: boolean;
   created_at: string;
   plainToken?: string;
+}
+
+// Direct & Group Messaging
+export type ConversationType = 'direct' | 'group' | 'listing';
+
+export interface ConversationItem {
+  id: string;
+  circle_id: string;
+  conversation_type: ConversationType;
+  title: string | null;
+  listing_id: string | null;
+  last_message_at: string;
+  created_at: string;
+  participants: ConversationParticipantItem[];
+  latest_message?: DirectMessageItem | null;
+  unread_count?: number;
+  listing?: {
+    id: string;
+    title: string;
+    price_amount: number | null;
+    price_currency: string;
+    listing_type: string;
+    images?: string[];
+  } | null;
+}
+
+export interface ConversationParticipantItem {
+  conversation_id: string;
+  circle_id: string;
+  user_id: string;
+  last_read_at: string;
+  is_muted: boolean;
+  joined_at: string;
+  user?: {
+    id: string;
+    username: string;
+    display_name: string;
+    avatar_url: string | null;
+  };
+}
+
+export interface DirectMessageItem {
+  id: string;
+  conversation_id: string;
+  circle_id: string;
+  sender_id: string;
+  body: string;
+  attachments: Array<{
+    type: 'image' | 'file';
+    url: string;
+    name?: string;
+    size?: number;
+  }>;
+  is_deleted: boolean;
+  created_at: string;
+  updated_at: string;
+  sender?: {
+    id: string;
+    username: string;
+    display_name: string;
+    avatar_url: string | null;
+  };
 }
 
 

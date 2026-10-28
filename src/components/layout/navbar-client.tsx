@@ -99,16 +99,18 @@ export function NavbarClient({ user, unreadCount }: NavbarClientProps) {
 
         {/* Global Quick Search Cue & User Actions */}
         <div className="hidden md:flex items-center gap-2.5">
-          <Link
-            href="/explore"
-            className="flex items-center gap-2 rounded-lg border border-stone-200/80 bg-stone-50/80 px-2.5 py-1.5 text-xs text-stone-500 hover:border-stone-300 hover:bg-stone-100/70 transition-all shadow-xs"
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent('open-command-palette'))}
+            className="flex items-center gap-2 rounded-lg border border-stone-200/80 bg-stone-50/80 px-2.5 py-1.5 text-xs text-stone-500 hover:border-stone-300 hover:bg-stone-100/70 transition-all shadow-xs cursor-pointer"
+            title="Press Cmd+K or / to open universal search"
           >
             <Search className="h-3.5 w-3.5 text-stone-400" />
-            <span>Search communities</span>
+            <span>Search or jump to...</span>
             <kbd className="inline-flex items-center gap-0.5 rounded border border-stone-200 bg-white px-1.5 py-0.5 text-[10px] font-mono text-stone-400 shadow-xs">
               ⌘K
             </kbd>
-          </Link>
+          </button>
 
           <div className="h-4 w-px bg-stone-200 mx-1" />
 
@@ -183,6 +185,20 @@ export function NavbarClient({ user, unreadCount }: NavbarClientProps) {
 
       {mobileOpen && (
         <div className="border-t border-stone-200 bg-white/95 backdrop-blur-xl px-4 pb-4 pt-2 md:hidden">
+          <button
+            type="button"
+            onClick={() => {
+              setMobileOpen(false);
+              window.dispatchEvent(new CustomEvent('open-command-palette'));
+            }}
+            className="flex w-full items-center gap-2.5 rounded-lg border border-stone-200/80 bg-stone-50/80 px-3 py-2 text-sm text-stone-600 mb-2"
+          >
+            <Search className="h-4 w-4 text-stone-400" />
+            <span>Search or jump to...</span>
+            <kbd className="ml-auto inline-flex items-center rounded border border-stone-200 bg-white px-1.5 py-0.5 text-[10px] font-mono text-stone-400">
+              ⌘K
+            </kbd>
+          </button>
           <div className="flex flex-col space-y-1">
             {navLinks.map((item) => {
               const Icon = item.icon;

@@ -66,6 +66,7 @@ import {
   closeDatabasePools,
   getActiveDatabaseBackend,
   listAppliedDatabaseMigrations,
+  runDatabaseMigrations,
   withRlsTransaction,
   withServiceRoleTransaction,
 } from '@/lib/db/postgres';
@@ -103,7 +104,7 @@ describe.skipIf(!envLocalVars)(
     const createdCircleIds: string[] = [];
     const previousEnv: Record<string, string | undefined> = {};
 
-    beforeAll(() => {
+    beforeAll(async () => {
       if (envLocalVars) {
         for (const [key, val] of Object.entries(envLocalVars)) {
           previousEnv[key] = process.env[key];
@@ -111,6 +112,7 @@ describe.skipIf(!envLocalVars)(
         }
       }
       process.env.CIRCLES_FORCE_REMOTE_PG = 'true';
+      await runDatabaseMigrations();
     });
 
     afterAll(async () => {
@@ -160,6 +162,10 @@ describe.skipIf(!envLocalVars)(
           '0011',
           '0012',
           '0013',
+          '0014',
+          '0015',
+          '0016',
+          '0017',
         ]);
 
         const healthRes = await healthGetRoute();

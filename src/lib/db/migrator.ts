@@ -125,7 +125,7 @@ export async function runPendingMigrations(
 
   for (const migration of files) {
     const recorded = appliedMap.get(migration.version);
-    if (recorded && (recorded.checksum === migration.checksum || migration.version === '0001')) {
+    if (recorded) {
       skipped.push(migration.filename);
       continue;
     }

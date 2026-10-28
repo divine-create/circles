@@ -8,6 +8,7 @@ import {
   Check,
   CheckCircle2,
   Clock,
+  Download,
   Edit3,
   Inbox,
   MapPin,
@@ -19,6 +20,7 @@ import {
   Tag,
   User,
   X,
+  Zap,
 } from 'lucide-react';
 import {
   CircleRole,
@@ -27,6 +29,21 @@ import {
   ServiceBookingItem,
 } from '@/types/domain';
 import { Button } from '@/components/ui/button';
+import { DirectMessageDrawer } from '@/components/messages/direct-message-drawer';
+import {
+  generateAvailableSlots,
+  generateBookingIcs,
+} from '@/features/marketplace/calendar-utils';
+
+// Predefined Popular Categories by Type
+const POPULAR_CATEGORIES: Record<string, string[]> = {
+  all: ['Electronics', 'Books & Media', 'Home & Furniture', 'Services', 'Tools & Gear', 'Clothing', 'Housing', 'Vehicles', 'General'],
+  product: ['Electronics', 'Books & Media', 'Home & Furniture', 'Clothing', 'Sports & Outdoors', 'General'],
+  service: ['Tutoring & Lessons', 'Tech & Design', 'Home & Repair', 'Health & Fitness', 'Consulting', 'General'],
+  rental: ['Power Tools', 'Gardening Gear', 'Camping & Outdoors', 'AV & Photography', 'Party Supplies', 'General'],
+  housing: ['Apartment Sublet', 'Private Room', 'Shared Room', 'Parking Spot', 'Storage Space', 'General'],
+  directory: ['Local Business', 'Freelancer', 'Contractor', 'Emergency Service', 'General'],
+};
 
 export interface MarketplaceBoardProps {
   circleId: string;
@@ -41,6 +58,7 @@ export interface MarketplaceBoardProps {
 
 export function MarketplaceBoard({
   circleId,
+  circleSlug,
   initialListings,
   initialInquiries,
   initialBookings,
@@ -55,6 +73,7 @@ export function MarketplaceBoard({
   // Navigation & Filtering
   const [activeTab, setActiveTab] = useState<'browse' | 'saved' | 'activity'>('browse');
   const [filterType, setFilterType] = useState<string>('all');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'newest' | 'price_asc' | 'price_desc'>('newest');
   const [statusFilter, setStatusFilter] = useState<'all' | 'published' | 'reserved' | 'sold'>('all');
@@ -90,6 +109,14 @@ export function MarketplaceBoard({
   const [inquiryMessage, setInquiryMessage] = useState('');
   const [sendingInquiry, setSendingInquiry] = useState(false);
 
+  // Availability Scheduling State for Service Listings
+  const [schedDays, setSchedDays] = useState<number[]>([1, 2, 3, 4, 5]);
+  const [schedStartTime, setSchedStartTime] = useState('09:00');
+  const [schedEndTime, setSchedEndTime] = useState('17:00');
+  const [schedSlotDuration, setSchedSlotDuration] = useState(60);
+  const [schedBuffer, setSchedBuffer] = useState(0);
+  const [isInstantBookable, setIsInstantBookable] = useState(false);
+
   // Booking Modal
   const [bookingListing, setBookingListing] = useState<MarketplaceListingItem | null>(null);
   const [bookingType, setBookingType] = useState<'service' | 'rental'>('service');
@@ -97,15 +124,39 @@ export function MarketplaceBoard({
   const [bookingEndsAt, setBookingEndsAt] = useState('');
   const [bookingNotes, setBookingNotes] = useState('');
   const [submittingBooking, setSubmittingBooking] = useState(false);
+  const [selectedBookingDate, setSelectedBookingDate] = useState('');
+  const [manualTimeOverride, setManualTimeOverride] = useState(false);
 
   // Activity Drawer / Tab Filter
   const [activityRoleFilter, setActivityRoleFilter] = useState<'all' | 'received' | 'sent'>('all');
   const [inquiryReplyText, setInquiryReplyText] = useState<Record<string, string>>({});
 
+  // Direct Message Drawer State
+  const [dmDrawerOpen, setDmDrawerOpen] = useState(false);
+  const [activeDmConvoId, setActiveDmConvoId] = useState<string | null>(null);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const isStaff = currentUserRole ? ['owner', 'admin', 'moderator'].includes(currentUserRole) : false;
+
+  // Extract all existing unique categories from actual listings
+  const existingCategories = useMemo(() => {
+    const set = new Set<string>();
+    listings.forEach((l) => {
+      if (l.category && l.category.trim()) {
+        set.add(l.category.trim());
+      }
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [listings]);
+
+  // Combined categories for active type
+  const availableCategories = useMemo(() => {
+    const standard = POPULAR_CATEGORIES[filterType] || POPULAR_CATEGORIES.all;
+    const combined = new Set([...standard, ...existingCategories]);
+    return Array.from(combined);
+  }, [filterType, existingCategories]);
 
   // Open Create Modal
   function handleOpenCreate() {
@@ -121,6 +172,12 @@ export function MarketplaceBoard({
     setLocation('');
     setImageUrlsText('');
     setStatus('published');
+    setSchedDays([1, 2, 3, 4, 5]);
+    setSchedStartTime('09:00');
+    setSchedEndTime('17:00');
+    setSchedSlotDuration(60);
+    setSchedBuffer(0);
+    setIsInstantBookable(false);
     setFormModalOpen(true);
   }
 
@@ -142,6 +199,12 @@ export function MarketplaceBoard({
         ? item.status
         : 'published'
     );
+    setSchedDays(item.availability_schedule?.days ?? [1, 2, 3, 4, 5]);
+    setSchedStartTime(item.availability_schedule?.startTime ?? '09:00');
+    setSchedEndTime(item.availability_schedule?.endTime ?? '17:00');
+    setSchedSlotDuration(item.availability_schedule?.slotDurationMinutes ?? item.service_duration_minutes ?? 60);
+    setSchedBuffer(item.availability_schedule?.bufferMinutes ?? 0);
+    setIsInstantBookable(Boolean(item.is_instant_bookable));
     setFormModalOpen(true);
   }
 
@@ -179,6 +242,15 @@ export function MarketplaceBoard({
         location: location.trim() ? location.trim() : null,
         imageUrls: parsedImages,
         status,
+        serviceDurationMinutes: schedSlotDuration,
+        availabilitySchedule: {
+          days: schedDays,
+          startTime: schedStartTime,
+          endTime: schedEndTime,
+          slotDurationMinutes: schedSlotDuration,
+          bufferMinutes: schedBuffer,
+        },
+        isInstantBookable,
       };
 
       const res = await fetch(url, {
@@ -253,8 +325,30 @@ export function MarketplaceBoard({
     }
   }
 
-  // Open Inquiry Modal
-  function handleOpenInquiry(item: MarketplaceListingItem) {
+  // Open Inquiry Modal or Direct Message Conversation
+  async function handleOpenInquiry(item: MarketplaceListingItem) {
+    // If the seller is another active member, bridge directly to a Direct Message thread!
+    if (item.seller_id && item.seller_id !== currentUserId) {
+      try {
+        const res = await fetch(`/api/circles/${circleId}/messages/conversations`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            targetUserId: item.seller_id,
+            listingId: item.id,
+          }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setActiveDmConvoId(data.conversation.id);
+          setDmDrawerOpen(true);
+          return;
+        }
+      } catch (err) {
+        console.error('Failed to bridge DM, falling back to inquiry modal:', err);
+      }
+    }
+
     setInquiryListing(item);
     setInquiryMessage('');
   }
@@ -287,13 +381,86 @@ export function MarketplaceBoard({
     }
   }
 
+  const availableBookingDates = useMemo(() => {
+    if (!bookingListing) return [];
+    const dates: { dateStr: string; label: string; weekday: string; isOperating: boolean }[] = [];
+    const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const opDays = bookingListing.availability_schedule?.days && bookingListing.availability_schedule.days.length > 0
+      ? bookingListing.availability_schedule.days
+      : [1, 2, 3, 4, 5];
+
+    for (let i = 1; i <= 14; i++) {
+      const d = new Date(Date.now() + i * 86400_000);
+      const dateStr = d.toISOString().slice(0, 10);
+      const dayOfWeek = d.getDay();
+      dates.push({
+        dateStr,
+        weekday: daysOfWeek[dayOfWeek],
+        label: `${months[d.getMonth()]} ${d.getDate()}`,
+        isOperating: opDays.includes(dayOfWeek),
+      });
+    }
+    return dates;
+  }, [bookingListing]);
+
+  const computedBookingSlots = useMemo(() => {
+    if (!bookingListing || !selectedBookingDate) return [];
+    const sched = bookingListing.availability_schedule || {
+      days: [1, 2, 3, 4, 5],
+      startTime: '09:00',
+      endTime: '17:00',
+      slotDurationMinutes: bookingListing.service_duration_minutes || 60,
+      bufferMinutes: 0,
+    };
+    const listingBookings = bookings.filter((b) => b.listing_id === bookingListing.id);
+    return generateAvailableSlots(sched, selectedBookingDate, listingBookings);
+  }, [bookingListing, selectedBookingDate, bookings]);
+
+  function handleDownloadIcs(booking: ServiceBookingItem) {
+    const icsContent = generateBookingIcs(
+      booking,
+      booking.listing_title || 'Service Booking',
+      circleSlug || 'Circle'
+    );
+    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `booking-${booking.id.slice(0, 8)}.ics`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
   // Open Booking Modal
   function handleOpenBooking(item: MarketplaceListingItem) {
     setBookingListing(item);
     setBookingType(item.listing_type === 'rental' ? 'rental' : 'service');
-    const now = Date.now();
-    setBookingStartsAt(new Date(now + 86400_000).toISOString().slice(0, 16));
-    setBookingEndsAt(new Date(now + 93600_000).toISOString().slice(0, 16));
+    const tomorrow = new Date(Date.now() + 86400_000);
+    const dateStr = tomorrow.toISOString().slice(0, 10);
+    setSelectedBookingDate(dateStr);
+    setManualTimeOverride(false);
+
+    const sched = item.availability_schedule || {
+      days: [1, 2, 3, 4, 5],
+      startTime: '09:00',
+      endTime: '17:00',
+      slotDurationMinutes: item.service_duration_minutes || 60,
+      bufferMinutes: 0,
+    };
+    const listingBookings = bookings.filter((b) => b.listing_id === item.id);
+    const slots = generateAvailableSlots(sched, dateStr, listingBookings);
+    const firstAvail = slots.find((s) => s.available);
+    if (firstAvail) {
+      setBookingStartsAt(firstAvail.startsAt.slice(0, 16));
+      setBookingEndsAt(firstAvail.endsAt.slice(0, 16));
+    } else {
+      const now = Date.now();
+      setBookingStartsAt(new Date(now + 86400_000).toISOString().slice(0, 16));
+      setBookingEndsAt(new Date(now + 90000_000).toISOString().slice(0, 16));
+    }
     setBookingNotes('');
   }
 
@@ -319,7 +486,11 @@ export function MarketplaceBoard({
       if (!res.ok) throw new Error(data.error || 'Failed to submit booking request.');
       setBookings((prev) => [data.booking, ...prev]);
       setBookingListing(null);
-      alert('Booking request submitted. The provider will be notified.');
+      if (data.booking.status === 'approved') {
+        alert('⚡ Instant Confirmation! Your appointment has been booked immediately.');
+      } else {
+        alert('Booking request submitted. The provider will review your reservation.');
+      }
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to schedule booking.');
     } finally {
@@ -396,6 +567,11 @@ export function MarketplaceBoard({
       list = list.filter((l) => l.listing_type === filterType);
     }
 
+    // Category filter
+    if (selectedCategory !== 'all') {
+      list = list.filter((l) => l.category.toLowerCase() === selectedCategory.toLowerCase());
+    }
+
     // Status filter
     if (statusFilter !== 'all') {
       list = list.filter((l) => l.status === statusFilter);
@@ -423,7 +599,7 @@ export function MarketplaceBoard({
     }
 
     return list;
-  }, [listings, activeTab, filterType, statusFilter, searchQuery, sortBy]);
+  }, [listings, activeTab, filterType, selectedCategory, statusFilter, searchQuery, sortBy]);
 
   // Activity Filtered List
   const filteredInquiries = useMemo(() => {
@@ -467,6 +643,19 @@ export function MarketplaceBoard({
         </div>
 
         <div className="flex items-center gap-2">
+          {isMember && (
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                setActiveDmConvoId(null);
+                setDmDrawerOpen(true);
+              }}
+            >
+              <MessageSquare className="h-3.5 w-3.5 mr-1 text-emerald-800" />
+              <span>Messages</span>
+            </Button>
+          )}
           {isMember && (
             <Button size="sm" onClick={handleOpenCreate}>
               <Plus className="h-3.5 w-3.5 mr-1" />
@@ -579,46 +768,100 @@ export function MarketplaceBoard({
 
       {/* Format Filter Pills (When browsing) */}
       {activeTab !== 'activity' && (
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex flex-wrap items-center gap-1.5">
-            {[
-              { key: 'all', label: 'All Listings' },
-              { key: 'product', label: 'Products & Goods' },
-              { key: 'service', label: 'Services & Tutoring' },
-              { key: 'rental', label: 'Tool & Equipment Lending' },
-              { key: 'housing', label: 'Housing & Sublets' },
-              { key: 'directory', label: 'Directory' },
-            ].map((tab) => {
-              const active = filterType === tab.key;
+        <div className="space-y-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-1.5">
+              {[
+                { key: 'all', label: 'All Listings' },
+                { key: 'product', label: 'Products & Goods' },
+                { key: 'service', label: 'Services & Tutoring' },
+                { key: 'rental', label: 'Tool & Equipment Lending' },
+                { key: 'housing', label: 'Housing & Sublets' },
+                { key: 'directory', label: 'Directory' },
+              ].map((tab) => {
+                const active = filterType === tab.key;
+                return (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => {
+                      setFilterType(tab.key);
+                      setSelectedCategory('all');
+                    }}
+                    className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-all ${
+                      active
+                        ? 'bg-stone-900 text-white font-bold'
+                        : 'bg-stone-100 text-stone-600 hover:bg-stone-200/80 hover:text-stone-900'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex items-center gap-1.5 text-xs text-stone-500">
+              <span>Status:</span>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
+                className="rounded-lg border border-stone-200 bg-white px-2 py-0.5 text-xs text-stone-700 font-medium focus:outline-none focus:ring-1 focus:ring-stone-900"
+              >
+                <option value="all">All Statuses</option>
+                <option value="published">Available Only</option>
+                <option value="reserved">Reserved</option>
+                <option value="sold">Sold / Completed</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Subcategory Filter Pills */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 pt-0.5 text-xs no-scrollbar">
+            <span className="text-[11px] font-mono uppercase tracking-wider text-stone-400 shrink-0 mr-1 flex items-center gap-1">
+              <Tag className="h-3 w-3" />
+              Category:
+            </span>
+            <button
+              type="button"
+              onClick={() => setSelectedCategory('all')}
+              className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium shrink-0 transition-all ${
+                selectedCategory === 'all'
+                  ? 'bg-stone-800 text-white font-semibold'
+                  : 'bg-stone-100 text-stone-600 hover:bg-stone-200/80'
+              }`}
+            >
+              All Categories
+            </button>
+            {availableCategories.map((cat) => {
+              const count = listings.filter((l) => {
+                const matchesType = filterType === 'all' || l.listing_type === filterType;
+                return matchesType && l.category.toLowerCase() === cat.toLowerCase();
+              }).length;
+              const active = selectedCategory.toLowerCase() === cat.toLowerCase();
               return (
                 <button
-                  key={tab.key}
+                  key={cat}
                   type="button"
-                  onClick={() => setFilterType(tab.key)}
-                  className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-all ${
+                  onClick={() => setSelectedCategory(active ? 'all' : cat)}
+                  className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium shrink-0 transition-all flex items-center gap-1.5 ${
                     active
-                      ? 'bg-stone-200 text-stone-900 font-bold'
-                      : 'text-stone-500 hover:bg-stone-100 hover:text-stone-800'
+                      ? 'bg-emerald-800 text-white font-semibold shadow-xs'
+                      : 'bg-stone-100/90 text-stone-600 hover:bg-stone-200/70 hover:text-stone-900 border border-stone-200/60'
                   }`}
                 >
-                  {tab.label}
+                  <span>{cat}</span>
+                  {count > 0 && (
+                    <span
+                      className={`text-[9px] font-mono px-1 py-0.2 rounded-full ${
+                        active ? 'bg-emerald-950 text-emerald-200' : 'bg-stone-200 text-stone-600'
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  )}
                 </button>
               );
             })}
-          </div>
-
-          <div className="flex items-center gap-1.5 text-xs text-stone-500">
-            <span>Status:</span>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
-              className="rounded-lg border border-stone-200 bg-white px-2 py-0.5 text-xs text-stone-700 font-medium focus:outline-none focus:ring-1 focus:ring-stone-900"
-            >
-              <option value="all">All Statuses</option>
-              <option value="published">Available Only</option>
-              <option value="reserved">Reserved</option>
-              <option value="sold">Sold / Completed</option>
-            </select>
           </div>
         </div>
       )}
@@ -1038,37 +1281,54 @@ export function MarketplaceBoard({
                           )}
                         </div>
 
-                        {canReview && (
-                          <div className="flex justify-end gap-1.5 pt-1 border-t border-stone-200/60">
+                        <div className="flex items-center justify-between gap-2 pt-1 border-t border-stone-200/60">
+                          {b.status === 'approved' || b.status === 'completed' ? (
                             <Button
-                              size="xs"
+                              type="button"
                               variant="outline"
-                              onClick={() => handleUpdateBookingStatus(b.id, 'rejected')}
-                            >
-                              Decline
-                            </Button>
-                            <Button
                               size="xs"
-                              onClick={() => handleUpdateBookingStatus(b.id, 'approved')}
+                              onClick={() => handleDownloadIcs(b)}
+                              className="text-stone-700 hover:text-black flex items-center gap-1 text-[11px] h-7"
+                              title="Download .ics event file to add to Google, Apple, or Outlook Calendar"
                             >
-                              <Check className="h-3 w-3 mr-1" />
-                              Approve Request
+                              <Download className="h-3 w-3 text-stone-500" />
+                              <span>Add to Calendar (.ics)</span>
                             </Button>
-                          </div>
-                        )}
+                          ) : (
+                            <div />
+                          )}
 
-                        {isApprovedRental && (
-                          <div className="flex justify-end pt-1 border-t border-stone-200/60">
-                            <Button
-                              size="xs"
-                              variant="secondary"
-                              onClick={() => handleUpdateBookingStatus(b.id, 'returned')}
-                            >
-                              <CheckCircle2 className="h-3 w-3 mr-1 text-emerald-700" />
-                              Mark Tool / Item Returned
-                            </Button>
+                          <div className="flex items-center gap-1.5">
+                            {canReview && (
+                              <>
+                                <Button
+                                  size="xs"
+                                  variant="outline"
+                                  onClick={() => handleUpdateBookingStatus(b.id, 'rejected')}
+                                >
+                                  Decline
+                                </Button>
+                                <Button
+                                  size="xs"
+                                  onClick={() => handleUpdateBookingStatus(b.id, 'approved')}
+                                >
+                                  <Check className="h-3 w-3 mr-1" />
+                                  Approve Request
+                                </Button>
+                              </>
+                            )}
+                            {isApprovedRental && (
+                              <Button
+                                size="xs"
+                                variant="secondary"
+                                onClick={() => handleUpdateBookingStatus(b.id, 'returned')}
+                              >
+                                <CheckCircle2 className="h-3 w-3 mr-1 text-emerald-700" />
+                                Mark Returned
+                              </Button>
+                            )}
                           </div>
-                        )}
+                        </div>
                       </div>
                     );
                   })}
@@ -1130,16 +1390,43 @@ export function MarketplaceBoard({
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-mono font-bold uppercase tracking-wider text-stone-600">
-                    Category *
-                  </label>
-                  <input
-                    required
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    placeholder="books, electronics, tools, math..."
-                    className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:outline-none focus:ring-1 focus:ring-stone-900"
-                  />
+                  <div className="flex items-center justify-between">
+                    <label className="block text-[11px] font-mono font-bold uppercase tracking-wider text-stone-600">
+                      Category *
+                    </label>
+                    <span className="text-[10px] text-stone-400">or type custom</span>
+                  </div>
+                  <div className="mt-1.5 space-y-1.5">
+                    <div className="flex gap-1.5">
+                      <select
+                        value={
+                          POPULAR_CATEGORIES[listingType]?.includes(category)
+                            ? category
+                            : 'custom'
+                        }
+                        onChange={(e) => {
+                          if (e.target.value !== 'custom') {
+                            setCategory(e.target.value);
+                          }
+                        }}
+                        className="w-1/2 rounded-xl border border-stone-200 bg-stone-50/60 px-2 py-2 text-xs sm:text-sm text-stone-900 focus:outline-none focus:ring-1 focus:ring-stone-900"
+                      >
+                        <option value="custom">-- Preset --</option>
+                        {(POPULAR_CATEGORIES[listingType] || POPULAR_CATEGORIES.product).map((c) => (
+                          <option key={c} value={c}>
+                            {c}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        required
+                        value={category}
+                        onChange={(e) => setCategory(e.target.value)}
+                        placeholder="e.g. Textbooks"
+                        className="w-1/2 rounded-xl border border-stone-200 bg-stone-50/60 px-3 py-2 text-xs sm:text-sm text-stone-900 focus:outline-none focus:ring-1 focus:ring-stone-900"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 <div>
@@ -1274,6 +1561,125 @@ export function MarketplaceBoard({
                     className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 px-3.5 py-2 text-xs sm:text-sm text-stone-900 focus:outline-none focus:ring-1 focus:ring-stone-900"
                   />
                 </div>
+
+                {(listingType === 'service' || listingType === 'rental') && (
+                  <div className="sm:col-span-3 rounded-xl border border-stone-200/90 bg-stone-50/70 p-4 space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-stone-200/60 pb-2.5">
+                      <div className="flex items-center gap-1.5">
+                        <Calendar className="h-4 w-4 text-emerald-800" />
+                        <span className="text-xs font-bold text-stone-900">
+                          Recurring Availability & Appointment Scheduling
+                        </span>
+                      </div>
+                      <label className="inline-flex items-center gap-1.5 cursor-pointer text-xs font-medium text-stone-700">
+                        <input
+                          type="checkbox"
+                          checked={isInstantBookable}
+                          onChange={(e) => setIsInstantBookable(e.target.checked)}
+                          className="rounded border-stone-300 text-stone-900 focus:ring-0"
+                        />
+                        <Zap className="h-3 w-3 text-amber-500 fill-amber-500" />
+                        <span>Enable Instant Booking</span>
+                      </label>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-mono font-bold uppercase tracking-wider text-stone-600 mb-1.5">
+                        Operating Days of Week
+                      </label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {[
+                          { label: 'Sun', day: 0 },
+                          { label: 'Mon', day: 1 },
+                          { label: 'Tue', day: 2 },
+                          { label: 'Wed', day: 3 },
+                          { label: 'Thu', day: 4 },
+                          { label: 'Fri', day: 5 },
+                          { label: 'Sat', day: 6 },
+                        ].map(({ label, day }) => {
+                          const active = schedDays.includes(day);
+                          return (
+                            <button
+                              key={day}
+                              type="button"
+                              onClick={() => {
+                                setSchedDays((prev) =>
+                                  active
+                                    ? prev.filter((d) => d !== day)
+                                    : [...prev, day].sort((a, b) => a - b)
+                                );
+                              }}
+                              className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${
+                                active
+                                  ? 'bg-stone-900 text-white font-semibold'
+                                  : 'bg-white border border-stone-200 text-stone-600 hover:bg-stone-100'
+                              }`}
+                            >
+                              {label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
+                      <div>
+                        <label className="block text-[11px] font-mono font-bold uppercase tracking-wider text-stone-600">
+                          Daily Start Time
+                        </label>
+                        <input
+                          type="time"
+                          value={schedStartTime}
+                          onChange={(e) => setSchedStartTime(e.target.value)}
+                          className="mt-1 w-full rounded-xl border border-stone-200 bg-white px-2.5 py-1.5 text-xs text-stone-900"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-mono font-bold uppercase tracking-wider text-stone-600">
+                          Daily End Time
+                        </label>
+                        <input
+                          type="time"
+                          value={schedEndTime}
+                          onChange={(e) => setSchedEndTime(e.target.value)}
+                          className="mt-1 w-full rounded-xl border border-stone-200 bg-white px-2.5 py-1.5 text-xs text-stone-900"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-mono font-bold uppercase tracking-wider text-stone-600">
+                          Slot Duration
+                        </label>
+                        <select
+                          value={schedSlotDuration}
+                          onChange={(e) => setSchedSlotDuration(Number(e.target.value))}
+                          className="mt-1 w-full rounded-xl border border-stone-200 bg-white px-2 py-1.5 text-xs text-stone-900"
+                        >
+                          <option value={15}>15 mins</option>
+                          <option value={30}>30 mins</option>
+                          <option value={45}>45 mins</option>
+                          <option value={60}>60 mins (1 hr)</option>
+                          <option value={90}>90 mins</option>
+                          <option value={120}>2 hours</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-mono font-bold uppercase tracking-wider text-stone-600">
+                          Buffer Between Slots
+                        </label>
+                        <select
+                          value={schedBuffer}
+                          onChange={(e) => setSchedBuffer(Number(e.target.value))}
+                          className="mt-1 w-full rounded-xl border border-stone-200 bg-white px-2 py-1.5 text-xs text-stone-900"
+                        >
+                          <option value={0}>No buffer</option>
+                          <option value={10}>10 mins</option>
+                          <option value={15}>15 mins</option>
+                          <option value={30}>30 mins</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="flex justify-end gap-2 pt-3 border-t border-stone-100">
@@ -1562,47 +1968,184 @@ export function MarketplaceBoard({
             </div>
 
             <form onSubmit={handleSendBooking} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[11px] font-mono font-bold uppercase tracking-wider text-stone-600">
-                    Starts At *
-                  </label>
-                  <input
-                    type="datetime-local"
-                    required
-                    value={bookingStartsAt}
-                    onChange={(e) => setBookingStartsAt(e.target.value)}
-                    className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 p-2 text-xs sm:text-sm text-stone-900 focus:outline-none focus:ring-1 focus:ring-stone-900"
-                  />
+              {bookingListing.is_instant_bookable ? (
+                <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50/80 p-2.5 text-xs text-amber-900">
+                  <Zap className="h-4 w-4 text-amber-600 fill-amber-500 shrink-0" />
+                  <span>
+                    <strong>Instant Booking:</strong> This reservation will be automatically approved immediately upon submission.
+                  </span>
                 </div>
-                <div>
-                  <label className="block text-[11px] font-mono font-bold uppercase tracking-wider text-stone-600">
-                    Ends At *
-                  </label>
-                  <input
-                    type="datetime-local"
-                    required
-                    value={bookingEndsAt}
-                    onChange={(e) => setBookingEndsAt(e.target.value)}
-                    className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 p-2 text-xs sm:text-sm text-stone-900 focus:outline-none focus:ring-1 focus:ring-stone-900"
-                  />
+              ) : (
+                <div className="flex items-center gap-2 rounded-xl border border-stone-200 bg-stone-50/80 p-2.5 text-xs text-stone-600">
+                  <Clock className="h-4 w-4 text-stone-500 shrink-0" />
+                  <span>
+                    The provider will review your reservation request and you will be notified upon confirmation.
+                  </span>
+                </div>
+              )}
+
+              {/* Day Selection Strip */}
+              <div>
+                <label className="block text-[11px] font-mono font-bold uppercase tracking-wider text-stone-600 mb-1.5">
+                  1. Select Date
+                </label>
+                <div className="flex gap-2 overflow-x-auto pb-1.5 scrollbar-thin">
+                  {availableBookingDates.map((item) => {
+                    const isSelected = selectedBookingDate === item.dateStr;
+                    return (
+                      <button
+                        key={item.dateStr}
+                        type="button"
+                        onClick={() => {
+                          setSelectedBookingDate(item.dateStr);
+                          // Auto select first slot for that day if available
+                          const sched = bookingListing.availability_schedule || {
+                            days: [1, 2, 3, 4, 5],
+                            startTime: '09:00',
+                            endTime: '17:00',
+                            slotDurationMinutes: bookingListing.service_duration_minutes || 60,
+                            bufferMinutes: 0,
+                          };
+                          const listingBookings = bookings.filter((b) => b.listing_id === bookingListing.id);
+                          const slots = generateAvailableSlots(sched, item.dateStr, listingBookings);
+                          const firstAvail = slots.find((s) => s.available);
+                          if (firstAvail) {
+                            setBookingStartsAt(firstAvail.startsAt.slice(0, 16));
+                            setBookingEndsAt(firstAvail.endsAt.slice(0, 16));
+                          }
+                        }}
+                        className={`flex flex-col items-center justify-center min-w-[70px] rounded-xl p-2 text-center transition-all ${
+                          isSelected
+                            ? 'bg-stone-900 text-white shadow-sm ring-2 ring-stone-900 ring-offset-1'
+                            : item.isOperating
+                            ? 'border border-stone-200 bg-white text-stone-800 hover:border-stone-400 hover:bg-stone-50'
+                            : 'border border-stone-100 bg-stone-50 text-stone-400'
+                        }`}
+                      >
+                        <span className="text-[10px] font-mono uppercase tracking-wider">
+                          {item.weekday}
+                        </span>
+                        <span className="text-xs font-bold">{item.label}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
+              {/* Slot Selection Grid */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-[11px] font-mono font-bold uppercase tracking-wider text-stone-600">
+                    2. Select Time Slot
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setManualTimeOverride((prev) => !prev)}
+                    className="text-[11px] text-stone-500 hover:text-stone-900 underline underline-offset-2"
+                  >
+                    {manualTimeOverride ? 'Use slot picker' : 'Custom time...'}
+                  </button>
+                </div>
+
+                {!manualTimeOverride ? (
+                  computedBookingSlots.length > 0 ? (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-40 overflow-y-auto p-1">
+                      {computedBookingSlots.map((slot, idx) => {
+                        const isSelected =
+                          bookingStartsAt === slot.startsAt.slice(0, 16) &&
+                          bookingEndsAt === slot.endsAt.slice(0, 16);
+                        return (
+                          <button
+                            key={idx}
+                            type="button"
+                            disabled={!slot.available}
+                            onClick={() => {
+                              setBookingStartsAt(slot.startsAt.slice(0, 16));
+                              setBookingEndsAt(slot.endsAt.slice(0, 16));
+                            }}
+                            className={`flex items-center justify-center gap-1.5 rounded-xl border p-2 text-xs font-medium transition-all ${
+                              isSelected
+                                ? 'border-emerald-700 bg-emerald-900 text-white font-bold shadow-xs'
+                                : slot.available
+                                ? 'border-stone-200 bg-white text-stone-900 hover:border-stone-900 hover:bg-stone-50'
+                                : 'border-stone-100 bg-stone-100/60 text-stone-400 cursor-not-allowed line-through'
+                            }`}
+                          >
+                            <Clock className={`h-3 w-3 ${isSelected ? 'text-white' : 'text-stone-400'}`} />
+                            <span>{slot.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="rounded-xl border border-dashed border-stone-200 bg-stone-50 p-4 text-center text-xs text-stone-500">
+                      No operating slots on this date. Please choose another weekday or use custom hours.
+                    </p>
+                  )
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-xl border border-stone-200 bg-stone-50/50 p-3">
+                    <div>
+                      <label className="block text-[10px] font-mono font-bold uppercase tracking-wider text-stone-600">
+                        Starts At *
+                      </label>
+                      <input
+                        type="datetime-local"
+                        required
+                        value={bookingStartsAt}
+                        onChange={(e) => setBookingStartsAt(e.target.value)}
+                        className="mt-1 w-full rounded-lg border border-stone-200 bg-white p-2 text-xs text-stone-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-mono font-bold uppercase tracking-wider text-stone-600">
+                        Ends At *
+                      </label>
+                      <input
+                        type="datetime-local"
+                        required
+                        value={bookingEndsAt}
+                        onChange={(e) => setBookingEndsAt(e.target.value)}
+                        className="mt-1 w-full rounded-lg border border-stone-200 bg-white p-2 text-xs text-stone-900"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Selected Window Summary */}
+              {bookingStartsAt && bookingEndsAt && (
+                <div className="rounded-xl bg-stone-100/80 px-3 py-2 text-xs text-stone-700 flex items-center justify-between">
+                  <span className="font-mono text-[11px] text-stone-500 uppercase">Selected Window:</span>
+                  <span className="font-semibold text-stone-900">
+                    {new Date(bookingStartsAt).toLocaleString([], {
+                      weekday: 'short',
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}{' '}
+                    –{' '}
+                    {new Date(bookingEndsAt).toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </span>
+                </div>
+              )}
+
               <div>
                 <label className="block text-[11px] font-mono font-bold uppercase tracking-wider text-stone-600">
-                  Reservation Notes & Terms Agreement
+                  Reservation Notes & Details
                 </label>
                 <textarea
-                  rows={3}
+                  rows={2}
                   value={bookingNotes}
                   onChange={(e) => setBookingNotes(e.target.value)}
-                  placeholder="e.g. Need this for the robotics hackathon. Will return fully charged by Sunday noon."
-                  className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 p-3 text-xs sm:text-sm text-stone-900 focus:outline-none focus:ring-1 focus:ring-stone-900"
+                  placeholder="e.g. Need this for project research. Will pick up outside the science hall."
+                  className="mt-1.5 w-full rounded-xl border border-stone-200 bg-stone-50/60 p-2.5 text-xs sm:text-sm text-stone-900 focus:outline-none focus:ring-1 focus:ring-stone-900"
                 />
                 <span className="text-[11px] text-stone-500 mt-1 block">
-                  Time conflicts are prevented at the database level. The provider will review your
-                  request.
+                  Time conflicts are prevented at the database level.
                 </span>
               </div>
 
@@ -1615,15 +2158,34 @@ export function MarketplaceBoard({
                 >
                   Cancel
                 </Button>
-                <Button type="submit" size="sm" disabled={submittingBooking}>
-                  <Calendar className="h-3.5 w-3.5 mr-1" />
-                  {submittingBooking ? 'Submitting...' : 'Submit Request'}
+                <Button type="submit" size="sm" disabled={submittingBooking || !bookingStartsAt}>
+                  {bookingListing.is_instant_bookable ? (
+                    <>
+                      <Zap className="h-3.5 w-3.5 mr-1 text-amber-400 fill-amber-400" />
+                      {submittingBooking ? 'Confirming...' : 'Confirm Instant Booking'}
+                    </>
+                  ) : (
+                    <>
+                      <Calendar className="h-3.5 w-3.5 mr-1" />
+                      {submittingBooking ? 'Submitting...' : 'Submit Request'}
+                    </>
+                  )}
                 </Button>
               </div>
             </form>
           </div>
         </div>
       )}
+
+      {/* Direct Messaging Slide-Over Drawer */}
+      <DirectMessageDrawer
+        circleId={circleId}
+        isOpen={dmDrawerOpen}
+        onClose={() => setDmDrawerOpen(false)}
+        currentUserId={currentUserId}
+        activeConversationId={activeDmConvoId}
+        onSelectConversation={(id) => setActiveDmConvoId(id)}
+      />
     </div>
   );
 }

@@ -1,14 +1,15 @@
 import React from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ArrowRight, Lock, ShieldCheck, Sparkles } from 'lucide-react';
+import { Lock, Sparkles } from 'lucide-react';
 import { getAuthenticatedUser } from '@/lib/auth/session';
 import { getCircleBySlugOrId } from '@/features/circles/service';
 import { getCircleCapabilities, getCircleNavigation } from '@/features/capabilities/service';
-import { listCirclePosts } from '@/features/discussions/service';
+import { getCircleActivityStream } from '@/features/circles/activity-stream';
 import { canReadCircleContent } from '@/lib/authorization/permissions';
 import { DynamicIcon } from '@/components/ui/icon-map';
-import { DiscussionsClient } from '@/components/circles/discussions-client';
+import { CircleOnboardingChecklist } from '@/components/circles/onboarding-checklist';
+import { CommunityActivityStream } from '@/components/circles/community-activity-stream';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,56 +35,73 @@ export default async function CircleOverviewPage({
   const enabledCapabilities = capabilities.filter((c) => c.enabled);
   const navigation = await getCircleNavigation(user?.id ?? null, circle.id, circle.slug);
 
-  const discussionsEnabled = navigation.enabledCapabilityKeys.includes('discussions');
-  const recentPosts =
-    canReadContent && discussionsEnabled
-      ? await listCirclePosts(user?.id ?? null, circle.id, { limit: 10 })
-      : [];
+  // Fetch unified activity stream (posts, marketplace/housing items, events, polls)
+  const streamData = canReadContent
+    ? await getCircleActivityStream(
+        user?.id ?? null,
+        circle.id,
+        navigation.enabledCapabilityKeys
+      )
+    : {
+        items: [],
+        upcomingEvents: [],
+        featuredListings: [],
+        counts: { posts: 0, listings: 0, events: 0, polls: 0, all: 0 },
+      };
+
+  const isMember = circle.current_user_membership_status === 'active';
 
   return (
     <div className="space-y-8">
+      {/* New Member & Admin Onboarding Flow */}
+      {canReadContent && (
+        <CircleOnboardingChecklist
+          circle={circle}
+          currentUser={user}
+          hasPosts={streamData.counts.posts > 0}
+          enabledCapabilityKeys={navigation.enabledCapabilityKeys}
+        />
+      )}
+
       {/* Enabled Capabilities Strip */}
-      <section className="rounded-2xl border border-stone-200/90 bg-white p-6 shadow-xs">
+      <section className="rounded-2xl border border-stone-200/90 bg-white p-5 shadow-xs">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-zinc-900" />
-            <h2 className="text-sm font-bold uppercase tracking-wider text-stone-800">
-              Configured Circle Capabilities
+            <Sparkles className="h-4 w-4 text-emerald-800" />
+            <h2 className="text-xs font-bold uppercase tracking-wider text-stone-800">
+              Active Circle Modules
             </h2>
           </div>
           {(circle.current_user_role === 'owner' || circle.current_user_role === 'admin') && (
             <Link
               href={`/circles/${circle.slug}/studio`}
-              className="text-xs font-semibold text-zinc-900 hover:underline"
+              className="text-xs font-semibold text-emerald-800 hover:underline"
             >
-              Manage in Studio →
+              Configure in Studio →
             </Link>
           )}
         </div>
 
-        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
+        <div className="mt-3.5 flex flex-wrap items-center gap-2">
           {enabledCapabilities.map((cap) => (
-            <div
+            <Link
               key={cap.capability_key}
-              className="flex items-start gap-3 rounded-xl border border-stone-200 bg-stone-50/60 p-3.5"
+              href={`/circles/${circle.slug}/${cap.definition?.navigation_config.path || ''}`}
+              className="flex items-center gap-2 rounded-xl border border-stone-200/80 bg-stone-50/70 px-3 py-1.5 transition-all hover:bg-stone-100/80 hover:border-stone-300"
             >
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-zinc-100 text-zinc-900">
-                <DynamicIcon name={cap.definition?.navigation_config.icon} className="h-4 w-4" />
-              </div>
-              <div>
-                <p className="text-xs font-bold text-stone-900">
-                  {cap.definition?.name ?? cap.capability_key}
-                </p>
-                <p className="mt-0.5 text-[11px] text-stone-600 line-clamp-2">
-                  {cap.definition?.description}
-                </p>
-              </div>
-            </div>
+              <DynamicIcon
+                name={cap.definition?.navigation_config.icon}
+                className="h-3.5 w-3.5 text-stone-700"
+              />
+              <span className="text-xs font-semibold text-stone-800">
+                {cap.definition?.name ?? cap.capability_key}
+              </span>
+            </Link>
           ))}
         </div>
       </section>
 
-      {/* Content Gate for Discoverable-With-Approval Circles */}
+      {/* Main Unified Activity Stream vs Gate */}
       {!canReadContent ? (
         <section className="rounded-2xl border border-amber-200 bg-white p-10 text-center shadow-sm">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 text-amber-700">
@@ -93,42 +111,22 @@ export default async function CircleOverviewPage({
             Member-Only Community Environment
           </h2>
           <p className="mx-auto mt-2 max-w-lg text-sm text-stone-600">
-            <strong>{circle.name}</strong> is discoverable in the directory, but its spaces,
-            discussions, and member directory are restricted to approved members. Use the{' '}
+            <strong>{circle.name}</strong> is discoverable in the directory, but its stream,
+            discussions, and marketplace are restricted to approved members. Use the{' '}
             <strong>Request to Join Circle</strong> button above to apply for membership.
           </p>
         </section>
-      ) : discussionsEnabled ? (
-        <section className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-stone-900">Community Discussions</h2>
-            <Link
-              href={`/circles/${circle.slug}/discussions`}
-              className="inline-flex items-center gap-1 text-xs font-semibold text-stone-900 hover:underline"
-            >
-              <span>Full Discussion Feed</span>
-              <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
-          </div>
-
-          <DiscussionsClient
-            circle={circle}
-            spaces={navigation.visibleSpaces}
-            initialPosts={recentPosts}
-            selectedSpaceId={null}
-            currentUserId={user?.id ?? null}
-          />
-        </section>
       ) : (
-        <section className="rounded-2xl border border-stone-200/90 bg-white p-8 text-center">
-          <ShieldCheck className="mx-auto h-8 w-8 text-stone-400" />
-          <h3 className="mt-2 text-base font-bold text-stone-900">
-            Discussions Capability Disabled
-          </h3>
-          <p className="mt-1 text-xs text-stone-600">
-            The Circle owner has currently disabled the Discussions module for this Circle.
-            Existing discussion history is safely preserved.
-          </p>
+        <section className="space-y-4">
+          <CommunityActivityStream
+            circle={circle}
+            initialItems={streamData.items}
+            upcomingEvents={streamData.upcomingEvents}
+            featuredListings={streamData.featuredListings}
+            enabledCapabilityKeys={navigation.enabledCapabilityKeys}
+            currentUserId={user?.id ?? null}
+            isMember={isMember}
+          />
         </section>
       )}
     </div>

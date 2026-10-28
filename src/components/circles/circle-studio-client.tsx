@@ -12,9 +12,11 @@ import {
   Mail,
   Plus,
   Settings,
+  Settings2,
   Sliders,
   UserCheck,
   Users,
+  X,
 } from 'lucide-react';
 import { StudioFinancesTab } from './studio-finances-tab';
 import {
@@ -101,6 +103,22 @@ export function CircleStudioClient({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedBanner, setSavedBanner] = useState<string | null>(null);
+
+  // Capability Configuration Modal State
+  const [configCap, setConfigCap] = useState<CircleCapabilityState | null>(null);
+  const [capSettingsDraft, setCapSettingsDraft] = useState<Record<string, unknown>>({});
+
+  function handleOpenCapSettings(cap: CircleCapabilityState) {
+    setConfigCap(cap);
+    setCapSettingsDraft({ ...(cap.definition?.default_settings ?? {}), ...(cap.settings ?? {}) });
+  }
+
+  async function handleSaveCapSettings(e: React.FormEvent) {
+    e.preventDefault();
+    if (!configCap) return;
+    await handleToggleCapability(configCap.capability_key, true, capSettingsDraft);
+    setConfigCap(null);
+  }
 
   function showConfirmedSave(msg: string) {
     setError(null);
@@ -735,24 +753,38 @@ export function CircleStudioClient({
                       Status: {cap.enabled ? 'Enabled' : 'Disabled'}
                     </span>
 
-                    {isPlanned ? (
-                      <span className="text-[11px] font-medium text-stone-400">
-                        Deferred to P1 Release
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => handleToggleCapability(cap.capability_key, !cap.enabled)}
-                        className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
-                          cap.enabled
-                            ? 'border border-stone-200 bg-white text-stone-700 hover:bg-red-50 hover:text-red-800'
-                            : 'bg-black text-white hover:bg-zinc-800'
-                        }`}
-                      >
-                        {cap.enabled ? 'Disable' : 'Enable'}
-                      </button>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {cap.enabled && !isPlanned && (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => handleOpenCapSettings(cap)}
+                          className="flex items-center gap-1 rounded-lg border border-stone-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-stone-700 hover:bg-stone-50 hover:text-black transition-colors"
+                        >
+                          <Settings2 className="h-3.5 w-3.5 text-stone-500" />
+                          <span>Configure</span>
+                        </button>
+                      )}
+
+                      {isPlanned ? (
+                        <span className="text-[11px] font-medium text-stone-400">
+                          Deferred to P1 Release
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => handleToggleCapability(cap.capability_key, !cap.enabled)}
+                          className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                            cap.enabled
+                              ? 'border border-stone-200 bg-white text-stone-700 hover:bg-red-50 hover:text-red-800'
+                              : 'bg-black text-white hover:bg-zinc-800'
+                          }`}
+                        >
+                          {cap.enabled ? 'Disable' : 'Enable'}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
@@ -1124,6 +1156,378 @@ export function CircleStudioClient({
                 </p>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Capability Configuration Modal */}
+      {configCap && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+          <div className="w-full max-w-lg rounded-2xl border border-stone-200 bg-white p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+              <h3 className="text-base font-bold text-stone-900">
+                Configure {configCap.definition?.name || configCap.capability_key}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setConfigCap(null)}
+                className="text-stone-400 hover:text-stone-700"
+              >
+                ✕
+              </button>
+            </div>
+            <form onSubmit={handleSaveCapSettings} className="space-y-4">
+              <p className="text-xs text-stone-600">
+                Update custom configuration options for this capability. Changes take effect immediately.
+              </p>
+              <div className="space-y-2">
+                {Object.entries(capSettingsDraft).map(([k, v]) => (
+                  <div key={k} className="flex items-center justify-between text-xs">
+                    <span className="font-mono text-stone-700">{k}:</span>
+                    <input
+                      type="text"
+                      value={String(v)}
+                      onChange={(e) =>
+                        setCapSettingsDraft((prev) => ({
+                          ...prev,
+                          [k]: e.target.value === 'true' ? true : e.target.value === 'false' ? false : e.target.value,
+                        }))
+                      }
+                      className="rounded-lg border border-stone-200 px-2 py-1 text-xs"
+                    />
+                  </div>
+                ))}
+              </div>
+              <div className="flex justify-end gap-2 pt-2 border-t border-stone-100">
+                <button
+                  type="button"
+                  onClick={() => setConfigCap(null)}
+                  className="rounded-xl border border-stone-200 px-3 py-1.5 text-xs font-semibold text-stone-700 hover:bg-stone-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={busy}
+                  className="rounded-xl bg-black px-4 py-1.5 text-xs font-semibold text-white hover:bg-zinc-800"
+                >
+                  Save Settings
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* CAPABILITY SETTINGS MODAL */}
+      {configCap && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
+          <div className="w-full max-w-lg rounded-2xl border border-stone-200 bg-white p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 text-emerald-900">
+                  <Sliders className="h-4 w-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-stone-900">
+                    Configure {configCap.definition?.name || configCap.capability_key}
+                  </h3>
+                  <p className="text-xs text-stone-500">
+                    Capability key: <code className="font-mono text-stone-700">{configCap.capability_key}</code>
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setConfigCap(null)}
+                className="rounded-lg p-1.5 text-stone-400 hover:text-stone-700"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveCapSettings} className="space-y-4">
+              {/* Specialized fields by capability */}
+              {configCap.capability_key === 'discussions' && (
+                <div className="space-y-3">
+                  <label className="flex items-center gap-2 text-xs font-medium text-stone-800 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={capSettingsDraft.allowMemberPosts !== false}
+                      onChange={(e) =>
+                        setCapSettingsDraft((prev) => ({ ...prev, allowMemberPosts: e.target.checked }))
+                      }
+                      className="rounded border-stone-300 text-stone-900 focus:ring-0"
+                    />
+                    <span>Allow all active members to create discussion posts</span>
+                  </label>
+                  <label className="flex items-center gap-2 text-xs font-medium text-stone-800 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={capSettingsDraft.allowReactions !== false}
+                      onChange={(e) =>
+                        setCapSettingsDraft((prev) => ({ ...prev, allowReactions: e.target.checked }))
+                      }
+                      className="rounded border-stone-300 text-stone-900 focus:ring-0"
+                    />
+                    <span>Allow emoji reactions on posts and comments</span>
+                  </label>
+                  <div>
+                    <label className="block text-[11px] font-mono font-bold uppercase tracking-wider text-stone-600">
+                      Moderation Strategy
+                    </label>
+                    <select
+                      value={String(capSettingsDraft.moderationMode || 'post_publish')}
+                      onChange={(e) =>
+                        setCapSettingsDraft((prev) => ({ ...prev, moderationMode: e.target.value }))
+                      }
+                      className="mt-1 w-full rounded-xl border border-stone-200 bg-stone-50/70 p-2.5 text-xs text-stone-900 focus:outline-none focus:ring-1 focus:ring-stone-900"
+                    >
+                      <option value="post_publish">Instant Publish (Post-moderation on member reports)</option>
+                      <option value="pre_approval">Strict Pre-Approval (Moderators must approve before live)</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {configCap.capability_key === 'spaces' && (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-[11px] font-mono font-bold uppercase tracking-wider text-stone-600">
+                      Maximum Spaces Allowed
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={100}
+                      value={Number(capSettingsDraft.maxSpaces || 25)}
+                      onChange={(e) =>
+                        setCapSettingsDraft((prev) => ({ ...prev, maxSpaces: Number(e.target.value) }))
+                      }
+                      className="mt-1 w-full rounded-xl border border-stone-200 bg-stone-50/70 p-2.5 text-xs text-stone-900 focus:outline-none focus:ring-1 focus:ring-stone-900"
+                    />
+                  </div>
+                  <label className="flex items-center gap-2 text-xs font-medium text-stone-800 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={capSettingsDraft.allowMemberDirectoryPerSpace !== false}
+                      onChange={(e) =>
+                        setCapSettingsDraft((prev) => ({
+                          ...prev,
+                          allowMemberDirectoryPerSpace: e.target.checked,
+                        }))
+                      }
+                      className="rounded border-stone-300 text-stone-900 focus:ring-0"
+                    />
+                    <span>Allow filtering member directories per space</span>
+                  </label>
+                </div>
+              )}
+
+              {configCap.capability_key === 'member_directory' && (
+                <div className="space-y-3">
+                  <label className="flex items-center gap-2 text-xs font-medium text-stone-800 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={capSettingsDraft.showRoleBadges !== false}
+                      onChange={(e) =>
+                        setCapSettingsDraft((prev) => ({ ...prev, showRoleBadges: e.target.checked }))
+                      }
+                      className="rounded border-stone-300 text-stone-900 focus:ring-0"
+                    />
+                    <span>Display role badges (Owner, Admin, Moderator) in directory</span>
+                  </label>
+                  <label className="flex items-center gap-2 text-xs font-medium text-stone-800 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={capSettingsDraft.showBio !== false}
+                      onChange={(e) =>
+                        setCapSettingsDraft((prev) => ({ ...prev, showBio: e.target.checked }))
+                      }
+                      className="rounded border-stone-300 text-stone-900 focus:ring-0"
+                    />
+                    <span>Display member biography snippets in directory listings</span>
+                  </label>
+                </div>
+              )}
+
+              {configCap.capability_key === 'events' && (
+                <div className="space-y-3">
+                  <label className="flex items-center gap-2 text-xs font-medium text-stone-800 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={capSettingsDraft.allowMemberEvents !== false}
+                      onChange={(e) =>
+                        setCapSettingsDraft((prev) => ({ ...prev, allowMemberEvents: e.target.checked }))
+                      }
+                      className="rounded border-stone-300 text-stone-900 focus:ring-0"
+                    />
+                    <span>Allow active members to organize and host community events</span>
+                  </label>
+                </div>
+              )}
+
+              {configCap.capability_key === 'rsvps' && (
+                <div className="space-y-3">
+                  <label className="flex items-center gap-2 text-xs font-medium text-stone-800 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={capSettingsDraft.enableWaitlist !== false}
+                      onChange={(e) =>
+                        setCapSettingsDraft((prev) => ({ ...prev, enableWaitlist: e.target.checked }))
+                      }
+                      className="rounded border-stone-300 text-stone-900 focus:ring-0"
+                    />
+                    <span>Enable capacity limits with automated waitlist promotion</span>
+                  </label>
+                </div>
+              )}
+
+              {configCap.capability_key === 'polls_decisions' && (
+                <div className="space-y-3">
+                  <label className="flex items-center gap-2 text-xs font-medium text-stone-800 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(capSettingsDraft.allowAnonymousVotes)}
+                      onChange={(e) =>
+                        setCapSettingsDraft((prev) => ({ ...prev, allowAnonymousVotes: e.target.checked }))
+                      }
+                      className="rounded border-stone-300 text-stone-900 focus:ring-0"
+                    />
+                    <span>Allow anonymous voter identity on polls and proposals</span>
+                  </label>
+                </div>
+              )}
+
+              {configCap.capability_key === 'services_bookings' && (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-[11px] font-mono font-bold uppercase tracking-wider text-stone-600">
+                      Default Slot Duration
+                    </label>
+                    <select
+                      value={Number(capSettingsDraft.defaultSlotDuration || 60)}
+                      onChange={(e) =>
+                        setCapSettingsDraft((prev) => ({
+                          ...prev,
+                          defaultSlotDuration: Number(e.target.value),
+                        }))
+                      }
+                      className="mt-1 w-full rounded-xl border border-stone-200 bg-stone-50/70 p-2.5 text-xs text-stone-900 focus:outline-none focus:ring-1 focus:ring-stone-900"
+                    >
+                      <option value={15}>15 minutes</option>
+                      <option value={30}>30 minutes</option>
+                      <option value={45}>45 minutes</option>
+                      <option value={60}>60 minutes (1 hour)</option>
+                      <option value={90}>90 minutes</option>
+                    </select>
+                  </div>
+                  <label className="flex items-center gap-2 text-xs font-medium text-stone-800 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={capSettingsDraft.allowInstantBooking !== false}
+                      onChange={(e) =>
+                        setCapSettingsDraft((prev) => ({ ...prev, allowInstantBooking: e.target.checked }))
+                      }
+                      className="rounded border-stone-300 text-stone-900 focus:ring-0"
+                    />
+                    <span>Allow service providers to offer Instant Confirmation</span>
+                  </label>
+                </div>
+              )}
+
+              {configCap.capability_key === 'payments_finances' && (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-[11px] font-mono font-bold uppercase tracking-wider text-stone-600">
+                      Primary Currency
+                    </label>
+                    <select
+                      value={String(capSettingsDraft.currency || 'USD')}
+                      onChange={(e) =>
+                        setCapSettingsDraft((prev) => ({ ...prev, currency: e.target.value }))
+                      }
+                      className="mt-1 w-full rounded-xl border border-stone-200 bg-stone-50/70 p-2.5 text-xs text-stone-900 focus:outline-none focus:ring-1 focus:ring-stone-900"
+                    >
+                      <option value="USD">USD ($)</option>
+                      <option value="EUR">EUR (€)</option>
+                      <option value="GBP">GBP (£)</option>
+                      <option value="CAD">CAD ($)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-mono font-bold uppercase tracking-wider text-stone-600">
+                      Grace Period Days
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={90}
+                      value={Number(capSettingsDraft.grace_period_days || 14)}
+                      onChange={(e) =>
+                        setCapSettingsDraft((prev) => ({
+                          ...prev,
+                          grace_period_days: Number(e.target.value),
+                        }))
+                      }
+                      className="mt-1 w-full rounded-xl border border-stone-200 bg-stone-50/70 p-2.5 text-xs text-stone-900 focus:outline-none focus:ring-1 focus:ring-stone-900"
+                    />
+                  </div>
+                  <label className="flex items-center gap-2 text-xs font-medium text-stone-800 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={capSettingsDraft.public_treasury_ledger !== false}
+                      onChange={(e) =>
+                        setCapSettingsDraft((prev) => ({
+                          ...prev,
+                          public_treasury_ledger: e.target.checked,
+                        }))
+                      }
+                      className="rounded border-stone-300 text-stone-900 focus:ring-0"
+                    />
+                    <span>Make community treasury ledger transparent to all members</span>
+                  </label>
+                  <label className="flex items-center gap-2 text-xs font-medium text-stone-800 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={capSettingsDraft.allow_offline_payments !== false}
+                      onChange={(e) =>
+                        setCapSettingsDraft((prev) => ({
+                          ...prev,
+                          allow_offline_payments: e.target.checked,
+                        }))
+                      }
+                      className="rounded border-stone-300 text-stone-900 focus:ring-0"
+                    />
+                    <span>Allow manual cash/bank transfer offline reconciliation</span>
+                  </label>
+                </div>
+              )}
+
+              {/* Notice */}
+              <div className="pt-2 border-t border-stone-100">
+                <p className="text-[11px] text-stone-500">
+                  Settings are strictly validated on the server, persisted into <code className="text-stone-700">circle_capabilities</code>, and logged in the immutable audit log.
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-stone-100">
+                <button
+                  type="button"
+                  onClick={() => setConfigCap(null)}
+                  className="rounded-lg px-3 py-1.5 text-xs font-medium text-stone-600 hover:bg-stone-100"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={busy}
+                  className="rounded-lg bg-black px-4 py-1.5 text-xs font-semibold text-white hover:bg-zinc-800 disabled:opacity-50"
+                >
+                  {busy ? 'Saving...' : 'Save Configuration'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
