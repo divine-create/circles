@@ -28,108 +28,23 @@ export interface CircleCollapsibleLayoutProps {
   children: React.ReactNode;
 }
 
-// Facebook-style vibrant visual themes for community capabilities
-const CAPABILITY_VISUAL_MAP: Record<
-  string,
-  { bg: string; iconBg: string; text: string; subtitle: string }
-> = {
-  discussions: {
-    bg: 'bg-indigo-50/70 hover:bg-indigo-50 border-indigo-100',
-    iconBg: 'bg-indigo-600 text-white',
-    text: 'text-indigo-950',
-    subtitle: 'Conversations & posts',
-  },
-  marketplace: {
-    bg: 'bg-emerald-50/70 hover:bg-emerald-50 border-emerald-100',
-    iconBg: 'bg-emerald-600 text-white',
-    text: 'text-emerald-950',
-    subtitle: 'Goods, rent & services',
-  },
-  events: {
-    bg: 'bg-sky-50/70 hover:bg-sky-50 border-sky-100',
-    iconBg: 'bg-sky-600 text-white',
-    text: 'text-sky-950',
-    subtitle: 'Meetups & gatherings',
-  },
-  polls: {
-    bg: 'bg-amber-50/70 hover:bg-amber-50 border-amber-100',
-    iconBg: 'bg-amber-600 text-white',
-    text: 'text-amber-950',
-    subtitle: 'Votes & community decisions',
-  },
-  resources: {
-    bg: 'bg-teal-50/70 hover:bg-teal-50 border-teal-100',
-    iconBg: 'bg-teal-600 text-white',
-    text: 'text-teal-950',
-    subtitle: 'Shared files & guides',
-  },
-  courses: {
-    bg: 'bg-violet-50/70 hover:bg-violet-50 border-violet-100',
-    iconBg: 'bg-violet-600 text-white',
-    text: 'text-violet-950',
-    subtitle: 'Structured learning modules',
-  },
-  jobs: {
-    bg: 'bg-purple-50/70 hover:bg-purple-50 border-purple-100',
-    iconBg: 'bg-purple-600 text-white',
-    text: 'text-purple-950',
-    subtitle: 'Opportunities & gigs',
-  },
-  housing: {
-    bg: 'bg-cyan-50/70 hover:bg-cyan-50 border-cyan-100',
-    iconBg: 'bg-cyan-600 text-white',
-    text: 'text-cyan-950',
-    subtitle: 'Sublets, rooms & rentals',
-  },
-  governance: {
-    bg: 'bg-slate-100/70 hover:bg-slate-100 border-slate-200',
-    iconBg: 'bg-slate-700 text-white',
-    text: 'text-slate-950',
-    subtitle: 'Proposals & committees',
-  },
-  projects: {
-    bg: 'bg-blue-50/70 hover:bg-blue-50 border-blue-100',
-    iconBg: 'bg-blue-600 text-white',
-    text: 'text-blue-950',
-    subtitle: 'Collaborative initiatives',
-  },
-  challenges: {
-    bg: 'bg-orange-50/70 hover:bg-orange-50 border-orange-100',
-    iconBg: 'bg-orange-500 text-white',
-    text: 'text-orange-950',
-    subtitle: 'Bounties, points & badges',
-  },
-  fundraising: {
-    bg: 'bg-rose-50/70 hover:bg-rose-50 border-rose-100',
-    iconBg: 'bg-rose-600 text-white',
-    text: 'text-rose-950',
-    subtitle: 'Donations & community funds',
-  },
-  finances: {
-    bg: 'bg-emerald-50/70 hover:bg-emerald-50 border-emerald-100',
-    iconBg: 'bg-emerald-700 text-white',
-    text: 'text-emerald-950',
-    subtitle: 'Ledger, dues & payouts',
-  },
-  members: {
-    bg: 'bg-stone-100/70 hover:bg-stone-100 border-stone-200',
-    iconBg: 'bg-stone-800 text-white',
-    text: 'text-stone-950',
-    subtitle: 'Member directory & teams',
-  },
-  spaces: {
-    bg: 'bg-stone-100/70 hover:bg-stone-100 border-stone-200',
-    iconBg: 'bg-stone-700 text-white',
-    text: 'text-stone-950',
-    subtitle: 'Subgroups & channels',
-  },
-};
-
-const DEFAULT_CAPABILITY_VISUAL = {
-  bg: 'bg-stone-50/80 hover:bg-stone-100 border-stone-200',
-  iconBg: 'bg-stone-800 text-white',
-  text: 'text-stone-900',
-  subtitle: 'Community feature',
+// Clean descriptive subtitles maintaining the platform's monochrome theme
+const CAPABILITY_SUBTITLES: Record<string, string> = {
+  discussions: 'Conversations & posts',
+  marketplace: 'Goods, rent & services',
+  events: 'Meetups & gatherings',
+  polls: 'Votes & decisions',
+  resources: 'Shared files & guides',
+  courses: 'Learning modules',
+  jobs: 'Opportunities & gigs',
+  housing: 'Rooms & rentals',
+  governance: 'Proposals & committees',
+  projects: 'Collaborative projects',
+  challenges: 'Points & badges',
+  fundraising: 'Donations & funds',
+  finances: 'Ledger & dues',
+  members: 'Directory & roles',
+  spaces: 'Subgroups & channels',
 };
 
 export function CircleCollapsibleLayout({
@@ -255,8 +170,8 @@ export function CircleCollapsibleLayout({
               href={`/circles/${circle.slug}/studio`}
               className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl px-3 py-1.5 text-xs font-semibold transition-all shrink-0 ${
                 isStudioActive
-                  ? 'bg-emerald-900 text-white shadow-xs'
-                  : 'border border-emerald-200 bg-emerald-50 text-emerald-900 hover:bg-emerald-100'
+                  ? 'bg-black text-white shadow-xs'
+                  : 'border border-stone-200/90 bg-stone-100 text-stone-900 hover:bg-stone-200'
               }`}
             >
               <Sliders className="h-3.5 w-3.5" />
@@ -300,7 +215,7 @@ export function CircleCollapsibleLayout({
                   <h3 className="text-sm font-bold text-stone-900 truncate max-w-[200px]">
                     {circle.name}
                   </h3>
-                  <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-emerald-800">
+                  <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-stone-500">
                     {isStudioActive ? 'Studio' : activeNavItem?.label ?? 'Overview'} · Navigation
                   </span>
                 </div>
@@ -322,7 +237,7 @@ export function CircleCollapsibleLayout({
                   Navigation & Shortcuts
                 </p>
 
-                {/* 2-Column Card Grid (Facebook Style) */}
+                {/* 2-Column Card Grid (Monochrome Theme) */}
                 <div className="grid grid-cols-2 gap-2.5">
                   {navigation.navigationItems.map((item) => {
                     const isActive =
@@ -332,24 +247,26 @@ export function CircleCollapsibleLayout({
 
                     // Infer capability key from href or ID
                     const capKey = item.href.split('/').pop() || 'overview';
-                    const visual =
-                      CAPABILITY_VISUAL_MAP[capKey] || DEFAULT_CAPABILITY_VISUAL;
+                    const subtitle =
+                      CAPABILITY_SUBTITLES[capKey] || 'Community feature';
 
                     return (
                       <Link
                         key={item.id}
                         href={item.href}
                         onClick={() => setMobileDrawerOpen(false)}
-                        className={`group flex flex-col justify-between rounded-2xl border p-3 transition-all ${
+                        className={`group flex flex-col justify-between rounded-2xl border p-3.5 transition-all ${
                           isActive
-                            ? 'border-stone-900 bg-stone-900 text-white shadow-sm ring-2 ring-stone-900/10'
-                            : `${visual.bg} hover:border-stone-300`
+                            ? 'border-black bg-black text-white shadow-sm ring-1 ring-black/10'
+                            : 'border-stone-200/90 bg-stone-50/80 hover:bg-stone-100/90 hover:border-stone-300 text-stone-900'
                         }`}
                       >
-                        <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center justify-between mb-2.5">
                           <div
-                            className={`flex h-8 w-8 items-center justify-center rounded-xl shadow-2xs ${
-                              isActive ? 'bg-white/20 text-white' : visual.iconBg
+                            className={`flex h-8 w-8 items-center justify-center rounded-xl shadow-2xs transition-colors ${
+                              isActive
+                                ? 'bg-white text-black'
+                                : 'bg-black text-white group-hover:bg-zinc-800'
                             }`}
                           >
                             <DynamicIcon name={item.icon} className="h-4 w-4" />
@@ -363,7 +280,7 @@ export function CircleCollapsibleLayout({
                         <div>
                           <span
                             className={`block text-xs font-bold truncate ${
-                              isActive ? 'text-white' : visual.text
+                              isActive ? 'text-white' : 'text-stone-900'
                             }`}
                           >
                             {item.label}
@@ -373,7 +290,7 @@ export function CircleCollapsibleLayout({
                               isActive ? 'text-white/70' : 'text-stone-500'
                             }`}
                           >
-                            {visual.subtitle}
+                            {subtitle}
                           </span>
                         </div>
                       </Link>
@@ -393,7 +310,7 @@ export function CircleCollapsibleLayout({
                       <Link
                         href={`/circles/${circle.slug}/spaces`}
                         onClick={() => setMobileDrawerOpen(false)}
-                        className="text-[11px] font-mono font-semibold text-emerald-800 hover:underline uppercase"
+                        className="text-[11px] font-mono font-semibold text-stone-900 hover:underline uppercase"
                       >
                         All ({navigation.visibleSpaces.length})
                       </Link>
@@ -441,7 +358,7 @@ export function CircleCollapsibleLayout({
                     <Sliders className="h-4 w-4" />
                     <span>Circle Studio (Management)</span>
                   </span>
-                  <Sparkles className="h-3.5 w-3.5 text-emerald-400" />
+                  <Sparkles className="h-3.5 w-3.5 text-stone-300" />
                 </Link>
               </div>
             )}
@@ -621,7 +538,7 @@ export function CircleCollapsibleLayout({
                         </p>
                         <Link
                           href={`/circles/${circle.slug}/spaces`}
-                          className="text-[10px] font-mono font-semibold text-emerald-800 hover:underline uppercase"
+                          className="text-[10px] font-mono font-semibold text-stone-900 hover:underline uppercase"
                         >
                           All ({navigation.visibleSpaces.length})
                         </Link>
@@ -682,7 +599,7 @@ export function CircleCollapsibleLayout({
                   {!isCollapsed && (
                     <>
                       <span>Circle Studio</span>
-                      <Sparkles className="h-3.5 w-3.5 ml-auto text-emerald-700" />
+                      <Sparkles className="h-3.5 w-3.5 ml-auto text-stone-400" />
                     </>
                   )}
                   {isCollapsed && (
